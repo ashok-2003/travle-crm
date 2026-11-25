@@ -99,4 +99,20 @@ describe("ChangeTable", () => {
     expect(screen.getByText(words.rows.noRepeats)).toBeInTheDocument();
     expect(screen.getAllByText(words.rows.everyMonth)).toHaveLength(2);
   });
+
+  it("says where each change came from, and words a reopened departure with its weekday", () => {
+    const changes: ProposedChange[] = [
+      {
+        id: "r1",
+        kind: "departure_reopen",
+        evidence: [{ ref: "P2.L3", text: "4 Dec batch is on", kind: "photo" }],
+        flags: [],
+        departureId: "0190a000-0000-7000-8000-0000000000d2",
+        startDate: "2027-12-04",
+      },
+    ];
+    renderWithApi(<ChangeTable changes={changes} ticked={[]} onTickedChange={vi.fn()} />, newQueryClient());
+    expect(screen.getByText("Reopen the departure on Sat 4 Dec 2027")).toBeInTheDocument();
+    expect(screen.getByText("From: 4 Dec batch is on (as the AI read photo 2)")).toBeInTheDocument();
+  });
 });

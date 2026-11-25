@@ -592,7 +592,8 @@
     "keptTitle": "These departures stayed as they are",
     "kept": {
       "has_bookings": "{day}: it has bookings",
-      "has_holds": "{day}: it has seats on hold"
+      "has_holds": "{day}: it has seats on hold",
+      "past_date": "{day} was not reopened: the day has passed"
     },
     "again": "Tell the AI something else",
     "flags": {
@@ -647,6 +648,14 @@
       "everyMonth": "Every month",
       "allOtherDays": "all other days",
       "seasonNamed": "{label} ({dates})"
+    },
+    "sellingNotRestored": "The AI selling switch could not be turned back on: turn it on in Page and AI when the trip is ready.",
+    "evidence": {
+      "from": "From: {text} ({source})",
+      "message": "your message",
+      "pdf": "the PDF",
+      "photo": "as the AI read photo {n}",
+      "answer": "your answer"
     }
   }
 }

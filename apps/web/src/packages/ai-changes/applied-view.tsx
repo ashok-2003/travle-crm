@@ -8,7 +8,7 @@ import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Button } from "@/components/ui/button";
-import { formatCalendarDay } from "@/lib/format";
+import { dayWithWeekday } from "../departure-calendar-days";
 import { useWriteAccess } from "@/subscription/write-access";
 import { WriteHint } from "@/subscription/write-hint";
 import { useChangeWords } from "./change-row-words";
@@ -88,12 +88,13 @@ export function UndoneView({ result, onAgain }: { result: UndoPackageChangesResu
           <ul className="list-disc pl-5 text-sm">
             {result.kept.map((departure) => (
               <li key={departure.departureId}>
-                {t(`kept.${departure.reason}`, { day: formatCalendarDay(departure.startDate) })}
+                {t(`kept.${departure.reason}`, { day: dayWithWeekday(departure.startDate) })}
               </li>
             ))}
           </ul>
         </section>
       )}
+      {result.sellingNotRestored && <p className="text-sm">{t("sellingNotRestored")}</p>}
       <Button variant="link" className="self-start" onClick={onAgain}>
         {t("again")}
       </Button>

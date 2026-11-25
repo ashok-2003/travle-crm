@@ -25,6 +25,9 @@ function Lines({ lines }: { lines: string[] }) {
   );
 }
 
+/** Where a cited line came from: photo N is read from the ref "P<N>.L<m>". */
+const photoNumber = (ref: string) => /^P(\d+)\./.exec(ref)?.[1] ?? "1";
+
 export function ChangeTable({
   changes,
   ticked,
@@ -39,6 +42,8 @@ export function ChangeTable({
 }) {
   const t = useTranslations("packages.aiChanges");
   const wordsOf = useChangeWords(seasons);
+  const sourceOf = (line: { kind: string; ref: string }) =>
+    t(`evidence.${line.kind as "message" | "pdf" | "photo" | "answer"}`, { n: photoNumber(line.ref) });
   return (
     <Table aria-label={t("tableLabel")}>
       <TableHeader>
@@ -67,6 +72,11 @@ export function ChangeTable({
               </TableCell>
               <TableCell className="align-top whitespace-normal">
                 <div className={flagged ? "text-status-bad-ink" : undefined}>{words.what}</div>
+                {change.evidence.slice(0, 2).map((line) => (
+                  <div key={line.ref} className="line-clamp-2 text-caption text-muted-foreground">
+                    {t("evidence.from", { text: line.text, source: sourceOf(line) })}
+                  </div>
+                ))}
                 {change.flags.map((flag) => (
                   <div key={flag} className="text-caption text-status-bad-ink">
                     {t(`flags.${flag}`)}

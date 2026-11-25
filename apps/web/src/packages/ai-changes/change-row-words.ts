@@ -7,7 +7,7 @@ import { tripFieldValueOf } from "@travel-crm/contracts/ai";
 import { useTranslations } from "next-intl";
 import { rupees } from "@/components/forms/money-field";
 import { formatCalendarDay } from "@/lib/format";
-import { isOpenEnd } from "../departure-calendar-days";
+import { dayWithWeekday, isOpenEnd } from "../departure-calendar-days";
 import type { ProposedChange } from "./use-package-changes-ai";
 
 type Season = PackageDetail["seasons"][number];
@@ -32,6 +32,7 @@ export function useChangeWords(seasons: Season[] = []): (change: ProposedChange)
 
 function wordsOf(change: ProposedChange, t: Say, tForm: SayForm, seasons: Season[]): ChangeWords {
   const day = (date: string) => formatCalendarDay(date);
+  const departureDay = dayWithWeekday;
   const room = (type: keyof RoomPrices, price: number | null) =>
     t("rows.room", { room: tForm(`roomTypeNames.${type}`), price: price === null ? t("notSold") : rupees(price) });
   // Only the rooms whose price differs, so a long table of rooms shows what moved.
@@ -81,24 +82,24 @@ function wordsOf(change: ProposedChange, t: Say, tForm: SayForm, seasons: Season
       };
     case "departure_cancel":
       return {
-        what: t("rows.departureCancel", { day: day(change.startDate) }),
+        what: t("rows.departureCancel", { day: departureDay(change.startDate) }),
         now: [t("rows.running")],
         next: [change.reason === "" ? t("rows.cancelled") : t("rows.cancelledWhy", { reason: change.reason })],
       };
     case "departure_reopen":
       return {
-        what: t("rows.departureReopen", { day: day(change.startDate) }),
+        what: t("rows.departureReopen", { day: departureDay(change.startDate) }),
         now: [t("rows.cancelled")],
         next: [t("rows.running")],
       };
     case "departure_prices":
       return {
-        what: t("rows.departurePrices", { day: day(change.startDate) }),
+        what: t("rows.departurePrices", { day: departureDay(change.startDate) }),
         ...prices(change.before, change.prices),
       };
     case "departure_seats":
       return {
-        what: t("rows.departureSeats", { day: day(change.startDate) }),
+        what: t("rows.departureSeats", { day: departureDay(change.startDate) }),
         now: [change.before === null ? t("rows.usualSeats") : t("rows.seats", { count: change.before })],
         next: [t("rows.seats", { count: change.seatsTotal })],
       };

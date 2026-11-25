@@ -144,6 +144,7 @@ describe("the AI changes card", () => {
       "ai.packageChanges.undo": {
         data: {
           undone: 1,
+          sellingNotRestored: true,
           kept: [
             {
               departureId: flaggedChange.kind === "departure_cancel" ? flaggedChange.departureId : "",
@@ -163,7 +164,8 @@ describe("the AI changes card", () => {
     expect(await screen.findByText("1 change undone")).toBeInTheDocument();
     expect(inputsTo("ai.packageChanges.undo")).toEqual([{ runId }]);
     expect(screen.getByText(words.keptTitle)).toBeInTheDocument();
-    expect(screen.getByText("12 Dec 2027: it has bookings")).toBeInTheDocument();
+    expect(screen.getByText(words.sellingNotRestored)).toBeInTheDocument();
+    expect(screen.getByText("Sun 12 Dec 2027: it has bookings")).toBeInTheDocument();
   });
 
   it("offers Undo all for a run applied earlier", async () => {
