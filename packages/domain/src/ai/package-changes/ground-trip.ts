@@ -1,15 +1,16 @@
 // Grounding the changes to the trip itself: a season added or a price column changed, a field (seats, advance, repeats,
 // pickup points, inclusions...), a note line added or removed, the itinerary, and the AI selling it. Prices, dates and
-// every number a new text adds must be printed in a cited line.
-import { packageFields, type QuoteDay } from "@travel-crm/contracts/quotes";
+// every number a new text adds must be printed in a cited line; a date's year is the line's, else code's; taking
+// something away (a room, the months, a text) needs a cited line that says so.
 import type { TripField } from "@travel-crm/contracts/ai";
+import { noRoomPrices, packageFields, type QuoteDay } from "@travel-crm/contracts/quotes";
 import { amountInLine, parsePrintedPrice } from "../rates/price.js";
-import type { AnsweredChange } from "./answer.js";
-import { dateInTexts, dayOf, monthsIn, printedDate, startLooksBack, weekdaysIn } from "./dates.js";
+import type { AnsweredOf } from "./answer.js";
+import { groundedDay, monthsIn, startLooksBack, weekdaysIn } from "./dates.js";
 import {
+  flagged,
   hasPrice,
   labelOf,
-  noPrices,
   numberInTexts,
   numbersBacked,
   pricesFrom,
@@ -20,27 +21,24 @@ import {
 } from "./ground-values.js";
 import type { SnapshotTrip } from "./trip-snapshot.js";
 
-type Of<Kind extends AnsweredChange["kind"]> = Extract<AnsweredChange, { kind: Kind }>;
-export type TripChange = Of<
+export type TripChange = AnsweredOf<
   "season_add" | "season_change" | "trip_field" | "note_add" | "note_remove" | "itinerary" | "ai_selling"
 >;
 
-const flagged = (grounded: boolean): ChangeFlag[] => (grounded ? [] : ["not_in_message"]);
-
-function seasonAdd(change: Of<"season_add">, grounding: Grounding): Built | null {
+function seasonAdd(change: AnsweredOf<"season_add">, grounding: Grounding): Built | null {
   const { texts, today, snapshot } = grounding;
-  const from = printedDate(change.from);
-  const startsOn = from === null ? null : dayOf(from, startLooksBack(today));
-  if (from === null || startsOn === null) return null;
-  const flags = new Set<ChangeFlag>(flagged(dateInTexts(from, texts)));
+  const start = groundedDay(change.from, texts, startLooksBack(today));
+  if (start === null) return null;
+  const startsOn = start.day;
+  const flags = new Set<ChangeFlag>(flagged(start.inLines));
   // No end: until changed. An end that isn't one date reads as none, flagged.
   let endsOn = null;
   if (change.to !== null && change.to.trim() !== "") {
-    const to = printedDate(change.to);
-    endsOn = to === null ? null : dayOf(to, startsOn);
-    if (to === null || endsOn === null || !dateInTexts(to, texts)) flags.add("not_in_message");
+    const end = groundedDay(change.to, texts, startsOn);
+    endsOn = end?.day ?? null;
+    if (end?.inLines !== true) flags.add("not_in_message");
   }
-  const { prices, grounded } = pricesFrom(change.prices, noPrices, snapshot.trip.roomTypes, texts);
+  const { prices, grounded } = pricesFrom(change.prices, noRoomPrices, snapshot.trip.roomTypes, texts);
   if (!hasPrice(prices)) return null;
   if (!grounded) flags.add("not_in_message");
   if (startsOn < today) flags.add("past_date");
@@ -51,15 +49,11 @@ function seasonAdd(change: Of<"season_add">, grounding: Grounding): Built | null
   };
 }
 
-function seasonChange(change: Of<"season_change">, grounding: Grounding): Built | null {
-  const column = grounding.snapshot.columns.find((one) => one.ref === change.season);
+function seasonChange(change: AnsweredOf<"season_change">, grounding: Grounding): Built | null {
+  const { snapshot, texts } = grounding;
+  const column = snapshot.columns.find((one) => one.ref === change.season);
   if (column === undefined) return null;
-  const { prices, grounded } = pricesFrom(
-    change.prices,
-    column.prices,
-    grounding.snapshot.trip.roomTypes,
-    grounding.texts,
-  );
+  const { prices, grounded } = pricesFrom(change.prices, column.prices, snapshot.trip.roomTypes, texts);
   const label = labelOf(change.label ?? "") || column.label;
   if (!hasPrice(prices) || (samePrices(prices, column.prices) && label === column.label)) return null;
   return {
@@ -76,11 +70,13 @@ function seasonChange(change: Of<"season_change">, grounding: Grounding): Built 
 
 const listOf = (value: unknown): unknown[] => (Array.isArray(value) ? value : value === null ? [] : [value]);
 const sortedUnique = (values: readonly number[]) => [...new Set(values)].sort((first, second) => first - second);
-const everyNamed = (values: readonly number[], named: ReadonlySet<number>) => values.every((one) => named.has(one));
-const textsSet = (texts: readonly string[], read: (text: string) => Set<number>) =>
+const namedIn = (texts: readonly string[], read: (text: string) => Set<number>) =>
   new Set(texts.flatMap((text) => [...read(text)]));
+/** "every month", "all months", "har mahine", "all year": departures in every month. */
+const EVERY_MONTH =
+  /\b(?:every|all|har|sab(?:hi)?)\s+(?:months?|mahin[ea]?)\b|\ball\s+year\b|\byear[\s-]round\b|\bsaal\s+bhar\b/i;
 
-/** A field's new value from what the AI wrote, and whether the cited lines back it; null when it isn't one. */
+/** A field's new value from what the AI wrote, and whether the cited lines back it. */
 function fieldValue(field: TripField, raw: unknown, before: unknown, texts: readonly string[]) {
   switch (field) {
     case "seatsPerDeparture": {
@@ -95,24 +91,32 @@ function fieldValue(field: TripField, raw: unknown, before: unknown, texts: read
       const days = sortedUnique(
         listOf(raw).flatMap((one) => (typeof one === "number" ? [one] : [...weekdaysIn(String(one))])),
       );
-      return { value: days, grounded: everyNamed(days, textsSet(texts, weekdaysIn)) };
+      const named = namedIn(texts, weekdaysIn);
+      // Stopping the repeats needs a line naming a day it stops.
+      const grounded =
+        days.length === 0 ? (before as number[]).some((day) => named.has(day)) : days.every((day) => named.has(day));
+      return { value: days, grounded };
     }
     case "departureMonths": {
       const months = sortedUnique(
         listOf(raw).flatMap((one) => (typeof one === "number" ? [one] : [...monthsIn(String(one))])),
       );
-      return { value: months, grounded: everyNamed(months, textsSet(texts, monthsIn)) };
+      const named = namedIn(texts, monthsIn);
+      const grounded =
+        months.length === 0 ? texts.some((text) => EVERY_MONTH.test(text)) : months.every((month) => named.has(month));
+      return { value: months, grounded };
     }
     default: {
       const text = typeof raw === "string" ? raw.trim() : "";
-      return { value: text, grounded: numbersBacked(text, String(before), texts) };
+      // A text emptied has nothing a line could print: always flagged.
+      return { value: text, grounded: text !== "" && numbersBacked(text, String(before), texts) };
     }
   }
 }
 
 const groupOnlyFields: readonly TripField[] = ["seatsPerDeparture", "weeklyDays", "departureMonths"];
 
-function tripField(change: Of<"trip_field">, grounding: Grounding): Built | null {
+function tripField(change: AnsweredOf<"trip_field">, grounding: Grounding): Built | null {
   const { trip } = grounding.snapshot;
   if (trip.kind !== "group" && groupOnlyFields.includes(change.field)) return null;
   const before = trip[change.field as keyof SnapshotTrip];
@@ -127,13 +131,14 @@ function tripField(change: Of<"trip_field">, grounding: Grounding): Built | null
 
 const daysText = (days: readonly QuoteDay[]) => days.map((day) => `${day.title}\n${day.description}`).join("\n");
 
-function itinerary(change: Of<"itinerary">, grounding: Grounding): Built | null {
+function itinerary(change: AnsweredOf<"itinerary">, grounding: Grounding): Built | null {
   const before = grounding.snapshot.trip.days;
   const days = change.days.map((day, index) => ({
     title: day.title.trim().slice(0, 120).trim() || `Day ${String(index + 1)}`,
     description: day.description.trim().slice(0, 2000),
   }));
-  if (JSON.stringify(days) === JSON.stringify(before)) return null;
+  // A trip with no days is never what a message means.
+  if (days.length === 0 || JSON.stringify(days) === JSON.stringify(before)) return null;
   return {
     body: { kind: "itinerary", before, days },
     flags: flagged(numbersBacked(daysText(days), daysText(before), grounding.texts)),

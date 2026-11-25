@@ -1,12 +1,15 @@
 // Putting back what an AI apply replaced, through the trip's own operations: the seasons as they were (new ones removed,
 // changed ones restored, removed ones made again), and the departures (added ones cancelled, the rest given back their
-// status, seats and own prices). A departure that took a booking or a hold since stays, and is reported.
+// status, seats and own prices). A departure that took a booking or a hold since stays, and so does one the apply
+// cancelled whose day has passed; both are reported. One the schedule made is cancelled as the schedule cancels, so its
+// generator may make it again when its day fits.
 import type { PackageChangeRunBefore, UndoPackageChangesResult } from "@travel-crm/contracts/ai";
 import { roomTypes, type PackageSeasonView } from "@travel-crm/contracts/quotes";
 import type { OrgTx } from "@travel-crm/db";
 import {
   cancelDeparture,
   reopenCancelledDeparture,
+  SCHEDULE_CANCEL_REASON,
   seatsSoldAndHeld,
   setDeparturePrices,
   setDepartureSeats,
@@ -54,7 +57,7 @@ export async function restoreSeasons(
   for (const old of before) if (!present.has(old.id)) await save(old);
 }
 
-/** The departures put back; the ones kept because of a booking or a hold, earliest first. */
+/** The departures put back; the ones kept as they are, and why, earliest first. */
 export async function restoreDepartures(
   tx: OrgTx,
   access: MemberAccess,
@@ -81,7 +84,10 @@ export async function restoreDepartures(
     if (state === undefined || state.status === "cancelled") continue;
     const reason = busy(id);
     if (reason !== null) keep(id, state.startDate, reason);
-    else await cancelDeparture(tx, access, { departureId: id, reason: UNDO_CANCEL_REASON }, context.now);
+    else {
+      const why = state.scheduled ? SCHEDULE_CANCEL_REASON : UNDO_CANCEL_REASON;
+      await cancelDeparture(tx, access, { departureId: id, reason: why }, context.now);
+    }
   }
   for (const was of before.departures) {
     const state = states.get(was.id);
@@ -95,8 +101,12 @@ export async function restoreDepartures(
       }
       continue;
     }
-    // A day already gone can't be opened again: it stays as it is.
-    if (was.status !== "cancelled" && state.status === "cancelled" && was.startDate >= context.today) {
+    if (was.status !== "cancelled" && state.status === "cancelled") {
+      // A day already gone can't be opened again: it stays cancelled, and is reported.
+      if (was.startDate < context.today) {
+        keep(was.id, was.startDate, "past_date");
+        continue;
+      }
       await reopenCancelledDeparture(tx, access, was.id, context.today);
     }
     if (state.seatsTotal !== was.seatsTotal) {

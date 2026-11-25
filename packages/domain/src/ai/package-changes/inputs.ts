@@ -11,6 +11,7 @@ import { DomainError } from "../../kernel/index.js";
 import { redactPayment } from "../drafts/payment-details.js";
 import { pdfParts } from "../rates/source.js";
 import { refuse } from "../refusals.js";
+import { notFound } from "./runs.js";
 
 const PDF = "application/pdf";
 /** A longer line is cut into numbered parts of this many characters. */
@@ -50,18 +51,23 @@ export function linesOf(text: string): string[] {
 export const messageLines = (text: string): [string, string][] =>
   linesOf(text).map((line, index) => [`L${String(index + 1)}`, line]);
 
-/** The answers as A1, A2..., each after the question it answers when that is known. */
-export function answerLines(
+/** The answers as A1, A2...: the agency's words alone, which are what a change may cite. */
+export const answerLines = (answers: ProposePackageChangesInput["answers"]): [string, string][] =>
+  answers.flatMap((answer, index) => {
+    const text = linesOf(answer.answer).join(" ");
+    return text === "" ? [] : [[`A${String(index + 1)}`, text]];
+  });
+
+/** The question each answer replies to, by the answer's ref, when the member's last run asked it: context, never evidence. */
+export const askedLines = (
   answers: ProposePackageChangesInput["answers"],
   questions: ReadonlyMap<string, string>,
-): [string, string][] {
-  return answers.flatMap((answer, index) => {
-    const text = linesOf(answer.answer).join(" ");
-    if (text === "") return [];
+): [string, string][] =>
+  answers.flatMap((answer, index) => {
     const asked = questions.get(answer.questionId);
-    return [[`A${String(index + 1)}`, asked === undefined ? text : `(${linesOf(asked).join(" ")}) ${text}`]];
+    const text = asked === undefined ? "" : linesOf(asked).join(" ");
+    return text === "" || linesOf(answer.answer).length === 0 ? [] : [[`A${String(index + 1)}`, text]];
   });
-}
 
 /** The member's own finished uploads, in the order named: one PDF, or up to four photos. */
 export async function checkedInputs(
@@ -75,7 +81,7 @@ export async function checkedInputs(
     where: { id: { in: ids }, recordType: AI_INPUT_RECORD_TYPE, createdBy: access.userId, status: "ready" },
     select: { id: true, recordId: true, contentType: true },
   });
-  if (rows.length !== ids.length) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
+  if (rows.length !== ids.length) throw notFound();
   const stored = ids.flatMap((id) => rows.filter((row) => row.id === id));
   const photos = stored.filter((one) => imageTypes.includes(one.contentType));
   const onePdf = stored.length === 1 && stored[0]?.contentType === PDF;

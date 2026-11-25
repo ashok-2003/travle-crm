@@ -1,6 +1,7 @@
 // Undo all (the AI change assistant): the trip's latest applied run put back in one transaction under the trip's lock,
 // only while the trip is exactly as the apply left it. Any member who may edit the trip undoes it, with the departures
-// and AI-switch rights the run's changes needed; one audit entry besides each operation's own.
+// and AI-switch rights the run's changes needed; one audit entry besides each operation's own. What it couldn't put back
+// is said: the departures kept as they are, and an AI switch that can't be turned back on.
 import type { UndoPackageChangesInput, UndoPackageChangesResult } from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../../audit/index.js";
@@ -10,7 +11,7 @@ import { findPackageForChange, mergePackagePart, setPackageSellable, updatePacka
 import { refuse } from "../refusals.js";
 import type { ApplyContext } from "./apply.js";
 import { changeRights } from "./ground.js";
-import { assertUnchanged, beforeOf, latestAppliedRun, proposalOf } from "./runs.js";
+import { assertUnchanged, beforeOf, latestAppliedRun, notFound, proposalOf } from "./runs.js";
 import { restoreDepartures, restoreSeasons } from "./undo-steps.js";
 
 export async function undoPackageChanges(
@@ -20,7 +21,7 @@ export async function undoPackageChanges(
   context: ApplyContext,
 ): Promise<UndoPackageChangesResult> {
   const found = await tx.packageChangeRun.findFirst({ where: { id: input.runId }, select: { templateId: true } });
-  if (found === null) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
+  if (found === null) throw notFound();
   const trip = await findPackageForChange(tx, found.templateId);
   const run = await latestAppliedRun(tx, trip.id);
   if (run?.id !== input.runId || run.status !== "applied") {
@@ -39,12 +40,14 @@ export async function undoPackageChanges(
   }
   await restoreSeasons(tx, access, trip.id, before.seasons);
   const kept = await restoreDepartures(tx, access, trip.id, before, context);
+  let sellingNotRestored = false;
   if (before.selling !== null && before.selling !== trip.aiSellable) {
     try {
       await setPackageSellable(tx, access, { packageId: trip.id, sellable: before.selling }, context.today);
     } catch (error) {
       // The switch was on with something missing: it stays off until that is filled (turning on refuses before it writes).
       if (!(error instanceof DomainError && error.reason === "PACKAGE_NOT_READY_TO_SELL")) throw error;
+      sellingNotRestored = true;
     }
   }
 
@@ -54,7 +57,7 @@ export async function undoPackageChanges(
     action: "package.ai-changes-undone",
     entityType: "quote_template",
     entityId: trip.id,
-    after: { runId: run.id, undone, kept: kept.length },
+    after: { runId: run.id, undone, kept: kept.length, sellingNotRestored },
   });
-  return { undone, kept };
+  return { undone, kept, sellingNotRestored };
 }

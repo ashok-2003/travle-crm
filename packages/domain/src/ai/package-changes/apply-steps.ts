@@ -17,7 +17,7 @@ import {
   setDepartureSeats,
 } from "../../departures/index.js";
 import type { MemberAccess } from "../../identity/index.js";
-import { DomainError, type CalendarDate } from "../../kernel/index.js";
+import type { CalendarDate } from "../../kernel/index.js";
 import {
   daysOf,
   mergePackagePart,
@@ -28,6 +28,7 @@ import {
   type PackageRow,
 } from "../../quotes/index.js";
 import { refuse } from "../refusals.js";
+import { notFound } from "./runs.js";
 
 type Of<Kind extends PackageChange["kind"]> = Extract<PackageChange, { kind: Kind }>;
 const ofKind = <Kind extends PackageChange["kind"]>(changes: readonly PackageChange[], kind: Kind) =>
@@ -45,7 +46,7 @@ export async function applySeasons(
   for (const change of ofKind(chosen, "season_change")) {
     for (const seasonId of change.seasonIds) {
       const season = byId.get(seasonId);
-      if (season === undefined) throw new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
+      if (season === undefined) throw notFound();
       const { startsOn, endsOn } = season;
       await savePackageSeason(tx, access, {
         packageId,
@@ -117,14 +118,15 @@ export async function applyTripFields(
   return { before, scheduleChanged: scheduleFields.some((field) => field in part) };
 }
 
-/** Departures reopened, given seats or prices of their own, cancelled, then the new days added. */
+/** Departures reopened, given seats or prices of their own, cancelled, then the new days added; the ids of changes that added nothing. */
 export async function applyDepartures(
   tx: OrgTx,
   access: MemberAccess,
   packageId: string,
   chosen: readonly PackageChange[],
   context: { today: CalendarDate; now: Date },
-): Promise<void> {
+): Promise<Set<string>> {
+  const unchanged = new Set<string>();
   for (const change of ofKind(chosen, "departure_reopen")) {
     await reopenCancelledDeparture(tx, access, change.departureId, context.today);
   }
@@ -143,10 +145,14 @@ export async function applyDepartures(
     await cancelDeparture(tx, access, { departureId: change.departureId, reason: change.reason }, context.now);
   }
   for (const change of ofKind(chosen, "departures_add")) {
+    let added = 0;
     for (const day of change.dates) {
-      await addPackageDates(tx, access, { packageId, from: day, to: day, weekdays: [] }, context.today);
+      added += (await addPackageDates(tx, access, { packageId, from: day, to: day, weekdays: [] }, context.today)).added
+        .length;
     }
+    if (added === 0) unchanged.add(change.id);
   }
+  return unchanged;
 }
 
 /** The AI switch, last: turning it on needs nothing missing, which the changes before may have filled. */

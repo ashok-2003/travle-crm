@@ -8,6 +8,7 @@ import { tripSnapshot, tripStamp } from "../../../src/ai/package-changes/trip-sn
 import { seasonsOf } from "../../../src/quotes/index.js";
 import type { MemberAccess } from "../../../src/identity/index.js";
 import { openWorld, type World } from "../../bookings/support.js";
+import { aBookingOn } from "../../departures/support.js";
 import { aTrip, assistantIn, context, NOW, reasonOf, TODAY, type Trip } from "./support.js";
 
 const message = [
@@ -155,5 +156,48 @@ describe("applying AI changes", () => {
     const before = await stateOf(trip);
     expect(await reasonOf(apply(proposal.runId, ["c1", "c4"]))).toBe("TRIP_CHANGED_SINCE");
     expect(await stateOf(trip)).toEqual(before);
+  });
+  it("adds a season with no end until the next one (here, with no end), splitting the regular price", async () => {
+    const trip = await aTrip(world);
+    const proposal = await assistant.propose(trip, "From 1 Mar new rates double 7499", [
+      {
+        kind: "season_add",
+        label: "Spring",
+        from: "1 Mar",
+        to: null,
+        prices: [{ room: "double", printed: "7,499" }],
+        lines: ["L1"],
+      },
+    ]);
+    expect(proposal.changes[0]).toMatchObject({ startsOn: "2027-03-01", endsOn: null, flags: [] });
+    await apply(proposal.runId, ["c1"]);
+    const after = await stateOf(trip);
+    expect(after.seasons.slice(-2).map((season) => [season.label, season.startsOn, season.endsOn])).toEqual([
+      ["Regular", "2027-01-02", "2027-02-28"],
+      ["Spring", "2027-03-01", "2099-12-31"],
+    ]);
+  });
+
+  it("refuses to cancel a departure that took a booking since the changes were shown", async () => {
+    const trip = await aTrip(world);
+    const proposal = await assistant.propose(trip, "4 Dec batch cancelled", [
+      { kind: "departure_cancel", departure: "D1", reason: "Snow", lines: ["L1"] },
+    ]);
+    expect(proposal.changes[0]?.flags).toEqual([]);
+    await aBookingOn(world, trip.departures.dec4, { adults: 2 });
+    expect(await reasonOf(apply(proposal.runId, ["c1"]))).toBe("TRIP_CHANGED_SINCE");
+  });
+
+  it("counts only what changed: a day someone added meanwhile is no change", async () => {
+    const trip = await aTrip(world);
+    // 2 Jul 2027 already departs, past the 26 weeks the assistant reads, so it is offered.
+    const proposal = await assistant.propose(trip, "New departure 2 Jul 2027\nCarry ID proof", [
+      { kind: "departures_add", dates: ["2 Jul"], weekly: null, lines: ["L1"] },
+      { kind: "note_add", line: "Carry ID proof", lines: ["L2"] },
+    ]);
+    expect(proposal.changes[0]).toMatchObject({ kind: "departures_add", dates: ["2027-07-02"] });
+    expect(await apply(proposal.runId, ["c1", "c2"])).toEqual({ applied: 1 });
+    const run = await world.inOrg((tx) => tx.packageChangeRun.findUniqueOrThrow({ where: { id: proposal.runId } }));
+    expect(run.appliedChangeIds).toEqual(["c2"]);
   });
 });

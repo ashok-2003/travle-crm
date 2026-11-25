@@ -62,7 +62,8 @@ export type AnsweredPackageChange = z.infer<typeof answeredPackageChange>;
 
 /** The answer as a whole; its changes are read one by one with answeredPackageChange, so one bad change drops alone. */
 export const packageChangesAnswer = z.object({
-  changes: z.array(z.unknown()).max(80).catch([]),
+  /** Read up to MAX_PACKAGE_CHANGES (the domain takes the first ones). */
+  changes: z.array(z.unknown()).catch([]),
   /** The lines of the photos the AI cites, as it read them ("P1.L3"). */
   photoLines: z
     .array(z.object({ ref: z.string().max(20), text: z.string().max(500) }))

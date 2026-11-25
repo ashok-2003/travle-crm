@@ -56,8 +56,9 @@ const PATTERNS: { pattern: RegExp; read: (match: RegExpMatchArray) => PrintedDat
     ],
   },
   {
-    // A dot only with a year, so a price like "4.5" is never a date.
-    pattern: /(?<![\d.,])(\d{1,2})(?:[/-](\d{1,2})(?:[/-](\d{4}|\d{2}))?|\.(\d{1,2})\.(\d{4}|\d{2}))(?![\d,]|\.\d)/g,
+    // A dot only with a year, so a price like "4.5" is never a date; nor a group size or a length ("10-12 pax", "4/5 D").
+    pattern:
+      /(?<![\d.,])(\d{1,2})(?:[/-](\d{1,2})(?:[/-](\d{4}|\d{2}))?|\.(\d{1,2})\.(\d{4}|\d{2}))(?![\d,]|\.\d)(?!\s*(?:pax|sharing|people|persons?|days?|nights?|d|n)\b)/gi,
     read: (match) => {
       const year = match[3] ?? match[5];
       return [
@@ -91,13 +92,29 @@ const sameDay = (first: PrintedDate, second: PrintedDate) =>
   first.month === second.month &&
   (first.year === null || second.year === null || first.year === second.year);
 
-/** Whether one of the texts prints this date (a year is compared only when both print one). */
-export const dateInTexts = (date: PrintedDate, texts: readonly string[]): boolean =>
-  texts.some((text) => datesIn(text).some((found) => sameDay(found, date)));
+/** Whether one of the texts prints this calendar day ("2026-12-04" as "4 Dec", "04/12"...; a year only when printed). */
+export const dayInTexts = (day: string, texts: readonly string[]): boolean => {
+  const date = { day: Number(day.slice(8, 10)), month: Number(day.slice(5, 7)), year: Number(day.slice(0, 4)) };
+  return texts.some((text) => datesIn(text).some((found) => sameDay(found, date)));
+};
 
-/** Whether one of the texts prints this calendar day ("2026-12-04" as "4 Dec", "04/12"...). */
-export const dayInTexts = (day: string, texts: readonly string[]): boolean =>
-  dateInTexts({ day: Number(day.slice(8, 10)), month: Number(day.slice(5, 7)), year: Number(day.slice(0, 4)) }, texts);
+/**
+ * The day a date the AI copied means, from the cited lines: its day and month as the AI gave them, its year as the line
+ * that prints that day and month gives it, else worked out from `notBefore`. The AI's own year is never used. `inLines`
+ * says whether a cited line prints that day and month at all.
+ */
+export function groundedDay(
+  printed: string,
+  texts: readonly string[],
+  notBefore: CalendarDate,
+): { day: CalendarDate; inLines: boolean } | null {
+  const said = printedDate(printed);
+  if (said === null) return null;
+  const found = texts.flatMap(datesIn).filter((one) => one.day === said.day && one.month === said.month);
+  const year = found.find((one) => one.year !== null)?.year ?? null;
+  const day = dayOf({ day: said.day, month: said.month, year }, notBefore);
+  return day === null ? null : { day, inLines: found.length > 0 };
+}
 
 const pad = (number: number) => String(number).padStart(2, "0");
 const dayOn = (year: number, date: PrintedDate) => `${String(year)}-${pad(date.month)}-${pad(date.day)}`;
@@ -106,7 +123,7 @@ const dayOn = (year: number, date: PrintedDate) => `${String(year)}-${pad(date.m
  * The calendar day a printed date means: its own year when printed, else the first one on or after `notBefore`
  * (a start date a month back is still this year's, so a date just gone reads as past, not as next year's).
  */
-export function dayOf(date: PrintedDate, notBefore: CalendarDate): CalendarDate | null {
+function dayOf(date: PrintedDate, notBefore: CalendarDate): CalendarDate | null {
   if (date.year !== null) {
     const text = dayOn(date.year, date);
     return isCalendarDate(text) ? parseCalendarDate(text) : null;

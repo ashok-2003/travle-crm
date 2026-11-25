@@ -3,12 +3,14 @@
 // a hold and saying so; refused when the trip changed since, or for a run that isn't the trip's latest applied one.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { applyPackageChanges } from "../../../src/ai/package-changes/apply.js";
+import { cancelDeparture, generatePackageDepartures, SCHEDULE_CANCEL_REASON } from "../../../src/departures/index.js";
+import { addDays, systemActor } from "../../../src/kernel/index.js";
 import { latestPackageChangeRun } from "../../../src/ai/package-changes/latest.js";
 import { undoPackageChanges } from "../../../src/ai/package-changes/undo.js";
 import { seasonsOf } from "../../../src/quotes/index.js";
 import { openWorld, type World } from "../../bookings/support.js";
 import { aBookingOn, aSellersLead } from "../../departures/support.js";
-import { aTrip, assistantIn, context, NOW, reasonOf, type Trip } from "./support.js";
+import { aTrip, assistantIn, context, NOW, reasonOf, TODAY, type Trip } from "./support.js";
 
 const message = [
   "Holi 1 Mar to 10 Mar double 7499",
@@ -83,7 +85,7 @@ describe("undoing AI changes", () => {
     const runId = await appliedRun(trip);
     expect(await latest(trip)).toMatchObject({ runId, applied: 8, undoable: true });
 
-    expect(await undo(runId)).toEqual({ undone: 8, kept: [] });
+    expect(await undo(runId)).toEqual({ undone: 8, kept: [], sellingNotRestored: false });
     const after = await stateOf(trip);
     expect(after.seasons).toEqual(before.seasons);
     expect(after.fields).toEqual(before.fields);
@@ -105,7 +107,7 @@ describe("undoing AI changes", () => {
         select: { after: true },
       }),
     );
-    expect(audit).toEqual([{ after: { runId, undone: 8, kept: 0 } }]);
+    expect(audit).toEqual([{ after: { runId, undone: 8, kept: 0, sellingNotRestored: false } }]);
     expect(await latest(trip)).toBeNull();
   });
 
@@ -135,6 +137,7 @@ describe("undoing AI changes", () => {
         { departureId: booked, startDate: "2027-01-08", reason: "has_bookings" },
         { departureId: held, startDate: "2027-01-15", reason: "has_holds" },
       ],
+      sellingNotRestored: false,
     });
     const rows = await world.inOrg((tx) =>
       tx.departure.findMany({
@@ -191,5 +194,51 @@ describe("undoing AI changes", () => {
       tx.quoteTemplate.findUniqueOrThrow({ where: { id: trip.packageId }, select: { weeklyDays: true } }),
     );
     expect(row.weeklyDays).toEqual([5]);
+    // The schedule's own departures are cancelled as the schedule cancels, so its generator may make them again.
+    const reasons = await world.inOrg((tx) =>
+      tx.departure.findMany({
+        where: { templateId: trip.packageId, scheduledOn: { not: null } },
+        select: { cancelledReason: true },
+      }),
+    );
+    expect(reasons.length).toBeGreaterThan(0);
+    expect(new Set(reasons.map((one) => one.cancelledReason))).toEqual(new Set([SCHEDULE_CANCEL_REASON]));
+  });
+
+  it("stays offered while the nightly job makes the next departures, and not once staff change one", async () => {
+    const trip = await aTrip(world);
+    const runId = await appliedRun(trip, ["c6"]);
+    // The next night: the schedule makes the Fridays it lacks, which is no change to the trip.
+    const made = await world.inOrg((tx) =>
+      generatePackageDepartures(tx, systemActor(world.organizationId), trip.packageId, addDays(TODAY, 1)),
+    );
+    expect(made.created).toBeGreaterThan(0);
+    expect(await latest(trip)).toMatchObject({ runId, undoable: true });
+
+    const scheduled = await world.inOrg((tx) =>
+      tx.departure.findFirstOrThrow({ where: { templateId: trip.packageId, scheduledOn: { not: null } } }),
+    );
+    await world.inOrg((tx) =>
+      cancelDeparture(tx, world.manager, { departureId: scheduled.id, reason: "Hotel closed" }, NOW),
+    );
+    expect(await latest(trip)).toMatchObject({ runId, undoable: false });
+    expect(await reasonOf(undo(runId))).toBe("TRIP_CHANGED_SINCE");
+  });
+
+  it("says what it couldn't put back: a cancelled day now past, and an AI switch the trip can't have back", async () => {
+    const trip = await aTrip(world);
+    await world.inOrg((tx) => tx.quoteTemplate.update({ where: { id: trip.packageId }, data: { aiSellable: true } }));
+    const proposal = await assistant.propose(trip, "4 Dec batch cancelled\nStop the AI selling it", [
+      { kind: "departure_cancel", departure: "D1", reason: "Snow", lines: ["L1"] },
+      { kind: "ai_selling", on: false, lines: ["L2"] },
+    ]);
+    await apply(proposal.runId, ["c1", "c2"]);
+    // Undone after the 4th: the day can't be opened again. The trip lacks what selling needs, so the switch stays off.
+    const later = { ...context, today: addDays(TODAY, 15) };
+    expect(await world.inOrg((tx) => undoPackageChanges(tx, world.manager, { runId: proposal.runId }, later))).toEqual({
+      undone: 2,
+      kept: [{ departureId: trip.departures.dec4, startDate: "2026-12-04", reason: "past_date" }],
+      sellingNotRestored: true,
+    });
   });
 });

@@ -113,7 +113,11 @@ describe("ai.packageChanges", () => {
       applied: 2,
       undoable: true,
     });
-    expect(await caller.ai.packageChanges.undo({ runId: proposal.runId })).toEqual({ undone: 2, kept: [] });
+    expect(await caller.ai.packageChanges.undo({ runId: proposal.runId })).toEqual({
+      undone: 2,
+      kept: [],
+      sellingNotRestored: false,
+    });
     expect(await caller.ai.packageChanges.latest({ packageId })).toBeNull();
   });
 

@@ -69,7 +69,7 @@ export const aiPackageChangesRouter = router({
         throw new DomainError("CONFLICT", "AI_NOT_READY", "The AI isn't set up on this server yet");
       }
       return proposePackageChanges(
-        { db: ctx.db, model: ctx.ai, files: ctx.files, prompts: ctx.prompts },
+        { db: ctx.db, model: ctx.ai, files: ctx.files, prompts: ctx.prompts, tracing: ctx.tracing },
         ctx.member,
         input,
         new Date(),
