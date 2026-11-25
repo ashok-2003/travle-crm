@@ -345,18 +345,19 @@ describe("an OpenAI reasoning model (gpt-5-mini on Azure AI Foundry, the owner, 
     const model = createOpenRouterModel({
       apiKey: KEY,
       baseUrl: AZURE,
-      models: { sales_agent: ["our-gpt-5-mini"] },
+      models: { suggest_reply: ["our-gpt-5-mini"] },
       reasoningModel,
       fetch: fetcher,
     });
-    const asked = { feature: "sales_agent" as const, messages, user: "org-1", temperature: 0.3 };
+    // The agent's turns go by the Responses API instead (openrouter-responses.test.ts).
+    const asked = { feature: "suggest_reply" as const, messages, user: "org-1", temperature: 0.3 };
     await model.complete({ ...asked, maxTokens: 500, reasoning: { effort: "minimal" } });
     await model.complete({ ...asked, maxTokens: 20_000 });
     const [short, long] = calls.map(bodyOf);
     expect(short).toMatchObject({
       max_completion_tokens: 16_000,
       reasoning_effort: "medium",
-      prompt_cache_key: "sales_agent:org-1",
+      prompt_cache_key: "suggest_reply:org-1",
     });
     expect(long).toMatchObject({ max_completion_tokens: 20_000, reasoning_effort: "medium" });
     for (const body of [short, long]) {
@@ -371,11 +372,11 @@ describe("an OpenAI reasoning model (gpt-5-mini on Azure AI Foundry, the owner, 
     const azure = createOpenRouterModel({
       apiKey: KEY,
       baseUrl: AZURE,
-      models: { sales_agent: ["our-gpt-5-mini"] },
+      models: { suggest_reply: ["our-gpt-5-mini"] },
       reasoningModel,
       fetch: fetcher,
     });
-    expect(await azure.complete({ feature: "sales_agent", messages })).toMatchObject({ model: "our-gpt-5-mini" });
+    expect(await azure.complete({ feature: "suggest_reply", messages })).toMatchObject({ model: "our-gpt-5-mini" });
     const gemini = createOpenRouterModel({
       apiKey: KEY,
       baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",

@@ -23,7 +23,7 @@ const GOOGLE = "https://generativelanguage.googleapis.com/v1beta/openai";
 const VERTEX = "https://aiplatform.googleapis.com/v1/projects/p/locations/global/endpoints/openapi";
 const messages = [{ role: "user" as const, content: "Hello" }];
 
-/** Answers every call, and notes the address and model of each, and the fields each body sent. */
+/** Answers every call (by Chat Completions or Responses), and notes the address and model of each, and each body's fields. */
 function stubFetch(): { asked: { url: string; model: unknown }[]; fields: { url: string; keys: string[] }[] } {
   const asked: { url: string; model: unknown }[] = [];
   const fields: { url: string; keys: string[] }[] = [];
@@ -31,11 +31,10 @@ function stubFetch(): { asked: { url: string; model: unknown }[]; fields: { url:
     const body = JSON.parse(typeof init.body === "string" ? init.body : "{}") as { model?: unknown };
     asked.push({ url, model: body.model });
     fields.push({ url, keys: Object.keys(body) });
-    return Promise.resolve(
-      new Response(
-        JSON.stringify({ model: body.model, choices: [{ message: { content: "Hi" }, finish_reason: "stop" }] }),
-      ),
-    );
+    const answer = url.endsWith("/responses")
+      ? { output: [{ type: "message", content: [{ type: "output_text", text: "Hi" }] }] }
+      : { model: body.model, choices: [{ message: { content: "Hi" }, finish_reason: "stop" }] };
+    return Promise.resolve(new Response(JSON.stringify(answer)));
   });
   return { asked, fields };
 }
@@ -305,10 +304,13 @@ describe("the primary model (the owner, 2026-11-24: gpt-5-mini on Azure, medium 
     const model = createAiModel(settings(primary), logger);
     const features = ["sales_agent", "agent_image", "score_lead", "chat_summary", "agent_voice", "fill_form"] as const;
     for (const feature of features) await model?.complete({ feature, messages, user: "org" });
+    // The agent's turns go by the Responses API, for the model's reasoning summary in the trace (the owner, 2026-11-25).
+    const responses = { url: `${AZURE}/responses`, model: "our-gpt-5-mini" };
     const azure = { url: `${AZURE}/chat/completions`, model: "our-gpt-5-mini" };
     const google = { url: `${GOOGLE}/chat/completions`, model: "gemini-3.5-flash-lite" };
-    expect(asked).toEqual([azure, azure, azure, azure, google, google]);
-    expect(fields[0]?.keys).toEqual(
+    expect(asked).toEqual([responses, azure, azure, azure, google, google]);
+    expect(fields[0]?.keys).toEqual(expect.arrayContaining(["max_output_tokens", "reasoning", "prompt_cache_key"]));
+    expect(fields[1]?.keys).toEqual(
       expect.arrayContaining(["max_completion_tokens", "reasoning_effort", "prompt_cache_key"]),
     );
     expect(fields[4]?.keys).toContain("max_tokens");
