@@ -1,6 +1,6 @@
 // The one-off clean-up of files stored more than once: files with the same size, type and bytes, whatever their names,
-// come to share the oldest one's object (one not on a WhatsApp message first), which keeps the bytes' hash so the same
-// file sent again finds it; their own objects are deleted once their links have lapsed, and every one still reads the
+// come to share one object (a live file's first, then one not on an AI input, then one not on a WhatsApp message, then
+// the oldest), which keeps the bytes' hash so the same file sent again finds it; their own objects are deleted once their links have lapsed, and every one still reads the
 // same. A dry run changes nothing; other bytes, short-lived files and other organizations are left alone; a second run
 // finds nothing.
 import { createHash, randomUUID } from "node:crypto";
