@@ -1,5 +1,6 @@
 // The one agent's tools as the model sees them: natural's fourteen, with book on the terms alone and hand_over open to
-// b2b, each schema carrying its trip labels and its parse-only checks, and the parse that answers a refused call.
+// b2b, and show_trips; each schema carrying its trip labels and its parse-only checks, and the parse that answers a
+// refused call.
 import { z } from "zod";
 import { naturalHandOverReasons } from "./natural.js";
 import {
@@ -58,7 +59,9 @@ const tripTools: readonly NaturalToolName[] = [
 ];
 
 export type OneMediaToolName = "transcribe_voice_note" | "look_at_image";
-export type OneToolName = NaturalToolName | OneMediaToolName;
+/** The trip menu (the owner, 2026-11-24): code builds the list from the trips, so the model only asks for it. */
+export type OneMenuToolName = "show_trips";
+export type OneToolName = NaturalToolName | OneMediaToolName | OneMenuToolName;
 const mediaToolNames: readonly OneMediaToolName[] = ["transcribe_voice_note", "look_at_image"];
 /** The tools that only read: the model is called again with their results. */
 export const oneReadTools: readonly OneToolName[] = [...naturalReadTools, ...mediaToolNames];
@@ -79,13 +82,24 @@ const mediaTable: Record<OneMediaToolName, ToolEntry> = {
   ),
 };
 
+const menuTable: Record<OneMenuToolName, ToolEntry> = {
+  show_trips: tool(
+    "Sends the agency's trip menu after your message: a WhatsApp list the customer taps to pick a destination. Use it " +
+      "when the customer just says hello or asks what trips you run; not when they named a trip (send its brochure instead).",
+    z.strictObject({}),
+  ),
+};
+
 export interface OneToolSchema {
   name: OneToolName;
   description: string;
   schema: z.ZodType<Record<string, unknown>>;
 }
 
-/** Natural's fourteen tools with book and hand_over replaced; trip tools left out with no labels (ruling 21), and send_brochure with no brochures. */
+/**
+ * Natural's fourteen tools with book and hand_over replaced, and show_trips; trip tools (show_trips too) left out with no
+ * labels (ruling 21), and send_brochure with no brochures.
+ */
 export function oneToolSchemas(input: {
   tripLabels: readonly string[];
   brochureLabels?: readonly string[];
@@ -114,7 +128,10 @@ export function oneToolSchemas(input: {
           : withLabels(oneTools[name].fields, input.tripLabels);
       return { name, description: oneTools[name].description, schema: checked(oneTools[name], fields) };
     });
-  return [...natural, ...media];
+  const { show_trips: menu } = menuTable;
+  const trips: OneToolSchema[] =
+    input.tripLabels.length === 0 ? [] : [{ name: "show_trips", description: menu.description, schema: menu.fields }];
+  return [...natural, ...trips, ...media];
 }
 
 /** As parseToolArguments, on one's table; `brochureLabels`, when given, are the brochures `send_brochure` may name. */
@@ -126,6 +143,7 @@ export function parseOneToolArguments(
 ): { ok: true; name: OneToolName; args: Record<string, unknown> } | { ok: false; problem: string } {
   const media = mediaToolNames.find((known) => known === name);
   if (media !== undefined) return parseMedia(media, raw, media === "look_at_image" ? more.photos : more.voiceNotes);
+  if (name === "show_trips") return parseOnTable(menuTable, name, raw, tripLabels);
   const parsed = parseOnTable(oneTools, name, raw, tripLabels);
   const { brochureLabels } = more;
   if (parsed.ok && parsed.name === "send_brochure" && brochureLabels !== undefined) {

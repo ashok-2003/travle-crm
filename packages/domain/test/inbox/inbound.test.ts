@@ -257,7 +257,7 @@ describe("an inbound WhatsApp message", () => {
     expect(signer.path).toBe(`/webhooks/msg91-whatsapp/${"t".repeat(40)}`);
   });
 
-  it("keeps a tap's id on the customer's message, and a quick reply's only as words", async () => {
+  it("keeps a reply button's and a list row's id on the customer's message, and a quick reply's only as words", async () => {
     const connection = await aConnectedAgency(test);
     const customerNumber = digits(freshPhone());
     const tap = (wamid: string, interactive: object) => ({
@@ -271,13 +271,18 @@ describe("an inbound WhatsApp message", () => {
       ...fromCustomer(connection, { customerNumber, wamid: "wamid.QR1", contentType: "button" }),
       button: { payload: id, text: "Book" },
     });
+    const row = { id: "trips:destination-1", title: "Manali", description: "2 trips" };
+    await deliver(test, tap("wamid.LIST1", { type: "list_reply", list_reply: row }));
     const rows = await test.db.forOrg(connection.organizationId, (tx) =>
-      tx.whatsappMessage.findMany({ where: { wamid: { in: ["wamid.TAP1", "wamid.TAP2", "wamid.QR1"] } } }),
+      tx.whatsappMessage.findMany({
+        where: { wamid: { in: ["wamid.TAP1", "wamid.TAP2", "wamid.QR1", "wamid.LIST1"] } },
+      }),
     );
-    const byWamid = (wamid: string) => rows.find((row) => row.wamid === wamid);
+    const byWamid = (wamid: string) => rows.find((one) => one.wamid === wamid);
     expect(byWamid("wamid.TAP1")).toMatchObject({ buttonReplyId: id, body: "Book these seats" });
     expect(byWamid("wamid.TAP2")).toMatchObject({ buttonReplyId: id, body: null });
     expect(byWamid("wamid.QR1")?.buttonReplyId).toBeNull();
+    expect(byWamid("wamid.LIST1")).toMatchObject({ buttonReplyId: row.id, body: "Manali" });
   });
 
   describe("with two numbers", () => {

@@ -3,6 +3,7 @@
 // the setup, so the silence never goes unnoticed. The notice holds no customer's words, and an agent switched off tells
 // nobody: it was meant to be quiet.
 import { AGENCY_PAYMENT_QR_RECORD_TYPE } from "@travel-crm/contracts/files";
+import { createMemoryToolAgent } from "@travel-crm/integrations/tool-agent";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { runAgentTurn } from "../../src/ai/index.js";
 import { createTestInbox, testNow, type TestInbox } from "../inbox/support.js";
@@ -30,6 +31,7 @@ describe("the notice that the agent answers nobody", () => {
         agencyName: () => Promise.resolve("Sharma Holidays"),
         files: test.files,
         managers: () => Promise.resolve([on.owner.userId]),
+        toolAgent: createMemoryToolAgent(),
       },
       { organizationId: on.organizationId, conversationId: on.chat.id, kind: "reply", token },
       at,

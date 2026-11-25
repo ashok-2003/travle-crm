@@ -5,7 +5,9 @@ import { withTracing } from "@travel-crm/integrations/ai";
 import { createMemoryToolAgent } from "@travel-crm/integrations/tool-agent";
 import { createMemoryTracing } from "@travel-crm/integrations/tracing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { BUILT_IN_NATURAL_PROMPT, oneTryItTurn, type NaturalPrompt } from "../../../src/ai/index.js";
+import { oneTryItTurn } from "../../../src/ai/index.js";
+import type { NaturalPrompt } from "../../../src/ai/natural/prompt.js";
+import { BUILT_IN_ONE_PROMPT } from "../../../src/ai/one/prompt.js";
 import { memberOf } from "../../imports/support/test-imports.js";
 import { createTestInbox, type TestInbox } from "../../inbox/support.js";
 import { naturalAgency } from "../natural/support/natural-agency.js";
@@ -36,7 +38,7 @@ describe("Try it on the one agent", () => {
     const tryIt = (
       messages: readonly TestAiLine[],
       state: Parameters<typeof oneTryItTurn>[2]["state"] = null,
-      prompt: NaturalPrompt = BUILT_IN_NATURAL_PROMPT,
+      prompt: NaturalPrompt = BUILT_IN_ONE_PROMPT,
       tap?: "book" | "change",
     ) => oneTryItTurn(deps, member, { messages, state, prompt, chatId: CHAT_ID, ...(tap ? { tap } : {}) }, NOW);
     const rows = () =>
@@ -127,6 +129,24 @@ describe("Try it on the one agent", () => {
     });
   });
 
+  it("shows the trip menu a test turn would send, marks it in the chat, and refuses a second the same day", async () => {
+    const on = await world();
+    const showTrips = { name: "show_trips", arguments: {} };
+    on.model.answer({ text: "Namaste! Kaunsi trip dekhna chahenge?", toolCalls: [showTrips] }, { text: "" });
+    const first = await on.tryIt([{ from: "customer", text: "Hello" }]);
+    expect(first.menu).toMatchObject({ body: "Pick a trip, we'll send its plan.", button: "See trips" });
+    expect(first.menu?.rows.map((row) => row.title).sort()).toEqual(["Lohajung, Uttarakhand", "Sankri, Uttarakhand"]);
+    expect(first.actions).toEqual([]);
+    expect(first.history.at(-1)?.text).toMatch(/^\[sent: trip menu: /u);
+
+    on.model.answer({ toolCalls: [showTrips] }, { text: "Kedarkantha har Saturday December mein hai." });
+    const chat = [{ from: "customer", text: "Hello" }, ...first.history, { from: "customer", text: "Sankri" }] as const;
+    const second = await on.tryIt(chat, first.state);
+    expect(second.menu).toBeUndefined();
+    const refusal = on.model.requests.at(-1)?.messages.find((message) => message.role === "tool")?.content;
+    expect(refusal).toMatch(/^refused: the trip menu went to this chat today/u);
+  });
+
   it("holds the seats on a test tap with no model call", async () => {
     const { on, first, chat } = await offered();
     const calls = on.model.requests.length;
@@ -150,7 +170,7 @@ describe("Try it on the one agent", () => {
     const on = await world();
     const live: NaturalPrompt = {
       version: "langfuse:whatsapp-agent/real-agent@3",
-      text: BUILT_IN_NATURAL_PROMPT.text,
+      text: BUILT_IN_ONE_PROMPT.text,
       source: { name: "whatsapp-agent/real-agent", version: 3, label: "production" },
     };
     on.model.answer({ text: "Hi! Kaunsa trek dekh rahe hain?" });

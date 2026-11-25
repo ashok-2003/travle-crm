@@ -4,9 +4,8 @@
 import { oneToolSchemas } from "@travel-crm/contracts/ai";
 import { describe, expect, it } from "vitest";
 import { startNaturalTrace } from "../../../src/ai/natural/trace.js";
-import { stageAction } from "../../../src/ai/natural/tools/action-tools.js";
 import type { QuoteFigures, StagedAction } from "../../../src/ai/natural/types.js";
-import { oneAgentTools, startOneRun, type OneToolIO } from "../../../src/ai/one/tools.js";
+import { oneAgentTools, stageOneAction, startOneRun, type OneToolIO } from "../../../src/ai/one/tools.js";
 import { ctx, facts, hoursAgo, saying } from "../natural/fixtures.js";
 
 const labels = ["T1", "T2"];
@@ -184,7 +183,7 @@ describe("the one agent's tools", () => {
     const told = { ...figures(0).terms, totalPaise: 2_599_800, at: at.toISOString() };
     const context = ctx({ facts: facts({ told: [told], lastTurnAt: at.toISOString() }), ...saying("theek hai") });
     const { run, call } = setup({
-      stage: (name, args, words) => stageAction(context, name, args, words, { agent: "one" }),
+      stage: (name, args, words) => stageOneAction(context, name, args, words),
     });
     await call("book", quoteArgs);
     expect(run.staged.get("book")).toMatchObject({ tool: "book", via: "told", fullName: null, customerWords: null });
@@ -196,5 +195,13 @@ describe("the one agent's tools", () => {
     expect(await call("book", { ...quoteArgs, full_name: "Rohan Mehta" })).toMatch(/^refused: /);
     expect(stages).toEqual([]);
     expect(run.staged.size).toBe(0);
+  });
+
+  it("stages the trip menu by the one agent's own staging, which tells the model what goes", async () => {
+    const { run, call } = setup({ stage: (name, args, words) => stageOneAction(ctx(), name, args, words) });
+    expect(await call("show_trips", {}, "Namaste!")).toMatch(/^the app sends the trip menu after your words/u);
+    expect(run.staged.get("show_trips")).toMatchObject({ tool: "show_trips", menu: { button: "Trips dekho" } });
+    expect(run.modelStaged).toEqual(new Set(["show_trips"]));
+    expect(await call("show_trips", { trip_id: "T1" })).toMatch(/^refused: /u);
   });
 });

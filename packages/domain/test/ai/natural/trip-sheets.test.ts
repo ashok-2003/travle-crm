@@ -3,7 +3,7 @@
 import { PACKAGE_BROCHURE_RECORD_TYPE, PACKAGE_PHOTO_RECORD_TYPE } from "@travel-crm/contracts/files";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { tripSheetsOf } from "../../../src/ai/natural/trips/trip-sheets.js";
-import { tripIndexLine, tripInFull } from "../../../src/ai/natural/trips/trip-text.js";
+import { tripIndexEntry, tripInFull } from "../../../src/ai/natural/trips/trip-text.js";
 import { parseCalendarDate } from "../../../src/kernel/index.js";
 import { sellablePackages } from "../../../src/quotes/index.js";
 import { aLead } from "../../crm/support/records.js";
@@ -241,7 +241,7 @@ describe("the natural agent's trip sheets", () => {
     );
     const [sheet] = await sheets();
     for (const key of ["name", "items", "paymentDetails"]) expect(sheet).not.toHaveProperty(key);
-    const text = `${tripInFull(sheet ?? expect.unreachable(), today)}\n${tripIndexLine(sheet ?? expect.unreachable(), today)}`;
+    const text = `${tripInFull(sheet ?? expect.unreachable(), today)}\n${tripIndexEntry(sheet ?? expect.unreachable(), today)}`;
     for (const seeded of ["INTERNAL-NAME", "SECRET-ITEM", "4,213", "SECRET-PAY", "kkpay"]) {
       expect(text).not.toContain(seeded);
     }

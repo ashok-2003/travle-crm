@@ -10,12 +10,14 @@ import {
   sendSucceeded,
 } from "./msg91-responses.js";
 import { buttonsFit } from "./button-limits.js";
+import { listFits } from "./list-limits.js";
 import {
   failed,
   type WhatsAppButtonsToSend,
   type WhatsAppCreateResult,
   type WhatsAppFailureReason,
   type WhatsAppListResult,
+  type WhatsAppListToSend,
   type WhatsAppMediaResult,
   type WhatsAppMediaToSend,
   type WhatsAppNumberResult,
@@ -184,6 +186,31 @@ export function createRealWhatsAppProvider(options: RealWhatsAppProviderOptions)
             ...replyContext(message.replyTo),
           })
         : Promise.resolve(failed("other", { providerCode: "invalid_buttons" })),
+    // MSG91's interactive list (its OpenAPI page, interactive-whatsapp-list.openapi.yml, checked 2026-11-25): the same
+    // call as the reply buttons with Meta's list in `interactive`. SPIKE(list): no real account has sent one yet.
+    sendList: (number, to, message: WhatsAppListToSend) =>
+      listFits(message)
+        ? send({
+            ...base(number, to),
+            content_type: "interactive",
+            interactive: {
+              type: "list",
+              body: { text: message.body },
+              action: {
+                button: message.button,
+                sections: message.sections.map((section) => ({
+                  ...(section.title === undefined ? {} : { title: section.title }),
+                  rows: section.rows.map((row) => ({
+                    id: row.id,
+                    title: row.title,
+                    ...(row.description === undefined ? {} : { description: row.description }),
+                  })),
+                })),
+              },
+            },
+            ...replyContext(message.replyTo),
+          })
+        : Promise.resolve(failed("other", { providerCode: "invalid_list" })),
     sendTemplate: async (number, to, template: WhatsAppTemplateSend) => {
       const components = Object.fromEntries(
         template.parameters.map((value, index) => [`body_${String(index + 1)}`, { type: "text", value }]),

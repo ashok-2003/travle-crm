@@ -1,7 +1,9 @@
 // ai.testOne on the real router is Try it for the one agent: one dry turn of the tool agent on a test chat. It answers
-// AI_NOT_READY without a model or a tool agent, takes no model, temperature or prompt choice, runs only for an agency on the one agent, and shows what the customer would get.
+// AI_NOT_READY without a model or a tool agent, runs Langfuse's live prompt or the draft when chosen (the live one when
+// there is no draft), takes no model or temperature choice nor a state it never handed out, needs ai:manage, and shows
+// what the customer would get.
 import { TRPCError } from "@trpc/server";
-import { saveAiSettings, setAgent, type ToolAgent } from "@travel-crm/domain/ai";
+import { saveAiSettings, type ToolAgent } from "@travel-crm/domain/ai";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Context } from "../src/context.js";
 import { anAgency, callerOf, createHarness, type Harness } from "./forms-support.js";
@@ -31,7 +33,7 @@ describe("ai.testOne", () => {
       ready?: boolean;
       toolAgent?: ToolAgent | null;
       prompts?: Context["prompts"];
-      agent?: "lite" | "one";
+      granted?: Parameters<typeof callerOf>[1]["granted"];
     } = {},
   ) {
     const organizationId = await anAgency(harness, { modules: ["crm", "inbox", "ai"] });
@@ -49,8 +51,9 @@ describe("ai.testOne", () => {
     await harness.db.forOrg(organizationId, (tx) =>
       saveAiSettings(tx, owner.member, { enabled: true, scoring: true }, { providerReady: true, now: new Date() }),
     );
-    await harness.db.forOrg(organizationId, (tx) => setAgent(tx, owner.member, options.agent ?? "one"));
-    return owner.caller;
+    return options.granted === undefined
+      ? owner.caller
+      : callerOf(harness, { organizationId, granted: options.granted, context }).caller;
   }
 
   const codeOf = async (call: Promise<unknown>) => {
@@ -73,42 +76,62 @@ describe("ai.testOne", () => {
     expect(await codeOf(noAgent.ai.testOne({ messages: hi, state: null }))).toBe("AI_NOT_READY");
   });
 
-  it("refuses a model, a temperature or a prompt choice", async () => {
+  it("refuses a model or a temperature choice, and a prompt other than live or draft", async () => {
     const agent = answering();
     const caller = await anAiAgency({ toolAgent: agent.toolAgent });
-    for (const choice of [{ prompt: "draft" }, { model: "flash" }, { temperature: "0.4" }]) {
-      expect(await codeOf(caller.ai.testOne({ messages: hi, state: null, ...choice }))).toBe("BAD_REQUEST");
+    for (const choice of [{ prompt: "latest" }, { model: "flash" }, { temperature: "0.4" }]) {
+      // Each is what a client outside the contract might send: past the type, refused at the input.
+      const input = { messages: hi, state: null, ...choice } as unknown as Parameters<typeof caller.ai.testOne>[0];
+      expect(await codeOf(caller.ai.testOne(input))).toBe("BAD_REQUEST");
     }
     expect(agent.runs).toEqual([]);
   });
 
-  it("says which agent Try it runs, and refuses a turn for any other", async () => {
+  it("refuses a member without ai:manage", async () => {
     const agent = answering();
-    const lite = await anAiAgency({ toolAgent: agent.toolAgent, agent: "lite" });
-    expect(await lite.ai.testAgent()).toEqual({ agent: "lite" });
-    expect(await codeOf(lite.ai.testOne({ messages: hi, state: null }))).toBe("AGENT_CHANGED");
+    const caller = await anAiAgency({
+      toolAgent: agent.toolAgent,
+      granted: ["ai:suggest", "inbox:view", "inbox:reply"],
+    });
+    expect(await codeOf(caller.ai.testOne({ messages: hi, state: null }))).toBe("MISSING_PERMISSION");
     expect(agent.runs).toEqual([]);
-    expect(await (await anAiAgency({ toolAgent: agent.toolAgent })).ai.testAgent()).toEqual({ agent: "one" });
+  });
+
+  it("refuses a chat that ends with the agent's line, and unknown keys in the state", async () => {
+    const agent = answering();
+    const caller = await anAiAgency({ toolAgent: agent.toolAgent });
+    const messages = [...hi, { from: "agent" as const, text: "Hello!" }];
+    expect(await codeOf(caller.ai.testOne({ messages, state: null }))).toBe("BAD_REQUEST");
+    const { facts, lead } = (await caller.ai.testOne({ messages: hi, state: null })).state;
+    for (const state of [
+      { facts: { ...facts, injected: true }, lead },
+      { facts, lead: { ...lead, injected: true } },
+      { facts, lead, injected: true },
+    ]) {
+      expect(await codeOf(caller.ai.testOne({ messages: hi, state }))).toBe("BAD_REQUEST");
+    }
+    expect(agent.runs).toHaveLength(1);
   });
 
   it("answers what the customer would get", async () => {
     const agent = answering();
     const caller = await anAiAgency({ toolAgent: agent.toolAgent });
     const shown = await caller.ai.testOne({ messages: hi, state: null });
-    expect(shown).toMatchObject({ outcome: "replied", messages: [words], trace: { promptVersion: "built-in-one-3" } });
+    expect(shown).toMatchObject({ outcome: "replied", messages: [words], trace: { promptVersion: "built-in-one-5" } });
     expect(agent.runs).toHaveLength(1);
     expect(agent.runs[0]?.request).toMatchObject({ feature: "sales_agent" });
     expect(agent.runs[0]?.request).not.toHaveProperty("model");
     expect(agent.runs[0]?.request).not.toHaveProperty("temperature");
   });
 
-  /** Langfuse's prompts as a fake: a production version, each ask kept. */
-  const langfuse = () => {
+  /** Langfuse's prompts as a fake: a production version, and a draft when `draft` says so; each ask kept. */
+  const langfuse = (draft = false) => {
     const asked: { name: string; label: string; fresh: boolean }[] = [];
     const prompts: NonNullable<Context["prompts"]> = {
       textPrompt: (name, label, request = {}) => {
         asked.push({ name, label, fresh: request.fresh === true });
         if (label === "production") return Promise.resolve({ name, version: 4, label, text: "The live prompt." });
+        if (label === "draft" && draft) return Promise.resolve({ name, version: 5, label, text: "The draft." });
         return Promise.resolve(null);
       },
     };
@@ -127,6 +150,21 @@ describe("ai.testOne", () => {
 
     const other = await anAiAgency({ toolAgent: answering().toolAgent });
     const builtIn = await other.ai.testOne({ messages: hi, state: null });
-    expect(builtIn.trace).toMatchObject({ promptVersion: "built-in-one-3", promptLabel: null });
+    expect(builtIn.trace).toMatchObject({ promptVersion: "built-in-one-5", promptLabel: null });
+  });
+
+  it("runs on Langfuse's draft when chosen, read past the cache, and on the live prompt when there is no draft", async () => {
+    const fake = langfuse(true);
+    const caller = await anAiAgency({ toolAgent: answering().toolAgent, prompts: fake.prompts });
+    const shown = await caller.ai.testOne({ messages: hi, state: null, prompt: "draft" });
+    expect(shown.trace).toMatchObject({ promptVersion: "langfuse:whatsapp-agent/real-agent@5", promptLabel: "draft" });
+    expect(fake.asked).toContainEqual({ name: "whatsapp-agent/real-agent", label: "draft", fresh: true });
+
+    const noDraft = await anAiAgency({ toolAgent: answering().toolAgent, prompts: langfuse().prompts });
+    const live = await noDraft.ai.testOne({ messages: hi, state: null, prompt: "draft" });
+    expect(live.trace).toMatchObject({
+      promptVersion: "langfuse:whatsapp-agent/real-agent@4",
+      promptLabel: "production",
+    });
   });
 });

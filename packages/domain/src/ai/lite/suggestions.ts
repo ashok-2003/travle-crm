@@ -1,5 +1,5 @@
-// The lite agent's suggestion to mark a lead Lost or Not a lead, kept for a person to decide. The agent never moves the
-// lead itself: act writes the suggestion, the lead's page (or the AI page's "Needs you" list) shows it, and only a
+// The agent's suggestion to mark a lead Lost or Not a lead, kept for a person to decide. The agent never moves the
+// lead itself: its act writes the suggestion, the lead's page (or the AI page's "Needs you" list) shows it, and only a
 // person's yes calls moveLeadStage, as that person.
 import { lostReason as lostReasonSchema, type LeadStage, type LostReason } from "@travel-crm/contracts/crm";
 import type { DecideStageSuggestionInput, NeedsMeInput, StageSuggestion } from "@travel-crm/contracts/ai";
@@ -8,7 +8,6 @@ import { recordAudit } from "../../audit/index.js";
 import { isLeadInScope, lockLead, moveLeadStage } from "../../crm/index.js";
 import { scopeFilter, type MemberAccess } from "../../identity/index.js";
 import { DomainError, systemActor } from "../../kernel/index.js";
-import type { CheckedForm, Decision } from "./types.js";
 
 type Kind = "lost" | "not_a_lead";
 const REASON_MAX = 200;
@@ -19,18 +18,6 @@ const LIST_MAX = 20;
  * that a person is in the middle of a sale and the AI's reading of one line is not enough to close it.
  */
 const suggestable: readonly LeadStage[] = ["new", "contacted", "quote_sent"];
-
-/** Which suggestion the turn makes: the decision's own, else Not a lead when the score read the lead as fake. */
-export function suggestionOfTurn(decision: Decision, checked: CheckedForm | null): Decision["suggest"] {
-  if (decision.suggest !== null) return decision.suggest;
-  const score = checked?.form.score;
-  if (!score?.looks_fake) return null;
-  return {
-    kind: "not_a_lead",
-    lostReason: null,
-    reason: `Looks fake: ${score.fake_why}`.slice(0, REASON_MAX).trimEnd(),
-  };
-}
 
 /**
  * Adds a suggestion to the lead. Nothing is added when the lead is not in an open stage, already has an open
@@ -74,29 +61,6 @@ export async function suggestStage(
     after: { kind: input.kind },
   });
   return true;
-}
-
-/** What act calls after the lead's writes: the turn's suggestion, if it has one. */
-export async function suggestFromTurn(
-  tx: OrgTx,
-  input: {
-    organizationId: string;
-    leadId: string;
-    conversationId: string;
-    decision: Decision;
-    checked: CheckedForm | null;
-    now: Date;
-  },
-): Promise<void> {
-  const suggest = suggestionOfTurn(input.decision, input.checked);
-  if (suggest === null) return;
-  await suggestStage(tx, {
-    ...suggest,
-    organizationId: input.organizationId,
-    leadId: input.leadId,
-    conversationId: input.conversationId,
-    now: input.now,
-  });
 }
 
 const columns = {

@@ -2,7 +2,6 @@
 // a percent or amount beside a discount word ("₹500 ka discount"), or with "off", "kam" or "less" straight after it
 // ("10% off", "500 kam kar do"); never "drop-off", "call off", "kam se kam" or "7000 se kam". The reply alone also
 // counts "10% offer"; owner or Team text grounds nothing it negates ("10% discount mat dena").
-import { formatRupees } from "../../../kernel/index.js";
 import { sentencesOf } from "../../lite/phrase-match.js";
 import { amountsIn, looseAmountsIn, percentsIn, withAsciiDigits, type Amount, type Span } from "./amounts.js";
 
@@ -27,9 +26,6 @@ export const figuresIn = (text: string, readAmounts: (text: string) => Amount[] 
   ...readAmounts(text).map((amount): Figure => ({ kind: "amount", start: amount.start, end: amount.end, amount })),
   ...percentsIn(text).map((percent): Figure => ({ kind: "percent", ...percent })),
 ];
-
-export const figureWords = (figure: Figure) =>
-  figure.kind === "amount" ? formatRupees(figure.amount.paise) : `${String(figure.value)}%`;
 
 function beside(text: string, a: Span, b: Span): boolean {
   const [first, second] = a.start < b.start ? [a, b] : [b, a];
@@ -66,12 +62,6 @@ function discountsIn(text: string, inReply: boolean): { figure: Figure; negated:
     });
   });
 }
-
-/**
- * The discount figures in the agent's reply, negated or not: one retry costs less than "10% discount nahi, 15% milega"
- * letting the 15% through unchecked.
- */
-export const replyDiscountsIn = (words: string): Figure[] => discountsIn(words, true).map((one) => one.figure);
 
 /** What owner or Team text gives as a discount: each figure no negation governs, amounts read loosely ("500 kam"). */
 export function discountsGivenIn(text: string): { amountsPaise: number[]; percents: number[] } {

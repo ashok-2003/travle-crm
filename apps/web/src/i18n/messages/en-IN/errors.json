@@ -231,7 +231,6 @@
     "FOLLOW_UPS_OFF": "Turn on follow-ups in Settings, Sales automation first.",
     "FOLLOW_UPS_FINISHED": "Every follow-up was sent to this lead already.",
     "AI_NOT_READY": "The AI isn't set up on this server yet.",
-    "AGENT_CHANGED": "Your agent changed while you were testing. Start the chat again.",
     "AI_BUSY": "The AI is busy right now. Try again in a minute, or write the reply yourself.",
     "AI_UNAVAILABLE": "The AI didn't answer. Try again in a minute, or write the reply yourself.",
     "AI_MONTH_LIMIT": "This agency has used this month's AI suggestions. They start again next month.",

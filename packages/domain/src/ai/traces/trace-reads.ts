@@ -1,9 +1,6 @@
-// What the console reads of the kept turn traces: index rows (never past 14 days, never of an erased customer) and the
-// messages a trace names, read from its own chat as they are kept now.
+// What the console reads of the kept turn traces: index rows, never past 14 days, never of an erased customer.
 import type { OrgTx } from "@travel-crm/db";
 import { DomainError } from "../../kernel/index.js";
-import { contextMessageOf, storedMessageFields } from "../lite/context/messages.js";
-import type { ContextMessage } from "../lite/types.js";
 
 export interface KeptTrace {
   id: string;
@@ -18,8 +15,6 @@ export interface KeptTrace {
   inputTokens: number;
   outputTokens: number;
   durationMs: number;
-  /** Null for a one agent turn: its detail is in Langfuse, no file is kept. */
-  fileKey: string | null;
 }
 
 const columns = {
@@ -35,10 +30,7 @@ const columns = {
   inputTokens: true,
   outputTokens: true,
   durationMs: true,
-  fileKey: true,
 } as const;
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** Kept means not yet due, and the chat not erased: an erasure sets the due time, but the sweep may be an hour away. */
 const keptAt = (now: Date) => ({ expiresAt: { gt: now }, conversation: { state: { not: "erased" } } });
@@ -81,21 +73,4 @@ export async function keptTraces(
 export async function keptTrace(tx: OrgTx, traceId: string, now: Date): Promise<KeptTrace | null> {
   const row = await tx.aiTurnTrace.findFirst({ where: { id: traceId, ...keptAt(now) }, select: columns });
   return row === null ? null : { ...row, kind: kindOf(row.kind) };
-}
-
-/** The chat's messages with these ids, in the order given; an id the chat doesn't hold is left out. */
-export async function traceMessages(
-  tx: OrgTx,
-  conversationId: string,
-  ids: readonly string[],
-): Promise<ContextMessage[]> {
-  // The column is a uuid: any other id is simply not found, and must not fail the opening.
-  const wanted = ids.filter((id) => UUID.test(id));
-  if (wanted.length === 0) return [];
-  const rows = await tx.whatsappMessage.findMany({
-    where: { conversationId, id: { in: wanted }, conversation: { state: { not: "erased" } } },
-    select: storedMessageFields,
-  });
-  const byId = new Map(rows.map((row) => [row.id, contextMessageOf(row)]));
-  return wanted.flatMap((id) => byId.get(id) ?? []);
 }

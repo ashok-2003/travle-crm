@@ -39,7 +39,6 @@ describe("console page titles", { timeout: 20_000 }, () => {
     ["platform updates", () => import("@/app/console/updates/page"), messages.console.updates.title],
     ["failed emails", () => import("@/app/console/emails/page"), messages.consolePlatform.emails.title],
     ["a failed email", () => import("@/app/console/emails/[emailId]/page"), messages.consolePlatform.emails.title],
-    ["the AI prompts", () => import("@/app/console/ai-prompts/page"), messages.consoleAi.prompts.title],
     [
       "an organization's AI turns",
       () => import("@/app/console/organizations/[organizationId]/ai-traces/page"),

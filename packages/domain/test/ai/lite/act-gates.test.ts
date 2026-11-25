@@ -5,7 +5,7 @@ import { stoppedSince, type ActGateInput } from "../../../src/ai/lite/act-gates.
 import { chatRowOf, replyDayOf } from "../../../src/ai/may-write.js";
 import { createTestInbox, type TestInbox } from "../../inbox/support.js";
 import { liteAgency, liteTurnAt } from "./support/lite-agency.js";
-import { greeting, understood, written, type Agency } from "./support/turn-script.js";
+import { greeting, type Agency } from "./support/turn-script.js";
 
 describe("the act's first check", () => {
   let test: TestInbox;
@@ -40,7 +40,7 @@ describe("the act's first check", () => {
 
   it("lets a follow-up go after a reaction on our reply unless asked to count it", async () => {
     const on = await liteAgency(test);
-    on.model.answer(understood([["hello", "Hi"]]), written(greeting));
+    on.model.answer(greeting);
     expect(await on.turn()).toBe("replied");
     await on.inOrg((tx) =>
       tx.whatsappMessage.updateMany({

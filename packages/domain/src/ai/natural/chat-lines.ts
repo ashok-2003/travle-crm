@@ -1,10 +1,13 @@
 // The chat as the natural agent reads it live (spec 4.3, plan 2 rulings 2 and 3): who wrote each line (the customer,
 // this agent, an earlier assistant, someone on the team or the agency's automation), a past action of ours as its
-// bracketed words, and a voice note nobody could play. Team members are named after the transaction, from identity.
+// bracketed words (the one agent's trip menu among them), a pick from that menu, and a voice note nobody could play.
+// Team members are named after the transaction, from identity.
 import { withoutAmountsAndDates } from "@travel-crm/contracts/ai";
+import { chatList } from "@travel-crm/contracts/inbox";
 import type { OrgTx } from "@travel-crm/db";
 import type { MemberContact } from "../../identity/index.js";
 import { AI_TOKEN_PREFIX } from "../may-write.js";
+import { MENU_ROW_PREFIX, menuSentWords } from "../one/trip-menu.js";
 import type { NaturalChatLine } from "./types.js";
 
 /** Ruling 2: an AI line before this is an earlier assistant's (the one-agent release merged at 19:08 UTC that day). */
@@ -30,6 +33,8 @@ export const storedLineFields = {
   occurredAt: true,
   aiText: true,
   aiTextKind: true,
+  buttons: true,
+  buttonReplyId: true,
 } as const;
 
 export interface StoredLine {
@@ -45,6 +50,9 @@ export interface StoredLine {
   occurredAt: Date;
   aiText: string | null;
   aiTextKind: string | null;
+  /** A card's buttons or a list's rows (JSON). */
+  buttons: unknown;
+  buttonReplyId: string | null;
 }
 
 const isAiToken = (token: string) => token.startsWith(AI_TOKEN_PREFIX) || token.startsWith(EARLIER_PAYMENT_PREFIX);
@@ -64,6 +72,9 @@ function actionOf(row: StoredLine, from: NaturalChatLine["from"], earlierWhole: 
   if (token.startsWith(EARLIER_PAYMENT_PREFIX) || token.endsWith(":pay") || token.endsWith(":qr")) {
     return PAYMENT_DETAILS;
   }
+  // The trip menu as the titles of its rows; its body is code's fixed line.
+  const menu = chatList.safeParse(row.buttons);
+  if (menu.success) return menuSentWords(menu.data.rows.map((one) => one.title));
   if (row.kind === "text" || row.kind === "template") return null;
   const named = [row.caption, row.fileName].map((one) => one?.trim() ?? "").find((one) => one !== "") ?? "a file";
   // An earlier assistant's caption may hold its made-up figures, which its words never show either, unless asked.
@@ -86,6 +97,7 @@ export function storedLineOf(row: StoredLine, options: { earlierWhole?: boolean 
     ...(action === null ? {} : { action }),
     ...(row.aiText === null || kind === null ? {} : { aiText: { kind, text: row.aiText } }),
     ...(from === "customer" && row.kind === "audio" && text.trim() === "" ? { untranscribed: true } : {}),
+    ...(from === "customer" && row.buttonReplyId?.startsWith(MENU_ROW_PREFIX) === true ? { fromMenu: true } : {}),
   };
 }
 

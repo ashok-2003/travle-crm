@@ -1,16 +1,30 @@
 "use client";
 
-// "Why" under the new agent's answer, for whoever tests it as a developer would: the prompt version, how the turn ended (and a fallback's or a restart's reason),
+// "Why" under the agent's answer, for whoever tests it as a developer would: the prompt version (and, when the draft
+// was chosen and there was none, that the live prompt ran), how the turn ended (and a fallback's or a restart's reason),
 // its calls, time and tokens; then each model call in order with its model, time, tokens and words, and each tool it
 // called as name(arguments) → result, a refused one marked; each guard's verdict; the flags; and what it would do, in the
 // owner's words. Codes and recorded values show as recorded.
-import type { NaturalTestAnswer } from "@travel-crm/contracts/ai";
+import { onePromptLabels, type NaturalTestAnswer, type OneTestPrompt } from "@travel-crm/contracts/ai";
 import { useTranslations } from "next-intl";
+import type { ReactNode } from "react";
 import { Details, type Detail } from "@/components/details";
 import { StatusDot } from "@/components/status-badge";
 import { formatCount } from "@/lib/format";
 import { useActionWords } from "./test-natural-actions";
-import { code, Part } from "./test-why";
+
+/** A code or recorded value, as recorded. */
+const code = (text: string) => <span className="numbers wrap-anywhere">{text}</span>;
+
+/** One titled part of "Why". */
+function Part({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <p className="font-medium">{title}</p>
+      {children}
+    </div>
+  );
+}
 
 type Call = NaturalTestAnswer["trace"]["calls"][number];
 type Tokens = Pick<Call, "inputTokens" | "cachedTokens" | "outputTokens" | "reasoningTokens">;
@@ -69,7 +83,8 @@ function CallItem({ call }: { call: Call }) {
   );
 }
 
-export function TestNaturalWhy({ answer }: { answer: NaturalTestAnswer }) {
+/** `prompt` is the one the turn was asked to run: a draft that wasn't there ran the live prompt, and Why says so. */
+export function TestNaturalWhy({ answer, prompt }: { answer: NaturalTestAnswer; prompt: OneTestPrompt }) {
   const t = useTranslations("ai.test");
   const actionWords = useActionWords();
   const tokenWords = useTokenWords();
@@ -77,11 +92,13 @@ export function TestNaturalWhy({ answer }: { answer: NaturalTestAnswer }) {
   /** A row only when the turn recorded something for it. */
   const recorded = (label: string, value: string | null): Detail[] =>
     value === null ? [] : [{ label, value: code(value) }];
+  const noDraft = prompt === "draft" && trace.promptLabel !== onePromptLabels.draft;
   return (
     <div className="flex flex-col gap-3">
       <Details
         rows={[
           { label: t("natural.why.prompt"), value: code(trace.promptVersion) },
+          ...(noDraft ? [{ label: t("natural.why.draft"), value: t("natural.why.noDraft") }] : []),
           { label: t("natural.why.outcome"), value: t(`natural.outcomes.${answer.outcome}`) },
           ...recorded(t("natural.why.fallback"), trace.fallback),
           ...recorded(t("natural.why.restarted"), trace.restarted),

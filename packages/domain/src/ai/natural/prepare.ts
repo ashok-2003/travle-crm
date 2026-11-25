@@ -9,7 +9,7 @@ import type { MemberContact } from "../../identity/index.js";
 import { adPackageOf } from "../../inbox/index.js";
 import type { CalendarDate } from "../../kernel/index.js";
 import { agencyPaymentDetailsOf, getOrganizationProfile, paymentDetailsReady } from "../../profile/index.js";
-import { agencyAnswersOf, agentBasicsOf } from "../agency-answers.js";
+import { agencyAnswersOf, agencyContactOf, agentBasicsOf, type AgencyContact } from "../agency-answers.js";
 import { PROOF_KINDS } from "../booking.js";
 import { factsForLead } from "../lite/merge.js";
 import { turnGates } from "../lite/turn-gates.js";
@@ -32,6 +32,7 @@ export interface NaturalPrepared {
   today: CalendarDate;
   sheets: TripSheet[];
   answers: AgencyAnswers;
+  contact: AgencyContact;
   voice: AgentVoice;
   facts: NaturalFacts;
   lead: NaturalLeadView;
@@ -151,6 +152,7 @@ async function readTurn(
       today,
       sheets,
       answers: await agencyAnswersOf(tx),
+      contact: await agencyContactOf(tx, organizationId),
       facts,
       lead: lead.view,
       leadId,

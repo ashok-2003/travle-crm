@@ -1,5 +1,6 @@
 // The agency's answers to the AI agent's fixed questions, and the agent's name and tone: facts the owner types, kept on the
-// autopilot row. Changes are audited by topic and length, never the words typed in.
+// autopilot row. Changes are audited by topic and length, never the words typed in. Also what the agent tells a customer
+// who asks where the agency is (its contact), read from the profile and the public pages.
 import {
   agencyAnswers,
   agentBasics,
@@ -15,6 +16,25 @@ import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
+import { publicPageSettingsOf } from "../package-pages/index.js";
+import { getOrganizationProfile } from "../profile/index.js";
+
+/**
+ * What a customer may ask before they trust the agency (the owner, 2026-11-24): the office address from its business
+ * profile, and the Instagram link and about text it wrote for its public package pages. Never the registered name, GSTIN
+ * or bank details. Each is "" when not given.
+ */
+export interface AgencyContact {
+  office: string;
+  instagramUrl: string;
+  about: string;
+}
+
+export async function agencyContactOf(tx: OrgTx, organizationId: string): Promise<AgencyContact> {
+  const profile = await getOrganizationProfile(tx, organizationId);
+  const pages = await publicPageSettingsOf(tx);
+  return { office: profile?.address?.trim() ?? "", instagramUrl: pages.instagramUrl.trim(), about: pages.about.trim() };
+}
 
 /** The answers as stored: only the known topics, and an empty answer is absent. */
 function cleaned(stored: unknown): AgencyAnswers {

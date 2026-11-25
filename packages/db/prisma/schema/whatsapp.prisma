@@ -200,9 +200,9 @@ model WhatsappMessage {
   /// transcript or description.
   aiTextKind      String?                      @map("ai_text_kind")
   aiTextAt        DateTime?                    @map("ai_text_at") @db.Timestamptz(6)
-  /// A card's reply buttons, [{ id, title }]: one to three.
+  /// A card's reply buttons, [{ id, title }]: one to three; or a list's button and rows, { button, rows }: one to ten.
   buttons         Json?
-  /// The id of the reply button a customer tapped.
+  /// The id of the reply button a customer tapped, or of the list row they picked.
   buttonReplyId   String?                      @map("button_reply_id")
   /// Starred for the team (sales inbox spec 6).
   starredAt       DateTime?                    @map("starred_at") @db.Timestamptz(6)

@@ -2,7 +2,7 @@
 // model and nothing written.
 import type { NaturalTestState } from "@travel-crm/contracts/ai";
 import type { ActionContext } from "../natural/tools/action-tools.js";
-import type { LoopEnd } from "../natural/loop.js";
+import type { LoopEnd } from "../natural/loop/types.js";
 import type { NaturalChatLine } from "../natural/types.js";
 import { languageBefore, readTap, stageTapBook, tapBookedLine } from "./tap.js";
 

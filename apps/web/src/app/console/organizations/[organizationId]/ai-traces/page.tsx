@@ -1,4 +1,4 @@
-// /console/organizations/<id>/ai-traces: the lite agent's turns in one agency, a super admin's. ?chat=<conversation id>
+// /console/organizations/<id>/ai-traces: the AI agent's turns in one agency, a super admin's. ?chat=<conversation id>
 // narrows it to one chat; the server reads only the ids, never the agency's data, and ignores a chat that isn't a UUID.
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";

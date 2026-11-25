@@ -22,8 +22,14 @@ export {
   requestDocument,
   updateKnowledge,
 } from "./knowledge.js";
-export { agencyAnswersOf, agentBasicsOf, saveAgencyAnswers, saveAgentBasics } from "./agency-answers.js";
-export { agentOf, setAgent } from "./agent-choice.js";
+export {
+  agencyAnswersOf,
+  agencyContactOf,
+  agentBasicsOf,
+  saveAgencyAnswers,
+  saveAgentBasics,
+  type AgencyContact,
+} from "./agency-answers.js";
 export { agentSetupOf, countHandedOver, handedOverChatsOf, setAgentOn } from "./agent-setup.js";
 export { aiEnabled, aiSettingsOf, saveAiSettings } from "./settings.js";
 export { aiFilledLeadIds, decideSuggestions, suggestedFieldsOf } from "./fill/lead-fields.js";
@@ -46,8 +52,6 @@ export {
   setBookingStatus,
   type BookingRecipients,
 } from "./booking.js";
-export { liteDryRun } from "./lite/dry-run.js";
-export { tryItTurn } from "./lite/dry-run-traced.js";
 export {
   countOpenSuggestions,
   decideStageSuggestion,
@@ -77,25 +81,6 @@ export { recordRatesApplied } from "./rates/applied.js";
 export { rateSheetSourceLink } from "./rates/source-link.js";
 export type { Spreadsheets } from "@travel-crm/integrations/spreadsheets";
 export { requestRateSheetUpload } from "./rates/input.js";
-export { TRACE_DAYS, traceKey, traceFileOf, readTraceFile, type TraceFile } from "./traces/trace-file.js";
-export { keptTrace, keptTraces, traceMessages, type KeptTrace } from "./traces/trace-reads.js";
-export { createTraceSink, forgetTraces, tracesDue } from "./traces/trace-sink.js";
-export { startTrace } from "./lite/turn-trace.js";
-export { promptLibrary, promptVersions, type PromptPiece } from "./lite/prompts/library.js";
-export { modelCalls, type ModelCallOutline } from "./lite/prompts/calls.js";
-export type { ContextMessage } from "./lite/types.js";
-export type { BlockHead } from "./lite/context/block-heads.js";
-export { BENCH_NOW, BENCH_OWNER_ID, seedBenchAgency } from "./bench/seed.js";
-export { benchModel } from "./bench/script.js";
-export {
-  benchChecks,
-  heldItems,
-  inventedSpans,
-  type BenchCheck,
-  type BenchEnd,
-  type BenchTurn,
-  type Span,
-} from "./bench/rubric.js";
-export { runLiteCase, type LiteCaseResult } from "./bench/replay.js";
-export * from "./natural/index.js";
+export { keptTrace, keptTraces, type KeptTrace } from "./traces/trace-reads.js";
+export { createTraceSink, forgetTraces, TRACE_DAYS, tracesDue } from "./traces/trace-sink.js";
 export * from "./one/index.js";

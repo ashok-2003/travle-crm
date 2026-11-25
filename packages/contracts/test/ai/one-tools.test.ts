@@ -29,8 +29,8 @@ const trace = {
 };
 
 describe("the one agent's tool schemas", () => {
-  it("offers natural's fourteen tools, without the trip tools when the agency has no trips", () => {
-    expect(oneToolSchemas({ tripLabels: labels, brochureLabels: ["B1"] })).toHaveLength(14);
+  it("offers natural's fourteen tools and show_trips, without the trip tools when the agency has no trips", () => {
+    expect(oneToolSchemas({ tripLabels: labels, brochureLabels: ["B1"] })).toHaveLength(15);
     expect(oneToolSchemas({ tripLabels: [] }).map((tool) => tool.name)).toEqual([
       "update_lead",
       "resend_payment",
@@ -122,6 +122,17 @@ describe("the one agent's tool schemas", () => {
     expect(one).not.toContain('"enum":["m3"]');
   });
 
+  it("offers show_trips with no arguments when the agency has trips, and parses a call with none", () => {
+    const show = oneToolSchemas({ tripLabels: labels }).find((tool) => tool.name === "show_trips");
+    expect(show?.description).toContain("trip menu");
+    expect(show?.schema.safeParse({}).success).toBe(true);
+    expect(oneToolSchemas({ tripLabels: [] }).map((tool) => tool.name)).not.toContain("show_trips");
+    expect(parseOneToolArguments("show_trips", "", labels)).toEqual({ ok: true, name: "show_trips", args: {} });
+    expect(parseOneToolArguments("show_trips", {}, labels)).toMatchObject({ ok: true });
+    expect(parseOneToolArguments("show_trips", { trip_id: "T1" }, labels).ok).toBe(false);
+    expect(oneReadTools).not.toContain("show_trips");
+  });
+
   it("describes book with no customer words in its JSON Schema", () => {
     const schema = oneToolSchemas({ tripLabels: labels }).find((tool) => tool.name === "book")?.schema;
     if (schema === undefined) throw new Error("book is offered");
@@ -145,9 +156,10 @@ describe("the one agent's trace, dry actions and test input", () => {
     expect(naturalDryAction.parse({ tool: "hand_over", ...handOver }).tool).toBe("hand_over");
   });
 
-  it("refuses a model, a temperature, a prompt choice and any unknown key in one's test input", () => {
+  it("takes the live or the draft prompt, and refuses a model, a temperature and any unknown key in one's test input", () => {
     expect(oneTestInput.safeParse(input).success).toBe(true);
-    expect(oneTestInput.safeParse({ ...input, prompt: "draft" }).success).toBe(false);
+    expect(oneTestInput.safeParse({ ...input, prompt: "draft" }).success).toBe(true);
+    expect(oneTestInput.safeParse({ ...input, prompt: "latest" }).success).toBe(false);
     expect(oneTestInput.safeParse({ ...input, extra: 1 }).success).toBe(false);
     expect(oneTestInput.safeParse({ ...input, temperature: "0.4" }).success).toBe(false);
     expect(oneTestInput.safeParse({ ...input, model: "flash" }).success).toBe(false);

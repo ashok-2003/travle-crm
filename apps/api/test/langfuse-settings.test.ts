@@ -113,7 +113,7 @@ describe("Langfuse's settings", () => {
       asked.push({ path: request.url, authorization: request.headers.authorization });
       response.writeHead(200, { "content-type": "application/json" }).end(
         JSON.stringify({
-          name: "whatsapp-agent/natural-system",
+          name: "whatsapp-agent/real-agent",
           version: 2,
           type: "text",
           prompt: "Hi from {{agency_name}}",
@@ -130,11 +130,11 @@ describe("Langfuse's settings", () => {
         LANGFUSE_BASE_URL: `http://127.0.0.1:${String((server.address() as AddressInfo).port)}`,
       });
       expect(prompts).not.toBe(noPrompts);
-      expect(await prompts.textPrompt("whatsapp-agent/natural-system", "production")).toMatchObject({
+      expect(await prompts.textPrompt("whatsapp-agent/real-agent", "production")).toMatchObject({
         version: 2,
         text: "Hi from {{agency_name}}",
       });
-      expect(asked[0]?.path).toBe("/api/public/v2/prompts/whatsapp-agent%2Fnatural-system?label=production");
+      expect(asked[0]?.path).toBe("/api/public/v2/prompts/whatsapp-agent%2Freal-agent?label=production");
       const { LANGFUSE_PUBLIC_KEY: publicKey, LANGFUSE_SECRET_KEY: secretKey } = langfuse;
       expect(asked[0]?.authorization).toBe(`Basic ${Buffer.from(`${publicKey}:${secretKey}`).toString("base64")}`);
     } finally {

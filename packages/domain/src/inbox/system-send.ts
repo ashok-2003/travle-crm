@@ -3,6 +3,7 @@
 // connected and not paused, the 24-hour window open) and one more: nobody who withdrew their WhatsApp consent is written
 // to. It goes through the same outbox; an automatic answer is written as "automation" and leaves the chat waiting for a
 // person's reply. The client token makes a repeat (a job run twice) one message.
+import type { ChatList } from "@travel-crm/contracts/inbox";
 import type { OrgTx } from "@travel-crm/db";
 import type { WhatsAppButton } from "@travel-crm/integrations/whatsapp";
 import { publishEvent } from "../jobs/index.js";
@@ -32,6 +33,8 @@ export async function queueSystemText(
     media?: { messageId: string; kind: "image" | "video" | "audio" | "document"; fileName: string };
     /** A card: `body` goes with these reply buttons (1 to 3), sent by the outbox as one message. */
     buttons?: readonly WhatsAppButton[];
+    /** A list: `body` goes with the button that opens these rows (1 to 10), kept in the same column as a card's buttons. */
+    list?: ChatList;
   },
   now: Date,
 ): Promise<SystemSendResult> {
@@ -58,6 +61,9 @@ export async function queueSystemText(
               ...(input.buttons === undefined
                 ? {}
                 : { buttons: input.buttons.map(({ id, title }) => ({ id, title })) }),
+              ...(input.list === undefined
+                ? {}
+                : { buttons: { button: input.list.button, rows: input.list.rows.map((row) => ({ ...row })) } }),
             }
           : {
               id: input.media.messageId,

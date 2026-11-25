@@ -1,9 +1,7 @@
-// The worker keeps each lite turn's trace: the autopilot's dependencies carry a sink on the worker's own storage, the
-// process's tracing (Langfuse) when it has one, and its Langfuse prompts for the natural agent.
+// The worker keeps each agent turn's row: the autopilot's dependencies carry a sink of ai_turn_trace rows, the process's
+// tracing (Langfuse) when it has one, its Langfuse prompts, and the LangGraph tool agent.
 import { randomUUID } from "node:crypto";
-import { startTrace } from "@travel-crm/domain/ai";
 import { createMemoryPrompts } from "@travel-crm/integrations/prompts";
-import { createMemoryStorage } from "@travel-crm/integrations/storage";
 import { createMemoryTracing } from "@travel-crm/integrations/tracing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { autopilotDependencies } from "../src/worker-jobs.js";
@@ -16,9 +14,8 @@ describe("the worker's turn traces", () => {
   });
   afterAll(() => server.close());
 
-  it("the autopilot's traces land as a row and a file in the worker's storage", async () => {
+  it("the agent's turns land as rows of ai_turn_trace, with no file", async () => {
     const agency = await createTestAgency(server);
-    const storage = createMemoryStorage();
     const model = { configured: true, complete: () => Promise.reject(new Error("not called")) };
     const dependencies = autopilotDependencies(
       {
@@ -26,7 +23,6 @@ describe("the worker's turn traces", () => {
         identity: server.identity,
         files: server.files,
         subscriptions: server.subscriptions,
-        storage,
         logger: server.logger,
         managers: () => Promise.resolve([]),
       },
@@ -46,18 +42,25 @@ describe("the worker's turn traces", () => {
       });
       return chat.id;
     });
-    const trace = {
-      ...startTrace(
-        { organizationId: agency.organizationId, conversationId, kind: "reply", token: randomUUID() },
-        null,
-        new Date(),
-      ),
+    await dependencies.toolTurns.recordToolTurn({
+      id: randomUUID(),
+      organizationId: agency.organizationId,
+      conversationId,
+      leadId: null,
+      kind: "reply",
+      startedAt: new Date(),
+      durationMs: 900,
       outcome: "replied",
-    };
-    await dependencies.traces.record(trace);
+      reason: null,
+      model: "fake-model",
+      inputTokens: 10,
+      outputTokens: 5,
+      cachedTokens: 0,
+      failedChecks: 0,
+      promptVersions: { "real-agent": 0 },
+    });
     const rows = await server.db.forOrg(agency.organizationId, (tx) => tx.aiTurnTrace.findMany());
-    expect(rows).toHaveLength(1);
-    expect(await storage.head(rows[0]?.fileKey ?? "")).not.toBeNull();
+    expect(rows).toMatchObject([{ agent: "one", outcome: "replied", fileKey: null }]);
   });
 
   it("the autopilot's turns are traced with the process's tracing, when it has one", () => {
@@ -67,7 +70,6 @@ describe("the worker's turn traces", () => {
       identity: server.identity,
       files: server.files,
       subscriptions: server.subscriptions,
-      storage: createMemoryStorage(),
       logger: server.logger,
       managers: () => Promise.resolve([]),
     };
@@ -76,14 +78,13 @@ describe("the worker's turn traces", () => {
     expect(autopilotDependencies(base, model)).not.toHaveProperty("tracing");
   });
 
-  it("the natural agent's turns read their prompt from the process's Langfuse prompts, when it has them", () => {
+  it("the agent's turns read their prompt from the process's Langfuse prompts, when it has them", () => {
     const model = { configured: true, complete: () => Promise.reject(new Error("not called")) };
     const base = {
       db: server.db,
       identity: server.identity,
       files: server.files,
       subscriptions: server.subscriptions,
-      storage: createMemoryStorage(),
       logger: server.logger,
       managers: () => Promise.resolve([]),
     };
@@ -93,20 +94,18 @@ describe("the worker's turn traces", () => {
   });
 
   it("gives the agent's turns the LangGraph tool agent and the turn rows", () => {
-    const storage = createMemoryStorage();
     const dependencies = autopilotDependencies(
       {
         db: server.db,
         identity: server.identity,
         files: server.files,
         subscriptions: server.subscriptions,
-        storage,
         logger: server.logger,
         managers: () => Promise.resolve([]),
       },
       { configured: true, complete: () => Promise.reject(new Error("not called")) },
     );
     expect(typeof dependencies.toolAgent.run).toBe("function");
-    expect(dependencies.toolTurns).toBe(dependencies.traces);
+    expect(typeof dependencies.toolTurns.recordToolTurn).toBe("function");
   });
 });

@@ -301,6 +301,7 @@
       "speed": "Speed {speed}x. Change it"
     },
     "cardButtons": "Buttons: {titles}",
+    "cardList": "List: {titles}",
     "tapped": "Tapped: {text}",
     "tappedNoWords": "Tapped a button",
     "aiText": {

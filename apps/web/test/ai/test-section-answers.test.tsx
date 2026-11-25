@@ -1,0 +1,307 @@
+// Try it's answers: it sends turns to ai.testOne with the state the last one handed back, the chat's lines (the
+// customer's and each answer's history) and the test chat's id, and no model, temperature or prompt. A turn shows its
+// messages, the payment lines code would send after them, a status line, and a "Why" with each call's tools, the
+// guards' verdicts and what it would do, in the screen's own forms.
+import { money } from "@travel-crm/domain/kernel";
+import { screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { beforeEach, describe, expect, it } from "vitest";
+import { TestSection } from "@/ai/test-section";
+import { messages } from "@/i18n/messages";
+import { formatCalendarDay, formatDayTime, formatRupees } from "@/lib/format";
+import { fakeApi, newQueryClient, renderWithApi } from "../organization/api";
+import { screenIs } from "../organization/render";
+import { stubApi } from "../support/api-stub";
+
+const words = messages.ai.test;
+const { natural } = words;
+
+const client = () => newQueryClient();
+beforeEach(() => {
+  screenIs("wide");
+});
+
+/** The state a turn hands back (natural's shape): the chat's facts and the dry lead, told apart by when it ran. */
+const stateAt = (minute: number) => ({
+  facts: {
+    agent: "natural",
+    leadId: null,
+    sentTripIds: [],
+    sentFileIds: [],
+    offer: null,
+    told: [],
+    bookingId: null,
+    lastTurnAt: `2026-11-16T10:${String(minute).padStart(2, "0")}:00.000Z`,
+  },
+  lead: {
+    packageId: null,
+    day: null,
+    month: null,
+    adults: null,
+    childrenAges: [],
+    pickupCity: null,
+    room: null,
+    name: null,
+    stage: "new",
+    notes: [],
+    tasks: [],
+    booking: null,
+  },
+});
+
+const reply = "Sat 12 Dec works: ₹22,600 for both of you.";
+const trace = {
+  agent: "one",
+  promptVersion: "built-in-1",
+  promptLabel: null,
+  outcome: "replied",
+  fallback: null,
+  restarted: null,
+  durationMs: 4200,
+  calls: [
+    {
+      model: "google/gemini-3.5-flash-lite",
+      ms: 1800,
+      inputTokens: 6400,
+      cachedTokens: 6000,
+      outputTokens: 120,
+      reasoningTokens: 300,
+      finishReason: "tool_calls",
+      words: null,
+      tools: [
+        {
+          name: "quote",
+          arguments: '{"trip_id":"T1","date":"2026-12-11","adults":2}',
+          result: "refused: no departure on Fri 11 Dec; the open dates are Sat 12 Dec and Sat 19 Dec",
+          refused: true,
+        },
+        {
+          name: "quote",
+          arguments: '{"trip_id":"T1","date":"2026-12-12","adults":2}',
+          result: "Kedarkantha, Sat 12 Dec 2026, 2 adults: total ₹22,600, advance ₹6,000",
+          refused: false,
+        },
+      ],
+    },
+    {
+      model: "google/gemini-3.5-flash-lite",
+      ms: 2100,
+      inputTokens: 6900,
+      cachedTokens: 6300,
+      outputTokens: 80,
+      reasoningTokens: 0,
+      finishReason: "stop",
+      words: "It is ₹21,000 for both.",
+      tools: [],
+    },
+  ],
+  guards: [
+    { guard: "G1", passed: false, detail: "₹21,000 isn't in the agency's data" },
+    { guard: "G1", passed: true, detail: null },
+  ],
+  staged: [],
+  flags: ["seats_differ:T1"],
+};
+
+/** One natural turn's answer: its messages as the chat's lines, no payment, nothing staged, and a state of its own. */
+const naturalTurn = (sent: string[], more: object = {}) => ({
+  messages: sent,
+  payment: null,
+  actions: [],
+  outcome: "replied",
+  state: stateAt(1),
+  history: sent.map((text) => ({ from: "agent", text })),
+  trace,
+  ...more,
+});
+
+async function send(text: string) {
+  await userEvent.type(screen.getByLabelText(words.message), text);
+  await userEvent.click(screen.getByRole("button", { name: words.send }));
+}
+
+/** Sends one line to the new agent with the api answering `answer`. */
+async function chat(answer: object) {
+  stubApi({ "ai.testOne": { data: answer } });
+  renderWithApi(<TestSection />, client());
+  await send("Kedarkantha on 12 Dec for 2?");
+}
+
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+describe("Try it's answers", () => {
+  it("sends each turn to ai.testOne with the state the last one handed back", async () => {
+    const api = fakeApi();
+    renderWithApi(<TestSection />, client());
+    await send("Kedarkantha in Dec?");
+    expect(api.last().path).toBe("ai.testOne");
+    expect(api.last().input).toEqual({
+      messages: [{ from: "customer", text: "Kedarkantha in Dec?" }],
+      state: null,
+      prompt: "live",
+      chatId: expect.stringMatching(uuid) as unknown,
+    });
+    const { chatId } = api.last().input as { chatId: string };
+    const first = naturalTurn(["Yes! It departs every Saturday in December."], { state: stateAt(1) });
+    api.last().answer(first);
+    expect(await screen.findByText("Yes! It departs every Saturday in December.")).toBeVisible();
+    await send("12 Dec for 2");
+    expect(api.last().path).toBe("ai.testOne");
+    // The same test chat, so the same id: its turns are one session of traces.
+    expect(api.last().input).toMatchObject({ state: first.state, chatId });
+  });
+
+  it("starts a new test chat, with a new id, on Start again", async () => {
+    const api = fakeApi();
+    renderWithApi(<TestSection />, client());
+    await send("Kedarkantha in Dec?");
+    const { chatId } = api.last().input as { chatId: string };
+    api.last().answer(naturalTurn(["Yes! It departs every Saturday in December."]));
+    await screen.findByText("Yes! It departs every Saturday in December.");
+    await userEvent.click(screen.getByRole("button", { name: words.reset }));
+    await send("Brahmatal?");
+    expect(api.last().input).toMatchObject({ state: null, chatId: expect.stringMatching(uuid) as unknown });
+    expect((api.last().input as { chatId: string }).chatId).not.toBe(chatId);
+  });
+
+  it("names no model or temperature, runs the live prompt unless told, and shows which prompt version ran in Why", async () => {
+    const api = fakeApi();
+    renderWithApi(<TestSection />, client());
+    await send("Kedarkantha in Dec?");
+    expect(api.last().input).not.toHaveProperty("model");
+    expect(api.last().input).not.toHaveProperty("temperature");
+    expect(api.last().input).toMatchObject({ prompt: "live" });
+    const version = "langfuse:whatsapp-agent/real-agent@4";
+    api.last().answer(naturalTurn([reply], { trace: { ...trace, promptVersion: version, promptLabel: "production" } }));
+    await userEvent.click(await screen.findByRole("button", { name: words.why.open }));
+    expect(screen.getByText(version)).toBeVisible();
+    expect(screen.queryByText(natural.why.noDraft)).toBeNull();
+  });
+
+  it("shows each message as it was split, its line breaks and blank lines kept", async () => {
+    const list = "Snow Lake mein ye included hai:\n\n• Dehradun se transport\n• Saare meals\n\n*Porter* alag se.";
+    await chat(naturalTurn([list, "Aapke group mein kitne log hain?"]));
+    const porter = await screen.findByText("Porter");
+    // Bold becomes bold, not asterisks; a • list stays lines of its own and a blank line a gap between paragraphs.
+    expect(porter.tagName).toBe("STRONG");
+    const bubble = porter.closest("div.flex");
+    expect(bubble?.querySelectorAll("p")).toHaveLength(3);
+    expect(bubble?.textContent).not.toContain("*");
+    expect(bubble).toHaveClass("whitespace-pre-wrap");
+    expect(screen.getByText("Aapke group mein kitne log hain?")).toBeVisible();
+  });
+
+  it("shows two messages and the payment lines code would send after them", async () => {
+    const sent = ["Done! I've held 2 seats on Sat 12 Dec.", "Pay the ₹6,000 advance to confirm them."];
+    const payment = ["UPI: trails@okbank", "Kerala Trails, account 000012345678, IFSC BANK0000001"];
+    await chat(naturalTurn(sent, { payment }));
+    const second = await screen.findByText(sent[1] ?? "");
+    expect(screen.getByText(sent[0] ?? "")).toBeVisible();
+    const caption = screen.getByText(natural.payment);
+    expect(second.compareDocumentPosition(caption) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    for (const line of payment) expect(screen.getByText(line)).toBeVisible();
+    expect(
+      caption.compareDocumentPosition(screen.getByText(payment[0] ?? "")) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("says it would hand the chat over, with the reason in words", async () => {
+    const handOver = { tool: "hand_over", reason: "discount", summary: "Wants 10% off for 6 people." };
+    await chat(naturalTurn(["Let me check that with the team."], { outcome: "handed_off", actions: [handOver] }));
+    expect(await screen.findByText("Let me check that with the team.")).toBeVisible();
+    expect(screen.getByText(words.handoff.replace("{reason}", natural.handOverReasons.discount))).toBeVisible();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("says when it would stay quiet, and why", async () => {
+    const quiet = { tool: "stay_quiet", reason: "They only said ok." };
+    await chat(naturalTurn([], { outcome: "quiet", actions: [quiet] }));
+    expect(await screen.findByText(natural.quiet.replace("{reason}", "They only said ok."))).toBeVisible();
+  });
+
+  it("says it couldn't answer, so it would send nothing and add a task", async () => {
+    const task = { tool: "create_task", kind: "question", text: "The AI didn't answer (timeout)." };
+    await chat(naturalTurn([], { outcome: "fallback", actions: [task] }));
+    expect(await screen.findByText(natural.fallback)).toBeVisible();
+    expect(screen.queryByText(/^It would hand the chat to your team/)).toBeNull();
+  });
+
+  it("says under the fallback that a person would take the chat, when the fallback hands it over", async () => {
+    const actions = [
+      { tool: "hand_over", reason: "discount", summary: "Asked for 10% off twice; the agency's answers give none." },
+      { tool: "create_task", kind: "question", text: "The reply named a discount the agency hasn't given." },
+    ];
+    await chat(naturalTurn([], { outcome: "fallback", actions }));
+    const fallback = await screen.findByText(natural.fallback);
+    const handOver = screen.getByText(words.handoff.replace("{reason}", natural.handOverReasons.discount));
+    expect(handOver).toBeVisible();
+    expect(fallback.compareDocumentPosition(handOver) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("opens Why on each call's tools, arguments, results and the guards' verdicts", async () => {
+    await chat(naturalTurn([reply]));
+    await screen.findByText(reply);
+    expect(screen.queryByText("built-in-1")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: words.why.open }));
+    expect(screen.getByText('quote({"trip_id":"T1","date":"2026-12-12","adults":2})')).toBeVisible();
+    expect(screen.getByText(/refused: no departure on Fri 11 Dec/)).toBeVisible();
+    expect(screen.getByText("built-in-1")).toBeVisible();
+    expect(screen.getByText(natural.outcomes.replied)).toBeVisible();
+    expect(screen.getByText(natural.why.seconds.replace("{seconds}", "4.2"))).toBeVisible();
+    expect(screen.getByText("13,300 in, 12,300 cached, 200 out, 300 reasoning")).toBeVisible();
+    expect(screen.getAllByText("google/gemini-3.5-flash-lite")).toHaveLength(2);
+    expect(screen.getByText(natural.why.wrote.replace("{words}", "It is ₹21,000 for both."))).toBeVisible();
+    expect(screen.getByText(natural.why.guardRefused.replace("{guard}", "G1"))).toBeVisible();
+    expect(screen.getByText("₹21,000 isn't in the agency's data")).toBeVisible();
+    expect(screen.getByText(natural.why.guardPassed.replace("{guard}", "G1"))).toBeVisible();
+    expect(screen.getByText("seats_differ:T1")).toBeVisible();
+    expect(screen.getByText(words.why.nothingMore)).toBeVisible();
+  });
+
+  it("says in Why what it would do: the trip's name, the day, the money and the time in the agency's zone", async () => {
+    const at = "2026-11-17T12:30:00.000Z";
+    const actions = [
+      { tool: "send_brochure", trip: "Kedarkantha", files: 2 },
+      { tool: "book", trip: "Kedarkantha", date: "2026-12-12", seats: 2, advancePaise: 600_000 },
+      { tool: "plan_follow_up", at, about: "Ask if the advance is paid." },
+      { tool: "update_lead", fields: ["dates", "adults"] },
+    ];
+    await chat(naturalTurn([reply], { actions }));
+    await userEvent.click(await screen.findByRole("button", { name: words.why.open }));
+    expect(screen.getByText("It would send the Kedarkantha brochure (2 files).")).toBeVisible();
+    const day = formatCalendarDay("2026-12-12");
+    const advance = formatRupees(money(600_000));
+    expect(
+      screen.getByText(
+        `It would hold 2 seats of Kedarkantha on ${day} and send the payment details and QR for the ${advance} advance.`,
+      ),
+    ).toBeVisible();
+    const time = formatDayTime(new Date(at), { timeZone: "Asia/Kolkata" });
+    expect(screen.getByText(`It would follow up on ${time}: Ask if the advance is paid.`)).toBeVisible();
+    expect(screen.getByText("It would save the lead's dates, adults.")).toBeVisible();
+    expect(screen.queryByText(/2026-11-17T12:30/)).toBeNull();
+  });
+
+  it("posts each answer's history lines as the agent's lines in the next turn", async () => {
+    const api = fakeApi();
+    renderWithApi(<TestSection />, client());
+    await send("Kedarkantha details?");
+    const history = [
+      { from: "agent", text: "Here is the Kedarkantha brochure." },
+      { from: "agent", text: "[sent: Kedarkantha brochure]" },
+    ];
+    api.last().answer(naturalTurn(["Here is the Kedarkantha brochure."], { history }));
+    await screen.findByText("Here is the Kedarkantha brochure.");
+    await send("price for 2?");
+    expect(api.last().input).toEqual({
+      messages: [
+        { from: "customer", text: "Kedarkantha details?" },
+        ...history,
+        { from: "customer", text: "price for 2?" },
+      ],
+      state: stateAt(1),
+      prompt: "live",
+      chatId: expect.stringMatching(uuid) as unknown,
+    });
+  });
+});

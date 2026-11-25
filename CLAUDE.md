@@ -9,30 +9,29 @@ and verify here, and the lessons that cost us time), and for screens [docs/ui-bu
 
 Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
 
-| Command                                        | What it does                                                                                  |
-| ---------------------------------------------- | --------------------------------------------------------------------------------------------- |
-| `pnpm install`                                 | install dependencies                                                                          |
-| `pnpm db:up` / `pnpm db:down`                  | start / stop local Postgres (Docker)                                                          |
-| `pnpm services:up`                             | start Postgres, MinIO (files) and Mailpit (email) locally                                     |
-| `pnpm db:migrate`                              | apply migrations to local Postgres                                                            |
-| `pnpm --filter @travel-crm/api-server dev`     | run the api on http://localhost:3001 (reads `.env`)                                           |
-| `pnpm --filter @travel-crm/api-server worker`  | run the worker: outbox relay, listeners, jobs, schedules                                      |
-| `pnpm --filter @travel-crm/api-server console` | run the platform console on http://localhost:3002, and its jobs                               |
-| `pnpm dev`                                     | services and migrations, then api, worker, console and web                                    |
-| `pnpm demo`                                    | build the demo agency now (set `DEMO_*` in `.env` first)                                      |
-| `pnpm product:up` / `pnpm product:down`        | the whole product in Docker, at http://localhost:58080                                        |
-| `pnpm agent:bench`                             | replay chats through the lite agent on a throwaway database (Docker); report outside the repo |
-| `pnpm format`                                  | format every file with Prettier                                                               |
-| `pnpm check`                                   | format, scripts:test, typecheck, lint, tests, journeys, imports                               |
-| `pnpm images:smoke` / `pnpm product:smoke`     | build the images and run them as a deploy does (CI)                                           |
-| `pnpm lighthouse`                              | build the web app, hold its public pages to budgets (CI)                                      |
-| `pnpm test:performance`                        | the at-scale and query-plan tests; CI runs them nightly, not on a pull request                |
-| `pnpm e2e:audit`                               | screenshot every screen on a phone and a desktop (`AUDIT_OUT`)                                |
-| `pnpm migrations:check`                        | migrations on an empty Postgres 18, then drift check (CI)                                     |
-| `pnpm workflows:lint`                          | actionlint and ShellCheck on workflows and scripts (CI)                                       |
-| `pnpm scripts:test`                            | the scripts' tests: compose project names, working hours (CI)                                 |
-| `pnpm audit --audit-level=high`                | the dependency audit (CI); exceptions: `pnpm-workspace.yaml`                                  |
-| `pnpm --filter @travel-crm/<package> test`     | one package's tests (most need Docker running)                                                |
+| Command                                        | What it does                                                                   |
+| ---------------------------------------------- | ------------------------------------------------------------------------------ |
+| `pnpm install`                                 | install dependencies                                                           |
+| `pnpm db:up` / `pnpm db:down`                  | start / stop local Postgres (Docker)                                           |
+| `pnpm services:up`                             | start Postgres, MinIO (files) and Mailpit (email) locally                      |
+| `pnpm db:migrate`                              | apply migrations to local Postgres                                             |
+| `pnpm --filter @travel-crm/api-server dev`     | run the api on http://localhost:3001 (reads `.env`)                            |
+| `pnpm --filter @travel-crm/api-server worker`  | run the worker: outbox relay, listeners, jobs, schedules                       |
+| `pnpm --filter @travel-crm/api-server console` | run the platform console on http://localhost:3002, and its jobs                |
+| `pnpm dev`                                     | services and migrations, then api, worker, console and web                     |
+| `pnpm demo`                                    | build the demo agency now (set `DEMO_*` in `.env` first)                       |
+| `pnpm product:up` / `pnpm product:down`        | the whole product in Docker, at http://localhost:58080                         |
+| `pnpm format`                                  | format every file with Prettier                                                |
+| `pnpm check`                                   | format, scripts:test, typecheck, lint, tests, journeys, imports                |
+| `pnpm images:smoke` / `pnpm product:smoke`     | build the images and run them as a deploy does (CI)                            |
+| `pnpm lighthouse`                              | build the web app, hold its public pages to budgets (CI)                       |
+| `pnpm test:performance`                        | the at-scale and query-plan tests; CI runs them nightly, not on a pull request |
+| `pnpm e2e:audit`                               | screenshot every screen on a phone and a desktop (`AUDIT_OUT`)                 |
+| `pnpm migrations:check`                        | migrations on an empty Postgres 18, then drift check (CI)                      |
+| `pnpm workflows:lint`                          | actionlint and ShellCheck on workflows and scripts (CI)                        |
+| `pnpm scripts:test`                            | the scripts' tests: compose project names, working hours (CI)                  |
+| `pnpm audit --audit-level=high`                | the dependency audit (CI); exceptions: `pnpm-workspace.yaml`                   |
+| `pnpm --filter @travel-crm/<package> test`     | one package's tests (most need Docker running)                                 |
 
 `pnpm check` is not all of CI: CI runs its parts and every command marked CI, each as a job of its own
 (`.github/workflows/ci.yml`), and CodeQL (`codeql.yml`).
@@ -169,10 +168,10 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   deliberate exception (the owner, 2026-11-16): prompts and replies go to Langfuse in full, phones and emails masked; the
   Logger's no-personal-data rule is unchanged. Tracing never changes or slows what it traces.
 - **AI prompts** (the owner, 2026-11-16): Langfuse is the source of truth, read through the `AiPrompts` port
-  (`@travel-crm/integrations/prompts`; none without `LANGFUSE_*`). The natural agent's prompt is
-  `whatsapp-agent/natural-system`: live turns read label `production`, Try it's Draft reads `draft`, each generation
-  links to the version used, and the built-in text in code (kept equal to production) is the fallback when Langfuse is
-  slow (2 s) or down. Two messages in a reply are split at a line of only `---`.
+  (`@travel-crm/integrations/prompts`; none without `LANGFUSE_*`). The agent's prompt is `whatsapp-agent/real-agent`:
+  live turns read label `production`, Try it's Draft reads `draft` (the live one when there is none), each generation
+  links to the version used, and the built-in text in code is the fallback when Langfuse is slow (2 s) or down. Two
+  messages in a reply are split at a line of only `---`.
 - **Money and time:** `Money` in integer paise, `indiaGst` for tax, `formatMoney` (₹12,50,000.00), times in UTC shown in
   the organization's zone (`formatDateTime`), departure dates as `CalendarDate`. Never floats, never local time.
 - **Public routes** (`/p/<token>`, `/webhooks/<provider>`) are rate-limited; a new shared record type adds a resolver in
@@ -186,8 +185,9 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   phone, email or message is ever logged. Turnstile sits behind the `BotCheck` port and fails open only when Cloudflare
   can't answer. Offers consent is crm's `person_consent` ledger, behind `features.marketingConsent`.
 - **The one WhatsApp agent** (spec `2026-11-17-one-whatsapp-agent-design.md`, `packages/domain/src/ai/one`):
-  - an agency's `ai_autopilot.agent` is `lite`, `natural` (the default) or `one`, chosen in the console;
-  - `one` runs LangGraph through the `tool-agent` port, on Gemini through Vertex AI (`AI_VERTEX_SERVICE_ACCOUNT`);
+  - it is the only agent (the owner, 2026-11-24): every agency runs it, there is no choice of agent, and the lite and
+    natural agents are gone; the parts of `ai/lite` and `ai/natural` it still uses stay there;
+  - it runs LangGraph through the `tool-agent` port, on Gemini through Vertex AI (`AI_VERTEX_SERVICE_ACCOUNT`);
   - its prompt is Langfuse `whatsapp-agent/real-agent`, and Try it is `ai.testOne`;
   - it sends a brochure by the owner's name and description (`package_brochure`), hears voice notes and sees photos
     (saved on the message), and offers bookings as a card with Book and Change buttons (a tap's id is

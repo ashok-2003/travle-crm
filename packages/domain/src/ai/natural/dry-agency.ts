@@ -7,7 +7,7 @@ import { organizationTimeZone } from "../../identity/index.js";
 import { calendarDateIn, type CalendarDate } from "../../kernel/index.js";
 import { agencyPaymentDetailsOf, paymentDetailsReady, paymentLinesOf } from "../../profile/index.js";
 import { sellablePackages } from "../../quotes/index.js";
-import { agencyAnswersOf, agentBasicsOf } from "../agency-answers.js";
+import { agencyAnswersOf, agencyContactOf, agentBasicsOf, type AgencyContact } from "../agency-answers.js";
 import type { AgentVoice } from "./prompt.js";
 import { tripSheetsOf } from "./trips/trip-sheets.js";
 import type { TripSheet } from "./types.js";
@@ -17,6 +17,7 @@ export interface DryAgency {
   today: CalendarDate;
   sheets: TripSheet[];
   answers: AgencyAnswers;
+  contact: AgencyContact;
   voice: AgentVoice;
   paymentLines: string[] | null;
 }
@@ -36,6 +37,7 @@ export function dryAgency(db: Database, organizationId: string, agencyName: stri
       today,
       sheets: await tripSheetsOf(tx, sellable, today, now),
       answers,
+      contact: await agencyContactOf(tx, organizationId),
       voice: {
         agentName: basics.agentName,
         agencyName,

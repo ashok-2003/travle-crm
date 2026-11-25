@@ -187,7 +187,7 @@ describe("a send in a chat goes from the chat's own number", () => {
       const media = { messageId: fileId, kind: "image" as const, fileName: "goa.png" };
       const fileSent = await world.inOrg((tx) => sendAiText(tx, target, randomUUID(), "The Goa trip", "file", media));
       const card = await world.inOrg((tx) =>
-        sendAiText(tx, target, randomUUID(), "Shall I book it?", "reply", undefined, buttons),
+        sendAiText(tx, target, randomUUID(), "Shall I book it?", "reply", undefined, { buttons }),
       );
       expect(fileSent).toBe(fileId);
       sent.push([replyId, fileSent, card]);

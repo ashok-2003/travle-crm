@@ -2,7 +2,6 @@
 // gate's, the Langfuse version it ran (0 for the built-in text).
 import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import { createMemoryPrompts, type ManagedPrompt } from "@travel-crm/integrations/prompts";
-import { createMemoryStorage } from "@travel-crm/integrations/storage";
 import { createMemoryToolAgent } from "@travel-crm/integrations/tool-agent";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ONE_PROMPT_NAME } from "../../../src/ai/one/prompt.js";
@@ -30,9 +29,8 @@ describe("a one turn's row", () => {
 
   async function world(prompts: ManagedPrompt[] = []) {
     const on = await liveAgency(test);
-    const storage = createMemoryStorage();
     const logger = createMemoryLogger();
-    const toolTurns = createTraceSink({ db: test.db, storage, logger });
+    const toolTurns = createTraceSink({ db: test.db, logger });
     const run = (input = on.turnInput(), at = liveNow) =>
       runOneTurn(
         { ...on.dependencies(), prompts: createMemoryPrompts(prompts), toolAgent: createMemoryToolAgent(), toolTurns },
@@ -40,7 +38,7 @@ describe("a one turn's row", () => {
         at,
       );
     const rows = () => on.inOrg((tx) => tx.aiTurnTrace.findMany({ where: { conversationId: on.chat.id } }));
-    return { ...on, run, rows, storage };
+    return { ...on, run, rows };
   }
 
   it("names the Langfuse version it ran, 0 for the built-in text", async () => {

@@ -30,15 +30,10 @@ import {
   setAiBookingStatusInput,
   aiDocumentSlot,
   aiOverview,
-  type AgentKind,
   chatAi,
   conversationAiInput,
   naturalTestAnswer,
-  naturalTestInput,
   oneTestInput,
-  testAiAnswer,
-  testAgentAnswer,
-  testAiInput,
   setChatAiInput,
   aiKnowledgeIdInput,
   aiKnowledgeList,
@@ -67,7 +62,6 @@ import {
   decideSuggestions,
   suggestedFieldsOf,
   addKnowledge,
-  agentOf,
   aiAllowed,
   bookingsOfLead,
   setBookingStatus,
@@ -76,11 +70,8 @@ import {
   chatsAnsweredSince,
   aiSettingsOf,
   chatAiOf,
-  naturalPromptOf,
-  naturalTryItTurn,
-  onePromptOf,
+  oneTryItPrompt,
   oneTryItTurn,
-  tryItTurn,
   resumeChat,
   setChatMode,
   confirmDocument,
@@ -102,7 +93,6 @@ import { agentPauseOf } from "@travel-crm/domain/subscriptions";
 import { getLead } from "@travel-crm/domain/crm";
 import { organizationTimeZone } from "@travel-crm/domain/identity";
 import { DomainError, periodStart } from "@travel-crm/domain/kernel";
-import type { Database } from "@travel-crm/db";
 import { agencyToday } from "../package-departures-gate.js";
 import { freshProcedure, orgProcedure } from "../procedures.js";
 import { aiDeparturesRouter } from "./ai-departures.js";
@@ -110,15 +100,6 @@ import { aiFillRouter } from "./ai-fill.js";
 import { aiPackageDraftsRouter } from "./ai-package-drafts.js";
 import { aiRatesRouter } from "./ai-rates.js";
 import { router } from "../trpc.js";
-
-/** Try it runs the agency's own agent, as its setting says: a procedure for another agent's turn is refused. */
-async function assertOwnAgent(
-  ctx: { db: Database; member: { organizationId: string } },
-  agent: AgentKind,
-): Promise<void> {
-  if ((await ctx.db.forOrg(ctx.member.organizationId, (tx) => agentOf(tx))) !== agent)
-    throw new DomainError("CONFLICT", "AGENT_CHANGED", "The agency's agent is not the one this chat tests");
-}
 
 export const aiRouter = router({
   /** "Fill it for me": the AI proposes values for a form; a person applies and saves. */
@@ -469,63 +450,9 @@ export const aiRouter = router({
       ctx.db.forOrg(ctx.member.organizationId, (tx) => resumeChat(tx, ctx.member, input.conversationId)),
     ),
 
-  /** Which agent Try it runs: the agency's own, so the screen knows which turn to ask for. */
-  testAgent: freshProcedure
-    .requires("ai:manage")
-    .output(testAgentAnswer)
-    .query(async ({ ctx }) => ({
-      agent: await ctx.db.forOrg(ctx.member.organizationId, (tx) => agentOf(tx)),
-    })),
-
   /**
-   * Try it, on the lite agent: the agent's turn as a dry run on a test chat and the state its last turn left, nothing
-   * sent or kept. It runs with the live settings (the live model list, no temperature); the owner chooses nothing.
-   */
-  test: freshProcedure
-    .requires("ai:manage")
-    .input(testAiInput)
-    .output(testAiAnswer)
-    .mutation(async ({ ctx, input }) => {
-      if (!ctx.ai?.configured)
-        throw new DomainError("CONFLICT", "AI_NOT_READY", "The AI isn't set up on this server yet");
-      await assertOwnAgent(ctx, "lite");
-      const agencyName = async (organizationId: string) =>
-        (await ctx.identity.organizationProfile(organizationId))?.name ?? "the agency";
-      const chat = { messages: input.messages, state: input.state };
-      // One traced turn of the person's test chat, when the server traces (Langfuse).
-      const tracing = ctx.tracing === undefined ? {} : { tracing: ctx.tracing };
-      return tryItTurn({ db: ctx.db, ai: ctx.ai, agencyName, ...tracing }, ctx.member, chat, new Date());
-    }),
-
-  /**
-   * Try it on the natural agent: its own strict input and answer, on the live prompt (label production). A server with
-   * no model for the agent answers AI_NOT_READY; any other model failure comes back as nothing sent and a task, as it
-   * would live. Nothing is sent or kept but the month's AI calls. When the server traces (Langfuse), each turn is one
-   * traced turn of the test chat, its session the chat's id.
-   */
-  testNatural: freshProcedure
-    .requires("ai:manage")
-    .input(naturalTestInput)
-    .output(naturalTestAnswer)
-    .mutation(async ({ ctx, input }) => {
-      if (!ctx.ai?.configured)
-        throw new DomainError("CONFLICT", "AI_NOT_READY", "The AI isn't set up on this server yet");
-      await assertOwnAgent(ctx, "natural");
-      const agencyName = async (organizationId: string) =>
-        (await ctx.identity.organizationProfile(organizationId))?.name ?? "the agency";
-      const chat = {
-        messages: input.messages,
-        state: input.state,
-        prompt: await naturalPromptOf(ctx.prompts),
-        ...(input.chatId === undefined ? {} : { chatId: input.chatId }),
-      };
-      const tracing = ctx.tracing === undefined ? {} : { tracing: ctx.tracing };
-      return naturalTryItTurn({ db: ctx.db, ai: ctx.ai, agencyName, ...tracing }, ctx.member, chat, new Date());
-    }),
-
-  /**
-   * Try it on the one agent: the live prompt (label production), AI_NOT_READY without a model or a tool agent.
-   * Nothing is sent or kept.
+   * Try it on the one agent: the live prompt (label production), or the draft (label draft) when the person chose it,
+   * the live one when there is no draft; AI_NOT_READY without a model or a tool agent. Nothing is sent or kept.
    */
   testOne: freshProcedure
     .requires("ai:manage")
@@ -535,13 +462,12 @@ export const aiRouter = router({
       const { ai, toolAgent } = ctx;
       if (!ai?.configured || toolAgent === undefined)
         throw new DomainError("CONFLICT", "AI_NOT_READY", "The AI isn't set up on this server yet");
-      await assertOwnAgent(ctx, "one");
       const agencyName = async (organizationId: string) =>
         (await ctx.identity.organizationProfile(organizationId))?.name ?? "the agency";
       const chat = {
         messages: input.messages,
         state: input.state,
-        prompt: await onePromptOf(ctx.prompts),
+        prompt: await oneTryItPrompt(ctx.prompts, input.prompt),
         ...(input.tap === undefined ? {} : { tap: input.tap }),
         ...(input.chatId === undefined ? {} : { chatId: input.chatId }),
       };
