@@ -71,7 +71,10 @@ export function DeparturesMonth({
           <CalendarDayButton
             locale={enIN}
             {...props}
-            className={cn(props.className, "h-full items-start justify-start p-1.5 text-left [&>span]:opacity-100")}
+            className={cn(
+              props.className,
+              "h-full items-start justify-start p-1.5 text-left text-inherit [&>span]:opacity-100",
+            )}
           >
             {props.children}
             {departure !== undefined && words !== null && (
