@@ -1,6 +1,6 @@
 // A trip as the natural agent's context writes it (spec 4.2): in full, or as one index line. Dates carry their weekday,
 // money is in rupees with lakh grouping, and seats read "open" or "N left".
-import { adultRoomTypes, roomTypes, type RoomType } from "@travel-crm/contracts/quotes";
+import { OPEN_SEASON_END, adultRoomTypes, roomTypes, type RoomType } from "@travel-crm/contracts/quotes";
 import { formatRupees, formatShortDay, type CalendarDate } from "../../../kernel/index.js";
 import type { PerPersonPrices, TripSheet } from "../types.js";
 
@@ -89,14 +89,21 @@ function stopsOf(sheet: TripSheet): string[] {
   return stops;
 }
 
+const ownRoomsWords = (rooms: RoomType[] | undefined) =>
+  rooms === undefined || rooms.length === 0 ? "some rooms" : rooms.map((room) => roomNames[room]).join(" and ");
+
 export function tripInFull(sheet: TripSheet, today: CalendarDate): string {
   const day = (date: CalendarDate) => formatShortDay(date, today);
-  const seasons = sheet.seasons.map(
-    (season) => `- ${season.name} (${day(season.from)}–${day(season.until)}): ${pricesWords(season.perPersonPaise)}`,
-  );
+  const seasons = sheet.seasons.map((season) => {
+    const span =
+      season.until === OPEN_SEASON_END
+        ? `from ${day(season.from)} onwards`
+        : `${day(season.from)}–${day(season.until)}`;
+    return `- ${season.name} (${span}): ${pricesWords(season.perPersonPaise)}`;
+  });
   const priceOfDate = (one: TripSheet["departures"][number]) =>
     one.priceFrom === "departure"
-      ? `; this date's own prices replace the season's: ${pricesWords(one.perPersonPaise)}`
+      ? `; this date sets its own price for ${ownRoomsWords(one.ownRooms)}, the other rooms keep the season's: ${pricesWords(one.perPersonPaise)}`
       : one.priceFrom === "none"
         ? "; no price set for this date"
         : "";

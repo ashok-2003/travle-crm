@@ -52,12 +52,14 @@ export interface TripSheet {
   fromPaise: number | null;
   advancePerPersonPaise: number | null;
   // The next 8 open, from tomorrow, each with the prices the quote uses on its date (`priceOn`): the season's, the
-  // departure's own (which replace the season's), or none (empty).
+  // departure's own laid over the season's room by room, or none (empty).
   departures: {
     id: string;
     startsOn: CalendarDate;
     freeSeats: number;
     priceFrom: "season" | "departure" | "none";
+    // The rooms the departure prices itself (the others keep the season's); only with priceFrom "departure".
+    ownRooms?: RoomType[];
     perPersonPaise: PerPersonPrices;
   }[];
   // Brochures first, then photos.

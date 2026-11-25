@@ -1,7 +1,7 @@
 // Special prices for some dates against the real database: the seasons around them are split, shortened or removed.
 // one package (but free to repeat across packages), changed and removed with an audit entry each, and invisible to another agency.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { saveSpecialPricesInput, type RoomPrices } from "@travel-crm/contracts/quotes";
+import { OPEN_SEASON_END, saveSpecialPricesInput, type RoomPrices } from "@travel-crm/contracts/quotes";
 import { aLead } from "../crm/support/records.js";
 import { openWorld, type World } from "../bookings/support.js";
 import { createQuote, savePackage, savePackageSeason, saveSpecialPrices, seasonsOf } from "../../src/quotes/index.js";
@@ -147,10 +147,26 @@ describe("special prices", () => {
     ]);
   });
 
-  it("until I change them with no season covering the start runs 365 days (start + 364)", async () => {
+  it("until I change them with no season after the start has no end", async () => {
     const id = await aPackage();
-    await special(id, "2027-01-01", null);
-    expect(await shape(id)).toEqual(["Special 2027-01-01..2027-12-31 9900000"]);
+    await save(id, "Regular", "2027-04-01", "2027-11-13");
+    await special(id, "2027-11-20", null);
+    expect(await shape(id)).toEqual([
+      "Regular 2027-04-01..2027-11-13 4500000",
+      `Special 2027-11-20..${OPEN_SEASON_END} 9900000`,
+    ]);
+  });
+
+  it("until I change them stops the day before a Christmas season that starts later", async () => {
+    const id = await aPackage();
+    await save(id, "Regular", "2027-04-01", "2027-11-13");
+    await save(id, "Christmas", "2027-12-24", "2028-01-02");
+    await special(id, "2027-11-20", null);
+    expect(await shape(id)).toEqual([
+      "Regular 2027-04-01..2027-11-13 4500000",
+      "Special 2027-11-20..2027-12-23 9900000",
+      "Christmas 2027-12-24..2028-01-02 4500000",
+    ]);
   });
 
   it("until I change them with no season covering the start stops the day before the next season, which keeps its days and prices", async () => {

@@ -156,12 +156,15 @@ describe("the natural agent's trip sheets", () => {
       return { batch, text: tripInFull(sheet ?? expect.unreachable(), today) };
     }
 
-    it("gives a premium batch its own prices, only the rooms they price, as replacing the season's", async () => {
+    it("gives a premium batch its own price for the rooms it prices, the season's for the rest", async () => {
       const { batch, text } = await withBatch("2026-12-24", { priceTriplePaise: 1_199_900n });
-      expect(batch).toMatchObject({ priceFrom: "departure", perPersonPaise: { triple: 1_199_900 } });
-      expect(batch?.perPersonPaise).not.toHaveProperty("double");
+      expect(batch).toMatchObject({
+        priceFrom: "departure",
+        ownRooms: ["triple"],
+        perPersonPaise: { double: 1_099_900, triple: 1_199_900 },
+      });
       expect(text).toContain(
-        "- Thu 24 Dec: open; this date's own prices replace the season's: triple ₹11,999 per person",
+        "- Thu 24 Dec: open; this date sets its own price for triple, the other rooms keep the season's: double ₹10,999, triple ₹11,999 per person",
       );
       expect(text).toContain("- Sat 12 Dec: open\n");
     });
@@ -172,10 +175,17 @@ describe("the natural agent's trip sheets", () => {
       expect(text).toContain("- Sat 9 Jan 2027: open; no price set for this date");
     });
 
-    it("says no price is set for a batch whose own prices are only on rooms the trip doesn't sell", async () => {
+    it("gives a batch whose own prices are only on rooms the trip doesn't sell the season's prices", async () => {
       const { batch, text } = await withBatch("2026-12-24", { priceQuadPaise: 899_900n });
+      expect(batch).toMatchObject({ priceFrom: "season" });
+      expect(batch).not.toHaveProperty("ownRooms");
+      expect(text).toContain("- Thu 24 Dec: open\n");
+    });
+
+    it("says no price is set for such a batch past the season's end", async () => {
+      const { batch, text } = await withBatch("2027-01-09", { priceQuadPaise: 899_900n });
       expect(batch).toMatchObject({ priceFrom: "none", perPersonPaise: {} });
-      expect(text).toContain("- Thu 24 Dec: open; no price set for this date");
+      expect(text).toContain("- Sat 9 Jan 2027: open; no price set for this date");
     });
 
     it("never lists a full departure", async () => {

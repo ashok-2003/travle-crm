@@ -167,13 +167,14 @@ describe("a group trip's quote", () => {
     expect(quote.items[0]).toMatchObject({ description: `${name}, Triple sharing × 4` });
   });
 
-  it("a premium batch is priced from its own prices", async () => {
+  it("a premium batch is priced from its own price, and the season's for the rooms it leaves out", async () => {
     const { id } = await aPackage();
     const departureId = await aDepartureOf(id, { own: 999_900n });
-    // The departure sets only triple, and brings its whole set: double is no longer priced there.
+    // The departure sets only triple; double keeps the season's price.
     const quote = await make(id, departureId, [{ roomType: "triple", people: 3 }]);
     expect(Math.abs(quote.totals.totalPaise - 2_999_700)).toBeLessThanOrEqual(2);
-    expect(await reasonOf(make(id, departureId, [{ roomType: "double", people: 2 }]))).toBe("ROOM_NOT_PRICED");
+    const double = await make(id, departureId, [{ roomType: "double", people: 2 }]);
+    expect(double.items[0]).toMatchObject({ description: expect.stringContaining("Double") as unknown });
   });
 
   it("refuses a full, closed or past departure, and too few seats", async () => {

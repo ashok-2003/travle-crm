@@ -169,8 +169,22 @@ export async function tripSheetsOf(
         // The quote's own rule, so the sheet never gives a date a price the quote would refuse or change.
         const priced = priceOn(one.startsOn, ownSeasons, one, offered);
         const perPersonPaise = priced === null ? {} : pricedOnly(priced.prices, offered);
-        const priceFrom = priced === null || !hasAny(perPersonPaise) ? ("none" as const) : priced.source;
-        return { id: one.id, startsOn: one.startsOn, freeSeats: one.freeSeats, priceFrom, perPersonPaise };
+        const ownRooms = roomTypes.filter((type) => offered.includes(type) && one.prices[type] !== null);
+        // Own prices only on rooms the trip doesn't sell leave the season's prices as they are.
+        const priceFrom =
+          priced === null || !hasAny(perPersonPaise)
+            ? ("none" as const)
+            : priced.source === "departure" && ownRooms.length === 0
+              ? ("season" as const)
+              : priced.source;
+        return {
+          id: one.id,
+          startsOn: one.startsOn,
+          freeSeats: one.freeSeats,
+          priceFrom,
+          ...(priceFrom === "departure" ? { ownRooms } : {}),
+          perPersonPaise,
+        };
       }),
       fileIds: [...brochures, ...photos],
       brochures: words.get(row.id) ?? [],
