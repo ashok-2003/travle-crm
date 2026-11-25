@@ -15,7 +15,7 @@ import { CancelDepartureDialog } from "@/departures/cancel-departure-dialog";
 import { useDepartureChanges } from "@/departures/use-departures";
 import { departureRoute } from "@/lib/routes";
 import { useHolds } from "@/session/me-context";
-import { ChangeSeats, OwnPrices, useChangeGate, UseSeasonPrices } from "./departure-edits";
+import { ChangeSeats, noPrices, OwnPrices, useChangeGate } from "./departure-edits";
 import { seasonDates } from "./season-words";
 
 /** The price-table column the departure's season belongs to (the legend's and the day's colour). */
@@ -60,6 +60,36 @@ export function DepartureFacts({ detail, departure }: { detail: PackageDetail; d
   );
 }
 
+/** "Use the season's prices": clears the departure's own prices. */
+export function UseSeasonPrices({ departure }: { departure: CalendarDeparture }) {
+  const t = useTranslations("packages.departuresCalendar");
+  const gate = useChangeGate();
+  const { setPrices } = useDepartureChanges();
+  return (
+    <div className="flex flex-col gap-2">
+      <Button
+        variant="outline"
+        disabled={gate.disabled || setPrices.isPending}
+        aria-describedby={gate.describedBy}
+        onClick={() => {
+          setPrices.mutate(
+            { departureId: departure.departureId, prices: noPrices },
+            {
+              onSuccess: () => {
+                toast.success(t("useSeasonDone"));
+              },
+            },
+          );
+        }}
+      >
+        {t("useSeason")}
+      </Button>
+      <RefusalAlert error={setPrices.error} />
+      {gate.hint}
+    </div>
+  );
+}
+
 function Reopen({ departure }: { departure: CalendarDeparture }) {
   const t = useTranslations("packages.departuresCalendar");
   const gate = useChangeGate();
@@ -94,12 +124,12 @@ export function DepartureDay({ detail, departure }: { detail: PackageDetail; dep
   const mayChange = useHolds("departures:edit");
   const mayView = useHolds("departures:view");
   const column = useSeasonColumn(detail, departure);
-  if (departure.status === "cancelled")
-    return mayChange ? <Reopen departure={departure} /> : <p>{t("cancelledNote")}</p>;
+  const cancelled = departure.status === "cancelled";
   return (
     <div className="flex flex-col items-start gap-4">
       <DepartureFacts detail={detail} departure={departure} />
-      {mayChange && (
+      {cancelled && (mayChange ? <Reopen departure={departure} /> : <p>{t("cancelledNote")}</p>)}
+      {mayChange && !cancelled && (
         <>
           <ChangeSeats key={`seats-${departure.departureId}`} departure={departure} />
           <OwnPrices key={`prices-${departure.departureId}`} detail={detail} departure={departure} column={column} />

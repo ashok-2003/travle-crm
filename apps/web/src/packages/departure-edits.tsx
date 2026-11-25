@@ -97,7 +97,7 @@ export function ChangeSeats({ departure }: { departure: CalendarDeparture }) {
   );
 }
 
-const noPrices: RoomPrices = {
+export const noPrices: RoomPrices = {
   single: null,
   double: null,
   triple: null,
@@ -193,36 +193,6 @@ export function OwnPrices({
           {t("repeats.cancel")}
         </Button>
       </div>
-      {gate.hint}
-    </div>
-  );
-}
-
-/** "Use the season's prices": clears the departure's own prices. */
-export function UseSeasonPrices({ departure }: { departure: CalendarDeparture }) {
-  const t = useTranslations("packages.departuresCalendar");
-  const gate = useChangeGate();
-  const { setPrices } = useDepartureChanges();
-  return (
-    <div className="flex flex-col gap-2">
-      <Button
-        variant="outline"
-        disabled={gate.disabled || setPrices.isPending}
-        aria-describedby={gate.describedBy}
-        onClick={() => {
-          setPrices.mutate(
-            { departureId: departure.departureId, prices: noPrices },
-            {
-              onSuccess: () => {
-                toast.success(t("useSeasonDone"));
-              },
-            },
-          );
-        }}
-      >
-        {t("useSeason")}
-      </Button>
-      <RefusalAlert error={setPrices.error} />
       {gate.hint}
     </div>
   );

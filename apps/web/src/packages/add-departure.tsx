@@ -44,9 +44,9 @@ export function AddDeparture({ detail, day }: { detail: PackageDetail; day: Day 
 
   const run = async () => {
     setSending(true);
+    let added = 0;
+    let cancelled = 0;
     try {
-      let added = 0;
-      let cancelled = 0;
       if (repeat && mode === "until") {
         for (const piece of repeatPieces(day, until)) {
           const result = await addPackageDates.mutateAsync({ packageId: detail.id, ...piece, weekdays: [weekday] });
@@ -72,7 +72,8 @@ export function AddDeparture({ detail, day }: { detail: PackageDetail; day: Day 
       else if (added === 1) toast.success(t("added"));
       else toast.info(t(cancelled > 0 ? "cancelledThere" : "alreadyThere"));
     } catch {
-      // The refusal is on the mutation: shown beneath the button.
+      // The refusal is on the mutation: shown beneath the button. Say what went in before it, for a repeat sent in pieces.
+      if (added > 0) toast.error(t("addedBeforeRefusal", { count: added }));
     } finally {
       setSending(false);
     }

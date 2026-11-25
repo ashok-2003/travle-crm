@@ -7,10 +7,9 @@
 import type { CalendarDeparture } from "@travel-crm/contracts/departures";
 import type { PackageDetail } from "@travel-crm/contracts/quotes";
 import { useTranslations } from "next-intl";
-import { useEffect } from "react";
-import { useForm, useWatch } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { DateField } from "@/components/date-field";
-import { dateOf, dayWithWeekday, type Day } from "./departure-calendar-days";
+import { dayWithWeekday, type Day } from "./departure-calendar-days";
 import { AddDeparture } from "./add-departure";
 import { DepartureDay, DepartureFacts } from "./departure-day";
 
@@ -20,11 +19,16 @@ const REAL_DAY = /^\d{4}-\d{2}-\d{2}$/;
 function DayPicker({ day, onDayChange }: { day: Day; onDayChange: (day: Day) => void }) {
   const t = useTranslations("packages.departuresCalendar");
   const form = useForm<{ day: string }>({ values: { day } });
-  const typed = useWatch({ control: form.control, name: "day" });
-  useEffect(() => {
-    if (typed !== day && REAL_DAY.test(typed) && !Number.isNaN(dateOf(typed).getTime())) onDayChange(typed);
-  }, [typed, day, onDayChange]);
-  return <DateField control={form.control} name="day" label={t("pickDay")} />;
+  return (
+    <DateField
+      control={form.control}
+      name="day"
+      label={t("pickDay")}
+      onValueChange={(value) => {
+        if (REAL_DAY.test(value) && value !== day) onDayChange(value);
+      }}
+    />
+  );
 }
 
 export function DayPanel({

@@ -71,7 +71,7 @@ export function DeparturesMonth({
           <CalendarDayButton
             locale={enIN}
             {...props}
-            className={cn(props.className, "h-full items-start justify-start p-2 text-left [&>span]:opacity-100")}
+            className={cn(props.className, "h-full items-start justify-start p-1.5 text-left [&>span]:opacity-100")}
           >
             {props.children}
             {departure !== undefined && words !== null && (
@@ -107,7 +107,7 @@ export function DeparturesMonth({
       classNames={{ today: "underline" }}
       components={{ DayButton: DepartureDayButton }}
       labels={{ labelDayButton: dayLabel }}
-      className="w-full [--cell-size:--spacing(24)] min-[360px]:[--cell-size:--spacing(24)]"
+      className="min-[360px]:[--cell-size:--spacing(16)]"
     />
   );
 }

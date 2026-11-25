@@ -1,13 +1,16 @@
 // The day panel: what a tapped day holds and the changes it offers, by what the day is (a departure ahead, a cancelled
 // one, an empty day ahead, a day that has passed).
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { toast } from "sonner";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DayPanel } from "@/packages/day-panel";
 import { fakeApi, newQueryClient, renderWithApi } from "../organization/api";
 import { screenIs } from "../organization/render";
 import { member } from "../support/members";
 import { answerNext, calendarDeparture, detail } from "./departures-support";
+
+vi.mock("sonner", () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
 
 const TODAY = "2026-11-25";
 const departure = calendarDeparture("2026-11-27");
@@ -169,6 +172,31 @@ describe("DayPanel", () => {
   it("without the permission to change departures offers no change", () => {
     show("2026-11-27", departure, member({ isOwner: false, permissions: ["departures:view"] }));
     expect(screen.queryByRole("button", { name: /Change seats|Cancel departure/ })).toBeNull();
+    expect(screen.getByRole("link", { name: "Open departure" })).toBeTruthy();
+  });
+
+  it("says how many departures went in when a later piece of a repeat is refused", async () => {
+    const api = show("2026-12-04", null);
+    await userEvent.click(screen.getByRole("switch", { name: "Repeat every Friday" }));
+    await userEvent.type(screen.getByLabelText("Repeat every week until"), "31/03/2027");
+    await userEvent.click(button("Add a departure on Fri 4 Dec"));
+    await answerNext(api, "departures.addPackageDates", {
+      added: ["2026-12-04", "2026-12-11"],
+      alreadyThere: [],
+      cancelled: [],
+    });
+    await waitFor(() => {
+      expect(api.calls.filter((call) => call.path === "departures.addPackageDates")).toHaveLength(2);
+    });
+    api.last().refuse(403, "FORBIDDEN");
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith("2 departures were added before the rest was refused.");
+    });
+  });
+
+  it("a cancelled departure's panel says its season and links to it", () => {
+    show("2026-11-27", calendarDeparture("2026-11-27", { status: "cancelled" }));
+    expect(screen.getByText("Season: Regular")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Open departure" })).toBeTruthy();
   });
 });

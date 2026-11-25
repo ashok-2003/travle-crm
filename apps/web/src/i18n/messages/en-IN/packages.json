@@ -525,6 +525,7 @@
     "addSeats": "It will have {seats, plural, one {# seat} other {# seats}}.",
     "addSeatsDefault": "It will have the trip's usual number of seats.",
     "added": "Departure added",
+    "addedBeforeRefusal": "{count, plural, one {# departure was} other {# departures were}} added before the rest was refused.",
     "addedMany": "{count, plural, one {# departure} other {# departures}} added",
     "alreadyThere": "A departure is already on this day.",
     "cancelledThere": "A cancelled departure is on this day. Reopen it instead.",

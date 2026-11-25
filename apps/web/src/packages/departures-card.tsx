@@ -17,19 +17,20 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { dayWithWeekday } from "./departure-calendar-days";
 import { useWideScreen } from "@/lib/use-wide-screen";
 import { cn } from "@/lib/utils";
-import { dayKeyOf, monthOf, type Day, type Month } from "./departure-calendar-days";
+import { addDays, monthOf, type Day, type Month } from "./departure-calendar-days";
 import { DayPanel } from "./day-panel";
 import { DeparturesAgenda } from "./departures-agenda";
 import { DeparturesMonth } from "./departures-month";
 import { RepeatsLine } from "./repeats-line";
 import { seasonDates } from "./season-words";
 import { seasonTint } from "./season-colours";
+import { useAgencyToday } from "./use-agency-today";
 import { useDepartureCalendar } from "./use-departure-calendar";
 
 export function DeparturesCard({ detail }: { detail: PackageDetail }) {
   const t = useTranslations("packages.departuresCalendar");
   const wide = useWideScreen();
-  const today = dayKeyOf(new Date());
+  const today = useAgencyToday();
   const [month, setMonth] = useState<Month>(monthOf(today));
   const [selected, setSelected] = useState<Day | null>(null);
   const [picking, setPicking] = useState(false);
@@ -51,7 +52,7 @@ export function DeparturesCard({ detail }: { detail: PackageDetail }) {
     setSelected(day);
   };
   const panel =
-    selected === null ? null : calendar.data === undefined ? (
+    selected === null ? null : calendar.data === undefined || calendar.isPlaceholderData ? (
       <LoadingRows shape="twoLines" label={t("loading")} />
     ) : (
       <DayPanel
@@ -90,7 +91,7 @@ export function DeparturesCard({ detail }: { detail: PackageDetail }) {
         {calendar.isError && calendar.data === undefined ? (
           <LoadFailedAlert message={t("loadFailed")} error={calendar.error} onRetry={() => void calendar.refetch()} />
         ) : wide ? (
-          <div className="flex gap-6">
+          <div className="flex flex-col gap-6 xl:flex-row">
             <div className="min-w-0 flex-1" aria-label={t("calendarLabel")}>
               <DeparturesMonth
                 columns={columns}
@@ -103,8 +104,9 @@ export function DeparturesCard({ detail }: { detail: PackageDetail }) {
             </div>
             {panel !== null && (
               <>
-                <Separator orientation="vertical" className="h-auto" />
-                <aside className="w-80 shrink-0">{panel}</aside>
+                <Separator className="xl:hidden" />
+                <Separator orientation="vertical" className="hidden h-auto xl:block" />
+                <aside className="xl:w-80 xl:shrink-0">{panel}</aside>
               </>
             )}
           </div>
@@ -120,7 +122,7 @@ export function DeparturesCard({ detail }: { detail: PackageDetail }) {
               }}
               onAdd={() => {
                 setPicking(true);
-                setSelected(dayKeyOf(new Date(Date.now() + 86_400_000)));
+                setSelected(addDays(today, 1));
               }}
             />
             <Sheet
