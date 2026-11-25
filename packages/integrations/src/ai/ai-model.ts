@@ -15,6 +15,7 @@ export const aiFeatures = [
   "draft_days",
   "read_rates",
   "draft_packages",
+  "change_package",
   "sales_agent",
   // The one agent's other uses, each with its own models: a voice note heard, a photo looked at, the chat's summary.
   "agent_voice",

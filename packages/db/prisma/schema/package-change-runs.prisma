@@ -1,0 +1,33 @@
+// The AI change assistant's runs: what it proposed for one trip, what was applied and the before-values Undo all needs.
+// Organization-owned, under row-level security.
+
+/// One "Show the changes" for a trip: the proposal, then, once applied, the ticked changes and what they replaced.
+model PackageChangeRun {
+  /// Filled from db.forOrg()'s organization when omitted.
+  organizationId   String        @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id               String        @id @default(uuid(7)) @db.Uuid
+  templateId       String        @map("template_id") @db.Uuid
+  requestedBy      String        @map("requested_by") @db.Uuid
+  /// proposed, applied or undone (CHECK package_change_run_status_value).
+  status           String        @default("proposed")
+  /// The proposal as the member saw it (the agency's own data; job data and logs never hold it).
+  proposal         Json
+  /// The trip's state hash when proposed: Apply refuses when the trip no longer matches it.
+  tripStamp        String        @map("trip_stamp")
+  /// The ids of the changes applied, once applied.
+  appliedChangeIds String[]      @default([]) @map("applied_change_ids")
+  /// What the applied changes replaced, for Undo all.
+  before           Json?
+  /// The trip's state hash after applying: Undo all is offered only while the trip still matches it.
+  stampAfter       String?       @map("stamp_after")
+  appliedAt        DateTime?     @map("applied_at") @db.Timestamptz(6)
+  undoneAt         DateTime?     @map("undone_at") @db.Timestamptz(6)
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  organization     Organization  @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  template         QuoteTemplate @relation(fields: [organizationId, templateId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@index([organizationId, templateId, createdAt(sort: Desc)], map: "package_change_run_by_template")
+  @@map("package_change_run")
+}

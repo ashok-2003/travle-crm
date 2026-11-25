@@ -1,4 +1,4 @@
-// Isolation fixtures for the quotes module: a package's brochure words, a quote, an instalment due on it, a payment on it and the quote settings.
+// Isolation fixtures for the quotes module: a package's brochure words, an AI change run, a quote, an instalment due on it, a payment on it and the quote settings.
 // A quote is soft-deleted, a payment voided and the settings replaced, so the runtime role deletes none of them; an
 // instalment it may delete.
 import { randomUUID } from "node:crypto";
@@ -34,6 +34,19 @@ export const fixtures: OrgTableFixtures = {
           ).id,
           attachmentId: randomUUID(),
           name: "Isolation brochure",
+        },
+      }),
+  },
+  package_change_run: {
+    create: async (tx) =>
+      tx.packageChangeRun.create({
+        data: {
+          templateId: (
+            await tx.quoteTemplate.create({ data: { name: `Isolation ${randomUUID().slice(0, 8)}`, title: "Trip" } })
+          ).id,
+          requestedBy: randomUUID(),
+          proposal: {},
+          tripStamp: "isolation",
         },
       }),
   },
