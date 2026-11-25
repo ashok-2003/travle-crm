@@ -204,9 +204,6 @@ export const packageTier = z.object({
 });
 export type PackageTier = z.infer<typeof packageTier>;
 
-/** The last day of a season that runs "until I change it": no end in practice. */
-export const OPEN_SEASON_END = "2099-12-31";
-
 /** A season of a group package: the dates a set of per-person room prices holds. */
 export const packageSeason = z.object({
   id: recordId,
