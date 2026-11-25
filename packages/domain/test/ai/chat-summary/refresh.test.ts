@@ -136,6 +136,13 @@ describe("the chat summary's refresh", () => {
       occurredAt: new Date(EARLIER_AGENTS_UNTIL.getTime() - 10 * MINUTE),
     });
     await add(1, { kind: "audio", body: null, aiText: "I want to book", aiTextKind: "transcript" });
+    await add(1, {
+      kind: "document",
+      body: null,
+      fileName: "names.pdf",
+      aiText: "A list of travellers' names: Asha, Ravi.",
+      aiTextKind: "description",
+    });
     model.answer("notes");
     await refresh();
     const sent = model.requests[0]?.messages;
@@ -144,6 +151,9 @@ describe("the chat summary's refresh", () => {
     expect(user).toContain("Customer, ");
     expect(user).toMatch(/Earlier system, [^\n]*: Total ₹12,999 for 20 Dec/);
     expect(user).toContain('[voice note] heard: "I want to book"');
+    // What a file showed, once.
+    expect(user).toContain('[file: names.pdf] seen: "A list of travellers\' names: Asha, Ravi."');
+    expect(user.match(/Asha, Ravi/gu)).toHaveLength(1);
     expect(user).toContain("Previous notes:\nnone");
     expect(user).toContain("The lead card now:\n<lead>");
   });

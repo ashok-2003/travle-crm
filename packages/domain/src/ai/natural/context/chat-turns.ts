@@ -62,8 +62,9 @@ export function lineWords(line: NaturalChatLine, most: number, options: { earlie
             : null
           : (markers[line.kind] ?? "[message]"));
   const said =
-    // Only the one agent names a file (ref) and so reads what was heard or seen; natural's words stay as they were.
-    line.aiText === undefined || line.ref === undefined
+    // Only the one agent names a file (ref) and so reads what was heard or seen; natural's words stay as they were. A
+    // PDF has no reference (no tool reads it), but its words are kept as it arrives (read-on-arrival.ts).
+    line.aiText === undefined || (line.ref === undefined && line.kind !== "document")
       ? ""
       : ` (${line.aiText.kind === "transcript" ? "heard" : "seen"}: "${oneLine(line.aiText.text)}")`;
   if (marker === null) return text === "" ? "[message]" : text;

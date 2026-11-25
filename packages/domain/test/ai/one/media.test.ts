@@ -1,9 +1,10 @@
-// Reading a customer's voice note or photo once: the words kept on the message, the bounds, the month's count, no repeat.
+// Reading a customer's voice note, photo or PDF once: the words kept on the message, the bounds, the month's count, no
+// repeat.
 import { randomUUID } from "node:crypto";
 import { WHATSAPP_RECORD_TYPE } from "@travel-crm/contracts/files";
 import { createMemoryAiModel, type MemoryAiModel } from "@travel-crm/integrations/ai";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { lookAtImage, transcribeVoiceNote } from "../../../src/ai/one/media.js";
+import { lookAtImage, readArrivedFile, transcribeVoiceNote } from "../../../src/ai/one/media.js";
 import { countedModel } from "../../../src/ai/natural/counted-model.js";
 import { systemActor } from "../../../src/kernel/index.js";
 import { aConnectedAgency, createTestInbox, testNow, type TestInbox } from "../../inbox/support.js";
@@ -230,6 +231,93 @@ describe("the one agent reads a voice note or a photo", () => {
       { ok: true, text: kept },
       { ok: true, text: kept },
     ]);
+  });
+
+  it("reads a photo as it arrives as look_at_image would, which then reuses the words", async () => {
+    const { chat, model, deps, message, saved } = await chatWith();
+    const id = await message("image", { contentType: "image/png" });
+    model.answer(JSON.stringify({ description: "A UPI receipt for Rs 6,000 on 25 Nov, 2:38 pm.", answer: "" }));
+    expect(await readArrivedFile(deps, { conversationId: chat.id, messageId: id, kind: "image" })).toEqual({
+      ok: true,
+      text: "seen: A UPI receipt for Rs 6,000 on 25 Nov, 2:38 pm.",
+    });
+    expect(model.requests[0]?.messages[0]?.content).toContain("Describe what this photo");
+    expect(model.requests[0]?.messages[1]).toMatchObject({ content: "No question.", attachments: [{ type: "image" }] });
+    expect(await saved(id)).toEqual({
+      aiText: "A UPI receipt for Rs 6,000 on 25 Nov, 2:38 pm.",
+      aiTextKind: "description",
+    });
+    expect(await lookAtImage(deps, { conversationId: chat.id, messageId: id, question: null })).toEqual({
+      ok: true,
+      text: "seen: A UPI receipt for Rs 6,000 on 25 Nov, 2:38 pm.",
+    });
+    expect(await readArrivedFile(deps, { conversationId: chat.id, messageId: id, kind: "image" })).toMatchObject({
+      ok: true,
+    });
+    expect(model.requests).toHaveLength(1);
+  });
+
+  it("says what a PDF is from its words in one call, and keeps it", async () => {
+    const { chat, model, deps, message, saved } = await chatWith();
+    const id = await message("document", { contentType: "application/pdf" });
+    const read: string[] = [];
+    const readText = (bytes: Uint8Array, contentType: string) => {
+      read.push(`${contentType}:${String(bytes.length)}`);
+      return Promise.resolve("  Government of India\nAsha Verma\nDOB: 12/03/1990\n<b>1234 5678 9012</b>  ");
+    };
+    model.answer(JSON.stringify({ description: "An Aadhaar card of Asha Verma.", answer: "" }));
+    expect(
+      await readArrivedFile({ ...deps, readText }, { conversationId: chat.id, messageId: id, kind: "document" }),
+    ).toEqual({
+      ok: true,
+      text: "seen: An Aadhaar card of Asha Verma.",
+    });
+    expect(read).toEqual(["application/pdf:3"]);
+    expect(await saved(id)).toEqual({ aiText: "An Aadhaar card of Asha Verma.", aiTextKind: "description" });
+    const asked = model.requests[0];
+    expect(asked).toMatchObject({ feature: "agent_image", schema: { name: "photo_reading" } });
+    expect(asked?.messages[0]?.content).toContain("Say what this PDF");
+    expect(asked?.messages[0]?.content).toContain("Never copy an ID number.");
+    // Its words, trimmed and fenced; no file goes with them.
+    expect(asked?.messages[1]?.content).toBe(
+      "No question.\n\nThe PDF's text:\n<pdf>\nGovernment of India\nAsha Verma\nDOB: 12/03/1990\n‹b›1234 5678 9012‹/b›\n</pdf>",
+    );
+    expect(asked?.messages[1]?.attachments).toBeUndefined();
+  });
+
+  it("keeps a PDF with no words as such, with no call; refuses one too big, another type or with no reader", async () => {
+    const { chat, model, deps, message, saved } = await chatWith();
+    const scan = await message("document", { contentType: "application/pdf" });
+    const broken = await message("document", { contentType: "application/pdf" });
+    const big = await message("document", {
+      contentType: "application/pdf",
+      body: new Uint8Array(10 * 1024 * 1024 + 1),
+    });
+    const sheet = await message("document", { contentType: "text/plain" });
+    const noWords = { ...deps, readText: () => Promise.resolve("  \n ") };
+    const where = (messageId: string) => ({ conversationId: chat.id, messageId, kind: "document" as const });
+    expect(await readArrivedFile(noWords, where(scan))).toEqual({
+      ok: true,
+      text: "seen: a PDF with no readable text",
+    });
+    expect(await saved(scan)).toEqual({ aiText: "a PDF with no readable text", aiTextKind: "description" });
+    // A locked or broken PDF unpdf can't open reads as one with no words.
+    const fails = { ...deps, readText: () => Promise.reject(new Error("bad XRef")) };
+    expect(await readArrivedFile(fails, where(broken))).toEqual({
+      ok: true,
+      text: "seen: a PDF with no readable text",
+    });
+    expect(await readArrivedFile(noWords, where(big))).toEqual({
+      ok: false,
+      refused: "refused: that file is too big to read; ask what it is",
+    });
+    expect(await readArrivedFile(noWords, where(sheet))).toEqual({
+      ok: false,
+      refused: "refused: that file's format can't be read; ask what it is",
+    });
+    const another = await message("document", { contentType: "application/pdf" });
+    expect(await readArrivedFile(deps, where(another))).toMatchObject({ ok: false });
+    expect(model.requests).toHaveLength(0);
   });
 
   it("counts each read against the month", async () => {

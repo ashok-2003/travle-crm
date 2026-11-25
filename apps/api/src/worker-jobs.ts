@@ -90,6 +90,8 @@ import {
   aiCustomerWroteListener,
   aiPaymentProofListener,
   aiDocumentListener,
+  aiFileStoredListener,
+  aiReadFileHandler,
   aiReplyHandler,
   runAiNudges,
   scoreHandler,
@@ -420,6 +422,8 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
             // The autopilot: an agency's AI answering its chats by itself, only where it was turned on.
             aiCustomerWroteListener({ queue: dependencies.jobs, subscriptions }),
             aiChatResumedListener({ queue: dependencies.jobs, subscriptions }),
+            // A customer's photo or PDF is read once as it is stored, so the agent knows what they already sent.
+            aiFileStoredListener({ queue: dependencies.jobs, subscriptions }),
           ]),
       readImportFileListener(importJobs),
       checkLeadImportListener(importJobs),
@@ -464,6 +468,7 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
               logger,
               ...(dependencies.jobs === undefined ? {} : { queue: dependencies.jobs }),
             }),
+            aiReadFileHandler({ db, files, ai, readText: documentText, logger }),
           ]),
       {
         queue: WEBHOOK_PROCESS_QUEUE,
