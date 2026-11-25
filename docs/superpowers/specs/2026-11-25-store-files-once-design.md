@@ -71,10 +71,11 @@ Per organization:
    name, per the addendum), leaving out the short-lived record types (an import's file and report, an export).
 2. Within a group, keep only rows whose stored objects are byte-identical: equal storage ETags (`ObjectStorage.head`
    now returns the ETag; CopyObject keeps it). A row whose object is missing, or has no ETag, is left alone.
-3. Choose the holder: a row whose record is not a `whatsapp_message`, else the oldest.
+3. Choose the holder: a live row (not removed) on a record that lasts (not an AI input), not a `whatsapp_message` if
+   another will do, then the oldest (review round 1).
 4. Point the others at it (their own pointers re-pointed too, so no chains), keep the bytes' SHA-256 on the holder (read
-   once), and queue the others' own objects in the deletions' outbox, due once links handed out for them have lapsed
-   (10 minutes), which the console's job empties.
+   once), and queue the others' own objects in the deletions' outbox, due once every link handed out for them has
+   lapsed (`LINKS_LAPSED_MS`, 20 minutes), which the console's job empties.
 5. Print counts and bytes freed only, never a name.
 
 ## Rulings
@@ -98,9 +99,13 @@ Per organization:
   shared file — cost if wrong: none; they free themselves.
 - Ruling: the copy keeps `sensitive` from its source (unchanged), and every access check reads the row's own flags —
   sharing bytes changes no permission — cost if wrong: none.
-- Ruling: the clean-up's deletions are due 10 minutes after it runs, and a hand-over cancels a queued deletion of the
-  heir's own object — a WhatsApp send's 5-minute link may be fetched a moment after it is made, and an heir picked in
-  that window must keep the bytes it now holds — cost if wrong: the space frees 10 minutes later.
+- Ruling (review round 1): an object freed by the clean-up or a hand-over is deleted 20 minutes later
+  (`LINKS_LAPSED_MS`), longer than every link the product signs (5 minutes for a download, 15 for an export's files),
+  so a link already handed out keeps working — cost if wrong: the space frees 20 minutes later.
+- Ruling (review round 1, I1): the outbox job holds a queued attachment's row (`FOR SHARE`) while storage deletes its
+  object, and skips the delete when the row holds its own bytes again; a hand-over locks its heir (`FOR UPDATE`) and
+  cancels the heir's queued deletion before copying — so the job never deletes bytes a hand-over just gave the heir, in
+  either order — cost if wrong: an heir left with no bytes.
 - Ruling: the hash is hex text and lives on holders only; a generated file matches only a live holder (a removed file's
   bytes are not reused) and only by size plus SHA-256, not by type or name — a removed file is on its way out, and the
   same bytes are the same file whatever a phone calls it — cost if wrong: an extra stored copy after a removal.
@@ -109,3 +114,19 @@ Per organization:
 - Ruling: two generated stores of the same new bytes at the same moment may both upload, making two holders — no lock
   is worth it for that; the next store matches the oldest, and the clean-up can join them — cost if wrong: one extra
   copy.
+- Ruling (review round 1): only a row `storeGeneratedFile` creates may share; a retry's pending row is stored under its
+  own key again, and an upload always writes `stored_as_id = NULL` — the failed try may already have filled that key,
+  and a racing retry must not leave a hash on a sharing file — cost if wrong: a retried file is stored once more.
+- Ruling (review round 1, accepted): a copy and an erasure of the same shared file at the same moment can deadlock;
+  Postgres aborts one. The AI's reply turn, the keyword trip-kit send and the erasure job retry through pg-boss; the AI's
+  follow-up nudge, a member's Send details, Save as package and `dedupe-files --apply` don't, and each is safe to
+  repeat. The data stays right either way — making every path take its locks in one order costs more than this rare
+  retry — cost if wrong: a member taps again.
+- Ruling (review round 1, accepted): an organization export running during `dedupe-files --apply` can miss a sharer
+  its job copies more than 20 minutes after the apply, once the sharer's own object is gone — the command's README
+  says not to apply while an export runs — cost if wrong: one file missing from that export.
+- Ruling (review round 1, accepted): `--apply` finds the sets again rather than replaying what the dry run printed —
+  files change in between, and each set is checked again under lock anyway — cost if wrong: the counts differ a little.
+- Ruling (review round 1, accepted): a file stored before this release has no hash, and uploads confirmed from the
+  browser are never hashed, so the same bytes can still be stored once more — running the clean-up again later joins
+  them — cost if wrong: some extra copies until then.

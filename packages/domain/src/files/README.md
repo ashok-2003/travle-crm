@@ -62,7 +62,9 @@ documents are marked sensitive (spec 5).
     files are refused (`FORBIDDEN`/`SYSTEM_OWNED_FILE`), but the short-lived ones (`isShortLivedRecordType`:
     `import_batch`, `import_report`, `data_export`), which the sweep and erasure delete for good;
   - for the job that empties the outbox: `dueFileDeletions(tx, { now, limit, organizationId? })`,
-    `deleteQueuedFile(storage, deletion)` (the file, or the whole folder, `organizationFolder(id)`),
+    `deleteQueuedAttachment(tx, storage, deletion)` (a file, its row held while storage deletes it, and skipped when
+    the row holds its own bytes again: an heir of a hand-over), `deleteQueuedFile(storage, deletion)` (the file, or
+    the whole folder, `organizationFolder(id)`),
     `forgetFileDeletion(tx, id)` and `nextFileDeletionDue(tx, organizationId?)`. Each is safe to repeat.
 - Exports: `exportedFiles(tx, storage, where, linkSeconds)` (files with download links) and
   `storedFiles(tx, organizationId)` (every file's id with the key its bytes are read from, for the platform's export).
