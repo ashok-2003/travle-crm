@@ -3,6 +3,8 @@
 // profit needs the accounts as well. Making a quote from a hold, or putting a draft quote on a departure, needs the quote's
 // own permission too. The rooming list's PDF takes a document number, so it reads the session afresh.
 import {
+  addPackageDatesInput,
+  addPackageDatesResult,
   addRoomInput,
   addWaitlistInput,
   cancelDepartureInput,
@@ -34,6 +36,7 @@ import {
 } from "@travel-crm/contracts/departures";
 import { downloadLink } from "@travel-crm/contracts/files";
 import {
+  addPackageDates,
   addRoom,
   addToWaitlist,
   cancelDeparture,
@@ -51,6 +54,7 @@ import {
   makeQuoteFromHold,
   moveTraveller,
   releaseHold,
+  reopenCancelledDeparture,
   removeFromWaitlist,
   removeRoom,
   removeRoomingStay,
@@ -69,6 +73,7 @@ import { DomainError } from "@travel-crm/domain/kernel";
 import { z } from "zod";
 import { freshProcedure, orgProcedure } from "../procedures.js";
 import { router } from "../trpc.js";
+import { agencyToday } from "../package-departures-gate.js";
 import { documentContext, quoteContext } from "./quotes.js";
 
 const viewer = orgProcedure.requires("departures:view");
@@ -108,11 +113,28 @@ export const departuresRouter = router({
       ctx.db.forOrg(ctx.member.organizationId, (tx) => createDeparture(tx, ctx.member, input)),
     ),
 
+  /** Adds a group trip's departures for a range of days, skipping days that already have one. */
+  addPackageDates: creator
+    .input(addPackageDatesInput)
+    .output(addPackageDatesResult)
+    .mutation(async ({ ctx, input }) => {
+      const today = await agencyToday(ctx);
+      return ctx.db.forOrg(ctx.member.organizationId, (tx) => addPackageDates(tx, ctx.member, input, today));
+    }),
+
   update: editor
     .input(updateDepartureInput)
     .mutation(({ ctx, input }) =>
       ctx.db.forOrg(ctx.member.organizationId, (tx) => updateDeparture(tx, ctx.member, input)),
     ),
+
+  /** Opens a cancelled departure again, while its first day is still ahead. */
+  reopen: editor.input(departureIdInput).mutation(async ({ ctx, input }) => {
+    const today = await agencyToday(ctx);
+    await ctx.db.forOrg(ctx.member.organizationId, (tx) =>
+      reopenCancelledDeparture(tx, ctx.member, input.departureId, today),
+    );
+  }),
 
   setStatus: editor
     .input(setDepartureStatusInput)

@@ -21,7 +21,7 @@ function CancelForm({
   formId: string;
   departureId: string;
   changes: ReturnType<typeof useDepartureChanges>;
-  dialog: { onSuccess: () => Promise<void> };
+  dialog: { setOpen: (open: boolean) => void };
 }) {
   const t = useTranslations("departures.cancelDialog");
   const values = { reason: "" };
@@ -42,7 +42,12 @@ function CancelForm({
       noValidate
       className="flex flex-col gap-4"
       onSubmit={onSubmit((input) => {
-        changes.cancel.mutate(input, { onSuccess: () => void dialog.onSuccess() });
+        // The confirmation toast comes from the hook (use-departures.ts), which outlives this dialog.
+        changes.cancel.mutate(input, {
+          onSuccess: () => {
+            dialog.setOpen(false);
+          },
+        });
       })}
     >
       <TextField control={form.control} name="reason" label={t("reason")} disabled={changes.cancel.isPending} />

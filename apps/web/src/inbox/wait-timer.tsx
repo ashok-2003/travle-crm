@@ -20,11 +20,16 @@ export function waitedFor(minutes: number): string {
   return `${String(Math.floor(minutes / (24 * 60)))}d`;
 }
 
+/** The wait's tone: amber once half the reply target has gone, red once it has passed. */
+export function waitTone(minutes: number): "bad" | "attention" | "neutral" {
+  return minutes >= REPLY_TARGET_MINUTES ? "bad" : minutes >= REPLY_TARGET_MINUTES / 2 ? "attention" : "neutral";
+}
+
 export function WaitTimer({ since, className }: { since: string; className?: string }) {
   const t = useTranslations("inbox");
   const now = useNow();
   const minutes = Math.floor((now.getTime() - new Date(since).getTime()) / 60_000);
-  const tone = minutes >= REPLY_TARGET_MINUTES ? "bad" : minutes >= REPLY_TARGET_MINUTES / 2 ? "attention" : "neutral";
+  const tone = waitTone(minutes);
   return (
     <span
       className={cn(

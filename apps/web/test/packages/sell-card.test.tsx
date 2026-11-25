@@ -25,12 +25,13 @@ describe("SellCard", () => {
   });
 
   it("links each gap to where it is added", () => {
-    const gaps = ["room_types", "prices", "advance", "departures", "payment_details"] as const;
+    const gaps = ["room_types", "prices", "advance", "departures", "from_price", "payment_details"] as const;
     renderWithApi(<SellCard detail={aPackage({ kind: "group", sellGaps: [...gaps] })} />, newQueryClient());
-    expect(screen.getByRole("link", { name: words.gaps.room_types })).toHaveAttribute("href", "#group-details");
-    expect(screen.getByRole("link", { name: words.gaps.prices })).toHaveAttribute("href", "#package-seasons");
-    expect(screen.getByRole("link", { name: words.gaps.advance })).toHaveAttribute("href", "#group-details");
-    expect(screen.getByRole("link", { name: words.gaps.departures })).toHaveAttribute("href", "#package-departures");
+    expect(screen.getByRole("link", { name: words.gaps.room_types })).toHaveAttribute("href", "#prices-and-dates");
+    expect(screen.getByRole("link", { name: words.gaps.prices })).toHaveAttribute("href", "#prices-and-dates");
+    expect(screen.getByRole("link", { name: words.gaps.advance })).toHaveAttribute("href", "#prices-and-dates");
+    expect(screen.getByRole("link", { name: words.gaps.departures })).toHaveAttribute("href", "#prices-and-dates");
+    expect(screen.getByRole("link", { name: words.gaps.from_price })).toHaveAttribute("href", "#page-and-files");
     expect(screen.getByRole("link", { name: words.gaps.payment_details })).toHaveAttribute(
       "href",
       "/ai-agent/setup#step-payment",

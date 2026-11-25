@@ -2,11 +2,46 @@
   "page": {
     "title": "Package",
     "back": "Packages",
-    "intro": "A ready trip a quote starts from, and, once published, a page for visitors with a form that lands in your leads.",
+    "index": "On this page",
     "loading": "Loading the package",
     "loadFailed": "The package didn't load.",
     "retry": "Try again",
     "notFound": "This package isn't here any more."
+  },
+  "header": {
+    "aiSells": "AI sells it",
+    "aiDoesNotSell": "AI doesn't sell it",
+    "pageLive": "Page live",
+    "pageNotLive": "Page not live",
+    "fromPrice": "From {price}",
+    "nextDeparture": "Next departure {day}",
+    "datesAhead": "{count, plural, =0 {No dates ahead} one {# date ahead} other {# dates ahead}}"
+  },
+  "sections": {
+    "edit": "Edit",
+    "editNamed": "Edit {section}",
+    "save": "Save",
+    "saving": "Saving",
+    "cancel": "Cancel",
+    "saved": "{section} saved",
+    "notSet": "Not set",
+    "yes": "Yes",
+    "no": "No",
+    "prices": {
+      "title": "Prices & dates",
+      "everyMonth": "Every month"
+    },
+    "itinerary": {
+      "title": "Itinerary",
+      "days": "{count, plural, =0 {No days yet} one {# day} other {# days}}"
+    },
+    "details": {
+      "title": "Details & rules"
+    },
+    "page": {
+      "title": "Page & files",
+      "photos": "Photos"
+    }
   },
   "list": {
     "title": "Packages",
@@ -42,7 +77,6 @@
     }
   },
   "form": {
-    "quoteTitle": "The trip",
     "name": "Name",
     "nameHint": "What your team calls it, such as Kedarnath 6 days.",
     "title": "Title on a quote",
@@ -69,7 +103,6 @@
     "dayTitle": "Day {day}",
     "dayDescription": "What happens",
     "removeDay": "Remove day {day}",
-    "pageTitle": "Its public page",
     "slug": "Address",
     "slugHint": "The last part of the page's address: /a/{code}/ and this. Lower-case words joined by hyphens.",
     "summary": "Summary",
@@ -87,8 +120,6 @@
     "useCalculated": "Use this price",
     "cancellationNotes": "Cancellation notes",
     "cancellationNotesHint": "Shown on the page and printed on a quote made from this package.",
-    "save": "Save package",
-    "saving": "Saving",
     "problems": {
       "required": "Fill this in.",
       "invalid": "Check this.",
@@ -100,7 +131,6 @@
       "custom": "A custom trip, quoted for each customer",
       "group": "A group trip that departs on set dates"
     },
-    "groupTitle": "The group trip",
     "roomTypes": "Room types sold",
     "roomTypeNames": {
       "single": "Single",
@@ -280,6 +310,7 @@
     "priceLine": "{room}: {price}",
     "notOffered": "Not sold",
     "add": "Add a season",
+    "addSpecialPrices": "Add special prices",
     "edit": "Change",
     "editNamed": "Change {name}",
     "remove": "Remove",
@@ -287,7 +318,7 @@
     "removeTitle": "Remove {name}?",
     "removeDescription": "Bookings already made keep their price. New ones on these dates are no longer priced from it.",
     "removed": "Season removed",
-    "noRoomTypes": "Choose the room types sold first, in the form on the left."
+    "noRoomTypes": "Choose the room types sold first: Edit Prices & dates above."
   },
   "season": {
     "addTitle": "Add a season",
@@ -320,7 +351,7 @@
   },
   "files": {
     "title": "Brochures",
-    "intro": "Up to {max} brochures (PDF or a picture, 10 MB each). The AI shares them with customers who ask for details. The AI picks a brochure by its name and description.",
+    "intro": "Up to {max} brochures (PDF or a picture, 25 MB each). The AI shares them with customers who ask for details. The AI picks a brochure by its name and description.",
     "brochures": "Brochures",
     "noBrochures": "No brochures yet.",
     "noName": "No name yet: the AI uses the trip's title",
@@ -352,6 +383,87 @@
     "problems": {
       "wrongType": "Choose a PDF or a picture (JPEG, PNG or WebP).",
       "tooLarge": "Choose a file of up to {size}."
+    }
+  },
+  "calendar": {
+    "title": "Price calendar",
+    "seatsLeft": "{day}, {free, plural, one {# seat} other {# seats}} left",
+    "full": "{day}, full",
+    "cancelledDay": "{day}, cancelled",
+    "legendTitle": "Price periods",
+    "legendDates": "{from} to {to}",
+    "legendPrice": "{room} {price}",
+    "noSeasons": "No prices are set yet.",
+    "moveHint": "Tap another day to see what it offers.",
+    "rangeStart": "Set special prices from here",
+    "rangePrompt": "Tap the last day of the special prices.",
+    "rangeStop": "Never mind",
+    "addDeparture": "Add a departure",
+    "added": "Departure added",
+    "alreadyThere": "A departure is already on this day.",
+    "cancelledThere": "A cancelled departure is on this day. Reopen it instead.",
+    "reopen": "Reopen",
+    "reopened": "Departure opened again",
+    "viewDeparture": "Open departure",
+    "specialLabel": "Special prices"
+  },
+  "specialPrices": {
+    "title": "Special prices",
+    "description": "A price for a period, per person for each room type sold, {gst, select, including {including GST} other {before GST}}. Days outside it keep the usual prices.",
+    "label": "Name",
+    "labelHint": "Such as \"Diwali week\".",
+    "startsOn": "First day",
+    "endsOn": "Last day",
+    "openEnded": "Until I change them",
+    "price": "{room}, per person",
+    "save": "Save",
+    "saving": "Saving",
+    "saved": "Special prices saved",
+    "problems": {
+      "required": "Fill this in.",
+      "invalid": "Check this.",
+      "noPrice": "Give at least one room type a price."
+    }
+  },
+  "addDates": {
+    "title": "Add dates",
+    "description": "Adds a departure on each day from the first to the last day, or only on the weekdays you pick. Days that have one are left alone.",
+    "from": "First day",
+    "to": "Last day",
+    "weekdays": "Only these days of the week",
+    "weekdaysHint": "Pick none for every day.",
+    "add": "Add dates",
+    "adding": "Adding",
+    "added": "{count, plural, =0 {No dates added.} one {# date added.} other {# dates added.}}",
+    "alreadyThere": "Already there: {days}",
+    "cancelledTitle": "Cancelled departures on these days were not touched:",
+    "cancelledDay": "{day}, cancelled",
+    "problems": {
+      "required": "Fill this in.",
+      "invalid": "Check this.",
+      "tooMany": "Add at most 62 days at a time."
+    }
+  },
+  "copyNote": {
+    "open": "Copy a line to other trips",
+    "title": "Copy a line to other trips",
+    "description": "The line goes first in the notes of each trip you tick. A trip that has it already is left as it is.",
+    "line": "The line",
+    "lineHint": "Such as \"No single rooms from 18 Dec\".",
+    "trips": "Copy it to",
+    "none": "You have no other trips yet.",
+    "loading": "Loading your trips",
+    "loadFailed": "Your trips didn't load.",
+    "copy": "Copy",
+    "copying": "Copying",
+    "copied": "{count, plural, =0 {Copied to no trips.} one {Copied to # trip.} other {Copied to # trips.}}",
+    "alreadyThere": "Already had it: {trips}",
+    "tooLong": "Skipped, their notes are full: {trips}",
+    "problems": {
+      "required": "Fill this in.",
+      "invalid": "Keep it to 300 characters.",
+      "noTrip": "Tick at least one trip.",
+      "tooManyTrips": "Tick at most 50 trips."
     }
   }
 }

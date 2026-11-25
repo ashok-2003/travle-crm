@@ -61,6 +61,10 @@ export function aMessage(fields: Record<string, unknown> = {}) {
     aiText: null,
     buttons: null,
     list: null,
+    editedAt: null,
+    revokedAt: null,
+    unsupportedReason: null,
+    adHeadline: null,
     tapped: false,
     ...fields,
   };

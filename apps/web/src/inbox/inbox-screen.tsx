@@ -127,14 +127,14 @@ export function InboxScreen({ children }: { children: ReactNode }) {
   const listPane = (
     <div className="flex h-full min-h-0 flex-col bg-background">
       {/* WhatsApp's bar atop the chats. */}
-      <div className="flex min-h-16 shrink-0 items-center justify-between gap-2 bg-surface px-4">
-        <PageTitle>{t("title")}</PageTitle>
-        <div className="flex items-center gap-1">
+      <div className="flex min-h-16 shrink-0 items-center justify-between gap-2 bg-surface px-4 lg:min-h-12">
+        {/* On a computer the title is for screen readers and the tab alone: the chats get the room. */}
+        <PageTitle className="lg:sr-only">{t("title")}</PageTitle>
+        <div className="ml-auto flex items-center gap-1">
           {mayBroadcast && (
-            <Button asChild variant="ghost">
-              <Link href={routes.broadcasts}>
+            <Button asChild variant="ghost" size="icon">
+              <Link href={routes.broadcasts} aria-label={t("broadcasts.open")} title={t("broadcasts.open")}>
                 <MegaphoneIcon aria-hidden="true" />
-                {t("broadcasts.open")}
               </Link>
             </Button>
           )}

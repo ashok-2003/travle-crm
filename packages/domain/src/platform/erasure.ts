@@ -151,9 +151,10 @@ export async function eraseSubject(services: PlatformServices, job: ErasureJob, 
       const { userId, addresses } = await erasePerson(tx, organizationId, subject.memberId);
       emails = await deleteEmailsTo(tx, addresses);
       await forgetRecipient(tx, { organizationId, userId });
-      // What the usage analytics kept about them: the pages they opened and the welcome they saw.
+      // What the usage analytics kept about them: the pages they opened, the welcome they saw and the phone types they opened the installed app on.
       await tx.pageVisit.deleteMany({ where: { organizationId, userId } });
       await tx.welcomeSeen.deleteMany({ where: { organizationId, userId } });
+      await tx.memberInstalledApp.deleteMany({ where: { organizationId, userId } });
     }
     const customer =
       record.recordType === "person"

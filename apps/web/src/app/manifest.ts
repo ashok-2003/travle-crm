@@ -15,7 +15,10 @@ export default function manifest(): MetadataRoute.Manifest {
     scope: "/",
     display: "standalone",
     theme_color: brand.colours.canvas,
-    background_color: brand.colours.canvas,
+    // Android draws the boot screen from this colour and the icon: ink, so the white mark shows.
+    background_color: brand.colours.ink,
+    // Lets a phone's browser ask navigator.getInstalledRelatedApps() whether the app is installed.
+    related_applications: [{ platform: "webapp", url: "/manifest.webmanifest" }],
     icons: pwaIcons.map((icon) => ({ ...icon })),
   };
 }

@@ -558,6 +558,7 @@ describe("erasing someone an import or an export holds", () => {
       for (const userId of [raviUserId, agency.owner.userId]) {
         await tx.pageVisit.create({ data: { userId, path: "/leads", seconds: 30 } });
         await tx.welcomeSeen.create({ data: { userId } });
+        await tx.memberInstalledApp.create({ data: { userId, platform: "ios", lastSeenAt: new Date() } });
       }
     });
     await test.identity.identity.staff.remove(agency.owner, { memberId: ravi.memberId });
@@ -565,8 +566,10 @@ describe("erasing someone an import or an export holds", () => {
     const left = (userId: string) => ({ where: { organizationId: agency.organizationId, userId } });
     expect(await platform.pageVisit.count(left(raviUserId))).toBe(0);
     expect(await platform.welcomeSeen.count(left(raviUserId))).toBe(0);
+    expect(await platform.memberInstalledApp.count(left(raviUserId))).toBe(0);
     expect(await platform.pageVisit.count(left(agency.owner.userId))).toBe(1);
     expect(await platform.welcomeSeen.count(left(agency.owner.userId))).toBe(1);
+    expect(await platform.memberInstalledApp.count(left(agency.owner.userId))).toBe(1);
   });
 
   it("erases the emails sent to a member, at any of their addresses, and nobody else's", async () => {

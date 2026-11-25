@@ -25,6 +25,8 @@ export const whatsappMessageKinds = [
 export const whatsappMessageKind = z.enum(whatsappMessageKinds);
 export type WhatsappMessageKind = z.infer<typeof whatsappMessageKind>;
 
+export const whatsappUnsupportedReason = z.enum(["unavailable", "album", "unknown"]);
+
 export const whatsappMessageStatuses = [
   "received",
   "queued",
@@ -85,6 +87,8 @@ export const conversationListItem = z.object({
   lastMessageAt: timestamp.nullable(),
   /** The customer wrote last and nobody has answered. */
   needsReply: z.boolean(),
+  /** The AI handed the chat to a person and nobody has answered since (the rule of the AI hand-over lists): the row's amber marker. */
+  handedOver: z.boolean(),
   /** A number with no person and no lead: the row says "New number". */
   isNewNumber: z.boolean(),
   /** Who wrote the last message, and for ours how far it got: the row's ticks. */
@@ -214,6 +218,14 @@ export const chatMessage = z.object({
   sentAt: timestamp.nullable(),
   deliveredAt: timestamp.nullable(),
   readAt: timestamp.nullable(),
+  /** When the sender edited it: the bubble says "Edited". */
+  editedAt: timestamp.nullable(),
+  /** When it was deleted for everyone: the bubble keeps its words, struck through. */
+  revokedAt: timestamp.nullable(),
+  /** Why a message of kind "unsupported" cannot be shown (WhatsApp's own reason). */
+  unsupportedReason: whatsappUnsupportedReason.nullable(),
+  /** The headline of the ad the chat came from, on the message that came with it. */
+  adHeadline: z.string().nullable(),
   starred: z.boolean(),
   /** What the AI agent heard in a voice note or saw in a photo; it may be wrong. */
   aiText: z.object({ kind: z.enum(["transcript", "description"]), text: z.string() }).nullable(),

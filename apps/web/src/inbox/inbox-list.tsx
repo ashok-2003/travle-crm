@@ -18,7 +18,7 @@ import { SearchField } from "@/leads/list/search-field";
 import { keepTabValue, readTabValue } from "@/lib/tab-storage";
 import { AiAnsweredChip, useAiAnsweredAsked, useAiAnsweredFilter } from "./ai-answered-filter";
 import { ConversationList } from "./conversation-list";
-import { FilterChips, FilterChoices, inboxFilters } from "./inbox-filters";
+import { FilterChips, FiltersButton, inboxFilters } from "./inbox-filters";
 import { useConversations } from "./use-inbox";
 import { useNumbers } from "./use-numbers";
 import { useTags } from "./use-inbox-tools";
@@ -145,13 +145,47 @@ function Chats({ currentId, asked }: { currentId: string | null; asked: boolean 
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 flex-col gap-2 px-3 pt-2 pb-2">
-        <div data-inbox-search>
-          <SearchField
-            initial={search}
-            onSearch={setSearch}
-            label={t("search")}
-            placeholder={t("searchPlaceholder")}
-            className="md:w-full"
+        <div className="flex items-center gap-2">
+          <div data-inbox-search className="min-w-0 flex-1">
+            <SearchField
+              initial={search}
+              onSearch={setSearch}
+              label={t("search")}
+              placeholder={t("searchPlaceholder")}
+              className="md:w-full"
+            />
+          </div>
+          <FiltersButton
+            stage={stage}
+            onStage={setStage}
+            period={period}
+            onPeriod={setPeriod}
+            tagId={tagId}
+            onTag={(chosen) => {
+              setTagChoice(chosen ?? "");
+              keepTabValue(KEYS.tag, chosen ?? "");
+            }}
+            number={
+              numbers.show
+                ? {
+                    numbers: numbers.numbers,
+                    connectionId,
+                    onChange: (chosen) => {
+                      setNumberChoice(chosen ?? "");
+                      keepTabValue(KEYS.number, chosen ?? "");
+                    },
+                  }
+                : null
+            }
+            summary={summary.data}
+            onClear={() => {
+              setStage(null);
+              setPeriod(null);
+              setTagChoice("");
+              keepTabValue(KEYS.tag, "");
+              setNumberChoice("");
+              keepTabValue(KEYS.number, "");
+            }}
           />
         </div>
         {aiAnswered.on && <AiAnsweredChip onRemove={aiAnswered.clear} />}
@@ -161,30 +195,6 @@ function Chats({ currentId, asked }: { currentId: string | null; asked: boolean 
             aiAnswered.clear();
             setFilter(chosen);
           }}
-          summary={summary.data}
-        />
-        <FilterChoices
-          stage={stage}
-          onStage={setStage}
-          period={period}
-          onPeriod={setPeriod}
-          tagId={tagId}
-          onTag={(chosen) => {
-            setTagChoice(chosen ?? "");
-            keepTabValue(KEYS.tag, chosen ?? "");
-          }}
-          number={
-            numbers.show
-              ? {
-                  numbers: numbers.numbers,
-                  connectionId,
-                  onChange: (chosen) => {
-                    setNumberChoice(chosen ?? "");
-                    keepTabValue(KEYS.number, chosen ?? "");
-                  },
-                }
-              : null
-          }
           summary={summary.data}
         />
       </div>

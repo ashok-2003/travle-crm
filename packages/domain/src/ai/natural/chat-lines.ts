@@ -114,7 +114,8 @@ export async function naturalChatLines(
 ): Promise<{ lines: NaturalChatLine[]; senders: ReadonlyMap<string, string> }> {
   const rows = await tx.whatsappMessage.findMany({
     // A discarded message or a cancelled broadcast's recalled send never reached the customer.
-    where: { conversationId, kind: { not: "reaction" }, status: { not: "superseded" } },
+    // A message the customer deleted for everyone is kept for the team and never read by the AI.
+    where: { conversationId, kind: { not: "reaction" }, status: { not: "superseded" }, revokedAt: null },
     orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
     take: CHAT_READ,
     select: storedLineFields,

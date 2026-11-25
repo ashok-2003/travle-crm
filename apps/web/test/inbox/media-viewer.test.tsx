@@ -65,6 +65,10 @@ const photo = (id: string, extra: Partial<ChatMessage> = {}): ChatMessage => ({
   aiText: null,
   buttons: null,
   list: null,
+  editedAt: null,
+  revokedAt: null,
+  unsupportedReason: null,
+  adHeadline: null,
   tapped: false,
   ...extra,
 });

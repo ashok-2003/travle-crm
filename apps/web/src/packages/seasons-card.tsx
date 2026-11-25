@@ -1,7 +1,8 @@
 "use client";
 
 // A group package's seasons (group packages): the dates each set of per-person room prices holds, listed with the price of
-// every room type the package sells. A booking is priced from the season of its first day. Adding or changing one is a dialog.
+// every room type the package sells. A booking is priced from the season of its first day. Adding or changing one is a dialog;
+// so are special prices for some dates, which the trip's page holds (`onAddSpecialPrices`, for whoever may set them).
 import type { PackageDetail, PackageSeasonView } from "@travel-crm/contracts/quotes";
 import { useTranslations } from "next-intl";
 import { useId, useRef, useState } from "react";
@@ -18,7 +19,14 @@ import { shownRoomTypes } from "@/room-prices/room-prices";
 import { SeasonDialog } from "./season-dialog";
 import { usePackageChanges } from "./use-packages";
 
-export function SeasonsCard({ detail }: { detail: PackageDetail }) {
+export function SeasonsCard({
+  detail,
+  onAddSpecialPrices,
+}: {
+  detail: PackageDetail;
+  /** Opens the special prices dialog, given the button that opened it. */
+  onAddSpecialPrices?: (button: HTMLElement) => void;
+}) {
   const t = useTranslations("packages.seasons");
   const tRooms = useTranslations("packages.form.roomTypeNames");
   const access = useWriteAccess("change");
@@ -96,16 +104,30 @@ export function SeasonsCard({ detail }: { detail: PackageDetail }) {
       )}
       {noRooms && <p className="text-muted-foreground">{t("noRoomTypes")}</p>}
       <div>
-        <Button
-          variant="outline"
-          disabled={!access.allowed || noRooms}
-          aria-describedby={access.allowed ? undefined : hintId}
-          onClick={(event) => {
-            openFrom(event.currentTarget, null);
-          }}
-        >
-          {t("add")}
-        </Button>
+        <div className="flex flex-wrap gap-3">
+          <Button
+            variant="outline"
+            disabled={!access.allowed || noRooms}
+            aria-describedby={access.allowed ? undefined : hintId}
+            onClick={(event) => {
+              openFrom(event.currentTarget, null);
+            }}
+          >
+            {t("add")}
+          </Button>
+          {onAddSpecialPrices && (
+            <Button
+              variant="outline"
+              disabled={!access.allowed || noRooms}
+              aria-describedby={access.allowed ? undefined : hintId}
+              onClick={(event) => {
+                onAddSpecialPrices(event.currentTarget);
+              }}
+            >
+              {t("addSpecialPrices")}
+            </Button>
+          )}
+        </div>
         <WriteHint id={hintId} hint={access.hint} />
       </div>
       <SeasonDialog

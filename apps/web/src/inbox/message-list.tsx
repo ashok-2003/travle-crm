@@ -34,6 +34,10 @@ const dayKey = (instant: string, timeZone: string) =>
     new Date(instant),
   );
 
+/** Two messages from the same side by the same sender kind (who sent it, or the AI, or the phone) form one run. */
+const sameSender = (a: ChatMessage, b: ChatMessage) =>
+  a.direction === b.direction && a.origin === b.origin && a.byAi === b.byAi && a.sentBy === b.sentBy;
+
 type Pages = ReturnType<typeof useMessages>;
 
 /** Earlier pages loaded, at most, to land on the first unread message as a chat opens. */
@@ -201,6 +205,7 @@ function Loaded({
             : customerName
         }
         first={newDay || previous.kind !== "message" || previous.message.direction !== message.direction}
+        showSender={newDay || previous.kind !== "message" || !sameSender(previous.message, message)}
       />,
     );
   });
@@ -208,7 +213,13 @@ function Loaded({
     <ChatJumpContext.Provider value={jump}>
       <MediaViewerProvider messages={oldestFirst} customerName={customerName} people={people}>
         <div className="absolute inset-0" data-chat-messages>
-          <ScrollArea ref={root} className="h-full" aria-label={t("messages")}>
+          {/* Radix lays the viewport's content out as a table, which grows to fit its widest unbreakable child; as a block it
+              stays the screen's width, whatever a message holds (owner, 2026-11-25: chats wider than a phone). */}
+          <ScrollArea
+            ref={root}
+            className="h-full [&_[data-radix-scroll-area-viewport]>div]:block!"
+            aria-label={t("messages")}
+          >
             <div className="flex flex-col gap-3 pt-2 pb-4">
               <div className="flex justify-center">
                 <ShowMoreButton pages={messages} label={t("earlier")} />

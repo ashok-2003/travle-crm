@@ -1,11 +1,12 @@
 // The root layout: the document, its language, the brand's fonts and styles, and the toast region.
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import { brand } from "@travel-crm/brand";
+import { appleStartupImages, brand } from "@travel-crm/brand";
 import { NextIntlClientProvider } from "next-intl";
 import { Toaster } from "@/components/ui/sonner";
 import { messages } from "@/i18n/messages";
 import { AppProviders } from "@/pwa/app-providers";
+import { InstallPromptCapture } from "@/pwa/install-prompt-capture";
 import { fontVariables } from "./fonts";
 // Indian scripts (DESIGN.md section 3). Each file's faces carry a unicode-range, so a browser downloads one only when
 // a page shows that script.
@@ -30,8 +31,17 @@ export const metadata: Metadata = {
       { url: "/icons/favicon.ico", sizes: "32x32" },
       { url: "/icons/favicon.svg", type: "image/svg+xml" },
     ],
-    apple: "/icons/apple-touch-icon.png",
+    apple: "/icons/apple-touch-icon-v2.png",
   },
+  // An installed iPhone app opens on the brand's ink with the mark, not a white flash.
+  appleWebApp: {
+    capable: true,
+    title: brand.shortName,
+    statusBarStyle: "default",
+    startupImage: appleStartupImages.map((image) => ({ ...image })),
+  },
+  // iOS reads this name, which Next 16 no longer emits for `capable` (it writes mobile-web-app-capable).
+  other: { "apple-mobile-web-app-capable": "yes" },
 };
 
 export const viewport: Viewport = {
@@ -46,6 +56,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en-IN" className={fontVariables}>
       <body>
+        <InstallPromptCapture />
         {/* Only what the root's own pieces read: every screen brings its own provider with all the words (the signed-in
             app, the account screens and the console below), and the visitor's form brings a small one, so a page that needs
             few words does not carry them all. */}

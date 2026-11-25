@@ -55,6 +55,8 @@ export function messageColumns(message: ParsedMessage, now: Date) {
     occurredAt: message.occurredAt === null || message.occurredAt.getTime() > now.getTime() ? now : message.occurredAt,
     mediaState: media ? "pending" : "none",
     mediaUrl: media ? message.mediaUrl : null,
+    unsupportedReason: message.unsupportedReason ?? null,
+    adHeadline: message.referral?.headline?.slice(0, 300) ?? null,
     // A reply button's tap (a booking tap) or a list row's pick (the trip menu's) keeps its id; a template's quick reply,
     // whose payload is the template's own, stays words.
     buttonReplyId: message.replyKind === "button" || message.replyKind === "list" ? message.buttonReplyId : null,

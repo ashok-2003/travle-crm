@@ -79,7 +79,9 @@ const LEGACY_SCRIPT = /<script\b[^>]*\bnomodule\b[^>]*>/gi;
  * workers never runs them. */
 export function filesNamedIn(html: string): string[] {
   const legacy = new Set([...html.matchAll(LEGACY_SCRIPT)].flatMap(([tag]) => tag.match(NAMED_FILE) ?? []));
-  return [...new Set(html.match(NAMED_FILE) ?? [])].filter((file) => !legacy.has(file));
+  return [...new Set(html.match(NAMED_FILE) ?? [])].filter(
+    (file) => !legacy.has(file) && !file.includes("/apple-startup-"),
+  );
 }
 
 const STYLESHEET_URL = /url\(\s*(["']?)([^"')]+)\1\s*\)/g;

@@ -275,7 +275,8 @@
       "season-saved": "Saved a package's season and room prices",
       "season-removed": "Removed a package's season",
       "brochure-described": "Named or described a package's brochure",
-      "sellable-changed": "Let the AI sell a package, or stopped it"
+      "sellable-changed": "Let the AI sell a package, or stopped it",
+      "note-copied": "Copied a line into a package's notes"
     },
     "ai-agent": {
       "paused": "Paused the AI agent on WhatsApp",

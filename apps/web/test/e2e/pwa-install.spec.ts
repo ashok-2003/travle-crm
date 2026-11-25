@@ -40,7 +40,7 @@ test("pages link a favicon, a home-screen icon and the canvas theme colour, and 
     .locator('link[rel="icon"], link[rel="apple-touch-icon"]')
     .evaluateAll((links) => links.map((link) => link.getAttribute("href") ?? ""));
   expect(hrefs).toEqual(
-    expect.arrayContaining(["/icons/favicon.ico", "/icons/favicon.svg", "/icons/apple-touch-icon.png"]),
+    expect.arrayContaining(["/icons/favicon.ico", "/icons/favicon.svg", "/icons/apple-touch-icon-v2.png"]),
   );
   for (const href of hrefs) expect((await page.request.get(href)).status(), href).toBe(200);
 });

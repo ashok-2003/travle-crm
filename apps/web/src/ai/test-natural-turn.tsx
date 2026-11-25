@@ -11,15 +11,14 @@ import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { WhatsAppText } from "@/inbox/whatsapp-text";
 import { actionOf } from "./test-natural-actions";
 import { TestNaturalWhy } from "./test-natural-why";
 
 /** Our green bubble on the right: what would go to the customer. */
 function OutBubble({ children }: { children: ReactNode }) {
   return (
-    <p className="max-w-[85%] rounded-lg rounded-tr-none bg-chat-bubble-ai px-3 py-2 whitespace-pre-line wrap-anywhere">
-      {children}
-    </p>
+    <div className="max-w-[85%] rounded-lg rounded-tr-none bg-chat-bubble-ai px-3 py-2 wrap-anywhere">{children}</div>
   );
 }
 
@@ -90,7 +89,7 @@ function TestCard({
     <>
       <p className="text-caption text-muted-foreground">{t("caption")}</p>
       <OutBubble>
-        <span className="block whitespace-pre-line">{card.body}</span>
+        <WhatsAppText text={card.body} />
       </OutBubble>
       <div className="flex flex-wrap justify-end gap-2">
         {card.buttons.map((title, index) => (
@@ -117,7 +116,9 @@ function TestMenu({ menu }: { menu: NonNullable<NaturalTestAnswer["menu"]> }) {
   return (
     <>
       <p className="text-caption text-muted-foreground">{t("caption", { button: menu.button })}</p>
-      <OutBubble>{menu.body}</OutBubble>
+      <OutBubble>
+        <WhatsAppText text={menu.body} />
+      </OutBubble>
       <ol aria-label={menu.button} className="flex max-w-[85%] flex-col items-end gap-1 text-right">
         {menu.rows.map((row, index) => (
           // The rows never change: a row's place is its identity.
@@ -151,7 +152,7 @@ export function TestNaturalTurn({
         // A turn's messages never change: a message's place is its identity.
         <OutBubble key={index}>
           <span className="sr-only">{t("agent")} </span>
-          {message}
+          <WhatsAppText text={message} />
         </OutBubble>
       ))}
       {payment.length > 0 && (

@@ -71,6 +71,21 @@ export async function turnPushOn(api: PushApi): Promise<PushState> {
   return "on";
 }
 
+/**
+ * Subscribes without asking, where the browser already allows notifications: every sign-in drops this browser's
+ * subscription (account/finish-sign-in.ts), so the permission outlives it and asking again would be nagging. True when
+ * it is on afterwards. False when permission isn't granted, or the subscribe failed (Safari may want a tap): the caller
+ * then asks as usual. Never throws.
+ */
+export async function subscribeQuietly(api: PushApi): Promise<boolean> {
+  if (!hasPush() || Notification.permission !== "granted") return false;
+  try {
+    return (await turnPushOn(api)) === "on";
+  } catch {
+    return false;
+  }
+}
+
 async function currentSubscription(): Promise<PushSubscription | null> {
   if (!hasPush()) return null;
   return (await (await navigator.serviceWorker.getRegistration())?.pushManager.getSubscription()) ?? null;

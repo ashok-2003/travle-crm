@@ -154,7 +154,7 @@ describe("PackageFilesCard", () => {
 });
 
 describe("a package file is checked in the browser first", () => {
-  it("refuses a brochure of the wrong type or over 10 MB without sending anything", async () => {
+  it("refuses a brochure of the wrong type or over 25 MB without sending anything", async () => {
     const api = fakeApi();
     renderWithApi(<PackageFilesCard packageId={packageId} />, newQueryClient());
     await waitFor(() => {
@@ -166,9 +166,9 @@ describe("a package file is checked in the browser first", () => {
     await userEvent.upload(input, new File(["x"], "notes.txt", { type: "text/plain" }), { applyAccept: false });
     expect(await screen.findByText("Choose a PDF or a picture (JPEG, PNG or WebP).")).toBeTruthy();
     const big = new File(["x"], "big.pdf", { type: "application/pdf" });
-    Object.defineProperty(big, "size", { value: 10 * 1024 * 1024 + 1 });
+    Object.defineProperty(big, "size", { value: 25 * 1024 * 1024 + 1 });
     await userEvent.upload(input, big);
-    expect(await screen.findByText(/Choose a file of up to 10 MB/)).toBeTruthy();
+    expect(await screen.findByText(/Choose a file of up to 25 MB/)).toBeTruthy();
     expect(api.calls).toHaveLength(1);
   });
 });

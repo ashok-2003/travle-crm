@@ -29,6 +29,8 @@ export const MAX_PACKAGE_PHOTOS = 6;
 /** A package holds five brochures at most. */
 export const MAX_PACKAGE_BROCHURES = 5;
 export const MAX_HIGHLIGHTS = 10;
+/** The most a package's notes may hold. */
+export const MAX_PACKAGE_NOTES = 3000;
 
 /** A tier's line: priced from a rate when it has one, else at its fixed price; neither makes a "needs a rate" line. */
 export const tierLine = z.strictObject({
@@ -102,7 +104,7 @@ export const packageFields = {
   days: z.array(quoteDay).max(MAX_QUOTE_DAYS),
   inclusions: text(3000),
   exclusions: text(3000),
-  notes: text(3000),
+  notes: text(MAX_PACKAGE_NOTES),
   taxRateBasisPoints: quoteTaxRate,
   /** The last part of the public address; null until the package has a page. */
   slug: packageSlug.nullable(),
@@ -142,6 +144,37 @@ export const updatePackageInput = z
     path: ["newDestinationName"],
   });
 export type UpdatePackageInput = z.infer<typeof updatePackageInput>;
+
+/** One section of a trip: the fields named are saved, every other field stays as stored. */
+export const updatePackagePartInput = z
+  .strictObject({
+    packageId: recordId,
+    ...z.object(packageFields).partial().shape,
+    newDestinationName: destinationName.optional(),
+  })
+  .refine(
+    (input) => Object.keys(input).some((key) => key !== "packageId" && input[key as keyof typeof input] !== undefined),
+    {
+      message: "Name at least one field to save",
+      path: ["packageId"],
+    },
+  );
+export type UpdatePackagePartInput = z.infer<typeof updatePackagePartInput>;
+
+/** A line put first in the notes of several packages. */
+export const MAX_COPY_TRIPS = 50;
+export const copyNoteInput = z.strictObject({
+  line: text(300).min(1),
+  packageIds: z.array(recordId).min(1).max(MAX_COPY_TRIPS),
+});
+export type CopyNoteInput = z.infer<typeof copyNoteInput>;
+export const copyNoteResult = z.object({
+  copied: z.array(recordId),
+  alreadyThere: z.array(recordId),
+  /** Packages whose notes would pass the limit with the line added. */
+  tooLong: z.array(recordId),
+});
+export type CopyNoteResult = z.infer<typeof copyNoteResult>;
 export const setPackagePublishedInput = z.strictObject({ packageId: recordId, published: z.boolean() });
 export const setPackageSellableInput = z.strictObject({ packageId: recordId, sellable: z.boolean() });
 export type SetPackageSellableInput = z.infer<typeof setPackageSellableInput>;
@@ -195,6 +228,26 @@ export const savePackageSeasonInput = z
   });
 export type SavePackageSeasonInput = z.infer<typeof savePackageSeasonInput>;
 export const removePackageSeasonInput = z.strictObject({ seasonId: recordId });
+
+/** Special prices for some dates: the seasons around them are split to make room. */
+export const saveSpecialPricesInput = z
+  .strictObject({
+    packageId: recordId,
+    label: text(60).min(1),
+    startsOn: calendarDate,
+    /** null: "until I change them". */
+    endsOn: calendarDate.nullable(),
+    prices: roomPrices,
+  })
+  .refine((value) => value.endsOn === null || value.endsOn >= value.startsOn, {
+    message: "The prices must end on or after their first day",
+    path: ["endsOn"],
+  })
+  .refine((value) => Object.values(value.prices).some((price) => price !== null), {
+    message: "Give at least one room type a price",
+    path: ["prices"],
+  });
+export type SaveSpecialPricesInput = z.infer<typeof saveSpecialPricesInput>;
 
 export const packageDetail = z.object({
   id: recordId,

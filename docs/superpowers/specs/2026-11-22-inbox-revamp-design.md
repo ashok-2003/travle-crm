@@ -1,6 +1,7 @@
 # Web revamp: the Inbox, chat first and live (part 1: the feel; part 2: the look and the message fixes)
 
-Owner-led, 2026-11-22. Approved by the owner ("lgtm") after the discussion below.
+Owner-led, 2026-11-22. Approved by the owner ("lgtm") after the discussion below; part 2 items 10, 11 and 13-15
+updated with the owner on 2026-11-24 ("yes looks good to me").
 
 ## Why
 
@@ -86,18 +87,73 @@ The Inbox is the page sales agents live in; the goal is that they use it instead
    the member (initials with the name on hover and for screen readers).
 9. **Quieter bubbles:** messages in a row from the same side group together; "from the phone" (or the sender, or "sent
    by the AI") shows once per group as a small mark, with each bubble's time.
-10. **A clear AI line:** "The AI is paused till 2:48 pm because you replied", in the AI violet, with "Let AI answer now";
-    the AI is called "the AI" here, never by the name it signs with.
-11. **The reply box:** the mic inside the box; every tool with its word (Templates, Trip details, Quick replies,
-    Payment), behind "+" on a phone as now.
-12. **Messages that looked broken:**
-    - Keep the type name of a message the parser doesn't know (a column on the message; ids and the type's name only),
-      count them, and show the common ones properly (find them from production's logs or the new column: likely polls,
-      orders, deleted messages, system notices); the rest keep a plain line, worded as "A <type> message: open it on
-      the phone" when the type is known by name.
-    - A file stuck `pending`: find why (a phone-sent photo's copy may come without a link to fetch; other sessions'
-      #64/#70 changed how phone echoes are read), fetch the file where MSG91 gives a way, a job that retries stuck ones
-      for a few days, and "Photo not available" (not "not loaded yet") when it never can be.
+10. **A clear AI line, one line, highlighted** (owner, 2026-11-22 and 2026-11-24):
+    - a strip above the reply box: in the AI violet while the AI answers (Take over) or is paused because you replied
+      ("The AI is paused till 2:48 pm because you replied", Let AI answer now); amber and bold when the AI handed the
+      chat to a person (its reason, Let AI answer), and when it flagged the chat for a person while it keeps answering
+      ("wants to book"; owner, 2026-11-24); handed-over rows in the chat list get an amber marker;
+    - **one line on every screen**: "AI answering · follows up 4 pm" with Take over (or Let AI answer) as a small text
+      button (44px hit area); tapping the line opens the rest (the reason, the follow-up's why), so on a phone it never
+      takes two or three lines;
+    - the AI is called "the AI" here, never by the name it signs with.
+11. **The reply box, one row** (owner, 2026-11-24, from the phone sketch below):
+    - `[+] [Message  ✨ 📎] 🎤`: the tools behind "+", the box with the AI's suggestion and the clip inside it, and one
+      round button at the right (the mic while the box is empty, Send once there is something to send, as WhatsApp's;
+      this replaces the earlier "mic inside the box");
+    - **no Reply / Note row**: Team note is an item in "+" (on a computer, one of the labelled tools); choosing it turns
+      the box into a note (the note colour, "Only your team sees this") with an × back to replying;
+    - on a computer every tool keeps its word (Templates, Trip details, Quick replies, Payment, Note);
+    - touch targets stay 44px (DESIGN.md); what shrinks is the number of rows, not the targets.
+
+    ```
+    Now (phone)                        Decided
+    ┌───────────────────────────┐     ┌───────────────────────────────┐
+    │🤖 AI is answering this     │     │🤖 AI answering · 4 pm  Take over│
+    │   chat… (2 lines)          │     │[+] [Message          ✨ 📎] 🎤│
+    │   🗓 Next follow-up 4 pm   │     └───────────────────────────────┘
+    │              [Take over]   │
+    │ (Reply) (Note)             │
+    │[+] [Type a message  ✨📎] 🎤│
+    └───────────────────────────┘
+    ```
+12. **Messages that looked broken** (production, 2026-11-24, with the owner's decisions):
+    - **"Can't be shown here"** was ~430 messages in 8 days, and MSG91 names most of them, so each is shown for what
+      it is (owner, 2026-11-24):
+      - **an edit** (116: customers 73, staff from the phone 43; `contentType` `edit`, with the original message's id and
+        the new text): the original bubble takes the new text and a small "Edited"; no bubble of its own;
+      - **a delete for everyone** (88: customers 46, staff 42; `contentType` `revoke`, with the original's id): the
+        original bubble **keeps its text for the team**, struck through, with "Deleted by the customer" (or "Deleted from
+        the phone" for our own); no bubble of its own (owner: "yes we can keep that");
+      - **WhatsApp didn't pass it on** (216; WhatsApp's error 131060 "This message is currently unavailable"): the
+        content never reaches us, so the bubble says so honestly ("WhatsApp didn't share this message: read it on the
+        phone");
+      - **an album** (36; error 131051 with `unsupported.type` `album`): the photos arrive as messages of their own, so
+        the bubble says "Sent an album of photos";
+      - **a click on the agency's ad with a message** (2; `contentType` `referral`): a bug today, the customer's words
+        are lost; show them as text, with "From your ad: <the ad's headline>";
+      - anything else keeps the plain "open it on the phone" line.
+    - **A file stuck "not loaded yet"** (2 of 2,689, both sent from the agency's phone; their copy jobs had failed, the
+      rows still said pending): past 24 hours a file that still can't be copied becomes failed (`unavailable`) and is
+      never re-queued; the bubble words every failed file by its reason ("Photo not available", "Too big to keep", "A
+      file type we don't keep"), never "not loaded yet".
+13. **WhatsApp's formatting in every bubble** (owner, 2026-11-24: the AI's `*Jibhi…*` showed its asterisks): *bold*,
+    _italic_, ~strikethrough~, ```monospace``` blocks, `inline code`, lines starting "- " or "* " as bullets, "1. " as a
+    numbered list, "> " as a quote, by WhatsApp's own rules for when a marker counts (no space just inside it, at word
+    edges, so "2*3*4" stays as typed). Built as React elements, never HTML; links stay tappable inside formatted text. The
+    same in the Inbox, the lead page's chat, the messages dialog and the AI's Try it. The chat list's one-line preview and
+    the desktop alerts show the words without the markers.
+14. **Photos never move the chat or leave the screen** (owner, 2026-11-24, on a phone):
+    - every photo (and video thumbnail) sits in a fixed frame from the first paint, cropped to fill, with a quiet
+      placeholder while it loads, as WhatsApp's; tapping opens the viewer with the whole photo;
+    - no bubble is ever wider than the screen: find the overflow's cause with a test at 390px (likely the photo's button
+      has no width limit) and fix it there.
+15. **The lead page's chat on a phone** runs edge to edge inside its card, with the same one-line AI strip and one-row
+    reply box (owner, 2026-11-24: "this should be equally responsive").
+16. **The "turn on notifications" pop-up only when they're really off** (owner, 2026-11-24): every sign-in drops this
+    browser's push subscription (a shared phone keeps nobody else's alerts), so the pop-up asked again even though the
+    browser already allowed notifications. When the browser already allows them and the subscription is missing, the
+    app subscribes again by itself, with no pop-up. The pop-up stays for a browser never asked, and once a day for
+    someone who turned push off themselves; if a browser refuses to subscribe without a tap, the pop-up shows as before.
 
 ## Not in this change
 
@@ -112,6 +168,9 @@ notifications stay as they are), the broadcasts pages.
   cap) and the `NOTIFY` on each change; the inbox journeys pass, with one that sees a message arrive without reloading
   (a webhook posted while the chat is open shows within a few seconds). On real-shaped data: switching chats doesn't
   move the list; the panes at 1024, 1280, 1440, 1728 and 1920.
-- **Part 2:** unit tests for the header, chips, Filters, rows (waiting colours, owner only when not mine), grouping,
-  the AI line, the reply box; integration tests for the unknown type kept and the stuck file retried; the inbox journeys
-  pass; shots at 390, 1024, 1440 and 1728.
+- **Part 2:** unit tests for the header, chips, Filters, rows (waiting colours, owner only when not mine, the amber
+  handed-over marker), grouping, the AI line (each state, one line, opens for the rest), the reply box (one row, Note
+  from "+" and back), the formatting (each marker, lists, quotes, links inside, markers that don't count, previews
+  without markers), the photo frame (its size fixed before the file loads); integration tests for the unknown type kept
+  and the stuck file retried; a journey or test that a wide photo leaves no sideways scroll at 390px; the inbox
+  journeys pass; shots at 390 (the Inbox and the lead page), 1024, 1440 and 1728.

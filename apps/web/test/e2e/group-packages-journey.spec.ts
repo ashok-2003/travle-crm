@@ -31,20 +31,30 @@ test("an Owner makes a group package, prices its seasons, sees its departures an
   await expect(page.getByRole("heading", { level: 1, name: "Manali 5N6D" })).toBeVisible();
   await expectAccessible(page);
 
-  // The kind, the rooms, the days, the seats, the GST and the advance.
-  await page.getByRole("radio", { name: "A group trip that departs on set dates" }).check();
-  await page.getByRole("button", { name: "Triple", exact: true }).click();
-  await page.getByRole("button", { name: "Double", exact: true }).click();
-  await page.getByRole("button", { name: "Fri", exact: true }).click();
-  await page.getByRole("button", { name: "Sat", exact: true }).click();
+  // The kind, the rooms, the days, the seats and the advance (Prices & dates), the nights (Itinerary), the GST and the
+  // pickup points (Details & rules): each section saves alone.
+  await page.getByRole("button", { name: "Edit Prices & dates" }).click();
+  const editing = page.getByRole("group", { name: "Prices & dates" });
+  await editing.getByRole("radio", { name: "A group trip that departs on set dates" }).check();
+  await editing.getByRole("button", { name: "Triple", exact: true }).click();
+  await editing.getByRole("button", { name: "Double", exact: true }).click();
+  await editing.getByRole("button", { name: "Fri", exact: true }).click();
+  await editing.getByRole("button", { name: "Sat", exact: true }).click();
+  await editing.getByLabel("Seats on each departure").fill("20");
+  await editing.getByLabel("Starts from").fill("Delhi");
+  await editing.getByLabel("Advance to hold a seat (each person)").fill("2,000");
+  await editing.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Prices & dates saved").first()).toBeVisible();
+  await page.getByRole("button", { name: "Edit Itinerary" }).click();
   await page.getByLabel("Nights", { exact: true }).fill("5");
-  await page.getByLabel("Seats on each departure").fill("20");
-  await page.getByLabel("Starts from").fill("Delhi");
-  await page.getByLabel("Advance to hold a seat (each person)").fill("2,000");
-  await page.getByRole("switch", { name: "Prices include GST" }).check();
-  await page.getByLabel("Pickup points").fill("Kashmere Gate\nMajnu ka Tilla");
-  await page.getByRole("button", { name: "Save package" }).click();
-  await expect(page.getByText("Saved").first()).toBeVisible();
+  await page.getByRole("group", { name: "Itinerary" }).getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Itinerary saved").first()).toBeVisible();
+  await page.getByRole("button", { name: "Edit Details & rules" }).click();
+  const details = page.getByRole("group", { name: "Details & rules" });
+  await details.getByRole("switch", { name: "Prices include GST" }).check();
+  await details.getByLabel("Pickup points").fill("Kashmere Gate\nMajnu ka Tilla");
+  await details.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Details & rules saved").first()).toBeVisible();
 
   // The first season covers the next five weeks and the second the weeks after: the departures fall in both.
   const first = { label: "Nov", from: dayInIndia(1), to: dayInIndia(35) };

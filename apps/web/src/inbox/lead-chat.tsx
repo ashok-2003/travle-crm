@@ -28,6 +28,9 @@ function cameForChat(card: HTMLDivElement | null) {
   if (card !== null && window.location.hash === `#${card.id}`) card.scrollIntoView({ block: "start" });
 }
 
+// On a phone the chat runs edge to edge inside the card; what is not the chat keeps the card's own padding.
+const sidePadding = "flex flex-col gap-4 px-(--card-spacing) sm:px-0";
+
 export function LeadChat({ leadId }: { leadId: string }) {
   const t = useTranslations("inbox.leadSection");
   const mayRead = useHolds("inbox:view");
@@ -45,16 +48,18 @@ export function LeadChat({ leadId }: { leadId: string }) {
           {t("title")}
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-col gap-4">
+      <CardContent className="flex flex-col gap-4 px-0 sm:px-(--card-spacing)">
         {conversationId === null ? (
-          <>
+          <div className={sidePadding}>
             <p className="text-muted-foreground">{t("none")}</p>
             <StartChat leadId={leadId} />
-          </>
+          </div>
         ) : (
           <>
             <LiveChat key={conversationId} conversationId={conversationId} />
-            <TextLink href={inboxRoute(conversationId)}>{t("open")}</TextLink>
+            <div className={sidePadding}>
+              <TextLink href={inboxRoute(conversationId)}>{t("open")}</TextLink>
+            </div>
           </>
         )}
       </CardContent>
