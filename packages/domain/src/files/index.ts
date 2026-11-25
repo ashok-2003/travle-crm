@@ -7,7 +7,7 @@ export {
   exportedFiles,
   LATE_WRITES_MS,
   queueOrganizationFileDeletion,
-  storedFileKeys,
+  storedFiles,
   type ExportedFile,
   type FileRecord,
 } from "./purge.js";

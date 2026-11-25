@@ -38,8 +38,8 @@ const UPLOAD_URL_SECONDS = 10 * 60;
 const CONFIRM_WITHIN_SECONDS = 60 * 60;
 
 /**
- * Bytes the organization keeps in storage: every ready file, deleted ones too until a purge removes them, and the
- * uploads still pending while their link lasts. One that never finished (stopped, or refused at confirm) stops
+ * Bytes the organization keeps in storage: every ready file holding its own bytes (a file sent again shares them and
+ * adds nothing), deleted ones too until a purge removes them, and the uploads still pending while their link lasts. One that never finished (stopped, or refused at confirm) stops
  * counting when its link lapses, so a plan's storage never fills with files nobody can see; sweeping their rows and
  * objects is a later plan's. Named, not left to row-level security: the platform's own transaction sees every
  * organization's files.
@@ -48,7 +48,11 @@ export async function bytesStored(tx: OrgTx, organizationId: string, now: Date =
   const linkLapsed = new Date(now.getTime() - UPLOAD_URL_SECONDS * 1000);
   const totals = await withDeleted(() =>
     tx.attachment.aggregate({
-      where: { organizationId, OR: [{ status: "ready" }, { status: "pending", createdAt: { gt: linkLapsed } }] },
+      where: {
+        organizationId,
+        storedAsId: null,
+        OR: [{ status: "ready" }, { status: "pending", createdAt: { gt: linkLapsed } }],
+      },
       _sum: { sizeBytes: true },
     }),
   );

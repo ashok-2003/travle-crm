@@ -2,6 +2,7 @@
 // booked, holding or waiting, not blocked, no opt-out, not offered in 14 days, the viewer's own leads, at most 50); a message is
 // one AI call for one person, with the price put in by code, a typed amount and an unallowed seat count taken out, and refused for
 // a person the rules leave out; "Sent" marks the offer, notes the lead's timeline and audits it; a customer's erasure removes it.
+import { createMemoryStorage } from "@travel-crm/integrations/storage";
 import { createPlatformDatabase, type PlatformDatabase } from "@travel-crm/db/platform";
 import { createMemoryAiModel } from "@travel-crm/integrations/ai";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
@@ -433,6 +434,7 @@ describe("empty seats", () => {
     await platformDb.transaction((tx) =>
       eraseCustomerParts(
         tx,
+        createMemoryStorage(),
         systemActor(world.organizationId),
         { organizationId: world.organizationId, personId: person.personId },
         now,

@@ -2,6 +2,7 @@
 // erasure takes, inside the erasure job's platform transaction. crm erases its own rows; the leads' tasks,
 // notifications and files go through their modules, and the counts go in the platform log.
 import { asOrganization, type PlatformTx } from "@travel-crm/db/platform";
+import type { ObjectStorage } from "@travel-crm/integrations/storage";
 import { customerContacts, eraseCustomer, type CustomerSubject } from "../crm/index.js";
 import { deleteRecordFiles } from "../files/index.js";
 import type { Actor } from "../kernel/index.js";
@@ -24,6 +25,7 @@ import { cancelOpenTasks, redactTaskTitles } from "../tasks/index.js";
  */
 export async function eraseCustomerParts(
   tx: PlatformTx,
+  storage: ObjectStorage,
   actor: Actor,
   subject: CustomerSubject,
   now: Date,
@@ -40,7 +42,7 @@ export async function eraseCustomerParts(
   const quotes = await eraseQuoteParts(tx, { organizationId, leadIds });
   const sales = await eraseSalesParts(tx, { organizationId, leadIds });
   // Their bookings: the travellers' details and ID numbers, claims' references and screenshots, feedback, and the files.
-  const bookings = await eraseBookingParts(tx, { organizationId, leadIds, now });
+  const bookings = await eraseBookingParts(tx, storage, { organizationId, leadIds, now });
   // Their holds, their places on a waitlist and in rooms, and the words of their room requests.
   const departures = await eraseDepartureParts(tx, { organizationId, leadIds });
   // Module code for one organization runs in a step, as the runtime role: its audit entries and events name it.
@@ -63,7 +65,7 @@ export async function eraseCustomerParts(
       recordId: lead.recordId,
       sourceEventIds: [],
     });
-    files += await deleteRecordFiles(tx, lead, now);
+    files += await deleteRecordFiles(tx, storage, lead, now);
   }
   for (const bookingId of bookings.bookingIds) {
     notifications += await forgetRecordNotifications(tx, { organizationId, recordId: bookingId, sourceEventIds: [] });
@@ -77,7 +79,7 @@ export async function eraseCustomerParts(
   // Meta's ledger keeps the Meta lead ids (so the catch-up never brings the lead back) and nothing of the person.
   const meta = await withdrawMetaLeads(tx, { organizationId, personId: subject.personId });
   // The AI's drafts in their chats (ids and a hash, never the words).
-  const ai = await withdrawAiParts(tx, {
+  const ai = await withdrawAiParts(tx, storage, {
     organizationId,
     personId: subject.personId,
     phones: contacts.phones,
@@ -85,7 +87,7 @@ export async function eraseCustomerParts(
     now,
   });
   // WhatsApp: the chat's words and files are emptied and the chat is erased; MSG91, Meta and the phone keep their own copy.
-  const whatsapp = await withdrawWhatsApp(tx, {
+  const whatsapp = await withdrawWhatsApp(tx, storage, {
     organizationId,
     personId: subject.personId,
     phones: contacts.phones,

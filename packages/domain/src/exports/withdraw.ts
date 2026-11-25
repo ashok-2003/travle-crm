@@ -2,6 +2,7 @@
 // export at once, the sweep's for those past their 24 hours. Each query names the organization, since the platform
 // role sees them all. The files go for good through the deletions' outbox, and no export keeps a search.
 import { type OrgTx, withDeleted } from "@travel-crm/db";
+import type { ObjectStorage } from "@travel-crm/integrations/storage";
 import { DATA_EXPORT_RECORD_TYPE, deleteRecordFiles } from "../files/index.js";
 
 /**
@@ -10,6 +11,7 @@ import { DATA_EXPORT_RECORD_TYPE, deleteRecordFiles } from "../files/index.js";
  */
 export async function expireExports(
   tx: OrgTx,
+  storage: ObjectStorage,
   organizationId: string,
   exportIds: readonly string[],
   now: Date,
@@ -26,7 +28,12 @@ export async function expireExports(
     WHERE organization_id = ${organizationId}::uuid AND id = ANY(${[...exportIds]}::uuid[])`;
   let files = 0;
   for (const recordId of exportIds) {
-    files += await deleteRecordFiles(tx, { organizationId, recordType: DATA_EXPORT_RECORD_TYPE, recordId }, now);
+    files += await deleteRecordFiles(
+      tx,
+      storage,
+      { organizationId, recordType: DATA_EXPORT_RECORD_TYPE, recordId },
+      now,
+    );
   }
   return files;
 }
@@ -38,6 +45,7 @@ export async function expireExports(
  */
 export async function withdrawExportFiles(
   tx: OrgTx,
+  storage: ObjectStorage,
   organizationId: string,
   now: Date,
 ): Promise<{ exports: number; files: number }> {
@@ -53,6 +61,6 @@ export async function withdrawExportFiles(
     }),
   );
   const ids = [...new Set([...kept.map((row) => row.id), ...stored.map((file) => file.recordId)])];
-  const files = await expireExports(tx, organizationId, ids, now);
+  const files = await expireExports(tx, storage, organizationId, ids, now);
   return { exports: kept.length, files };
 }

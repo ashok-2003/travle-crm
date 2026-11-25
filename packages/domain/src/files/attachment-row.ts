@@ -17,6 +17,7 @@ export const attachmentFields = {
   sensitive: true,
   status: true,
   createdAt: true,
+  storedAsId: true,
 } as const;
 
 export interface AttachmentRow {
@@ -30,14 +31,26 @@ export interface AttachmentRow {
   sensitive: boolean;
   status: string;
   createdAt: Date;
+  /** The attachment whose stored object holds this file's bytes; null when it holds its own. */
+  storedAsId: string | null;
 }
 
 /**
- * Where an attachment's bytes live. Made from the row's own organization and id, never stored, so no row can point
- * at another organization's file.
+ * The attachment's own object: where its upload or a generated file is written, and what the deletions' outbox
+ * deletes. Made from the row's own organization and id, never stored, so no row can point at another organization's
+ * file. Reads go through `bytesKeyOf`: a file sent again has no object of its own.
  */
 export function storageKeyOf(row: { organizationId: string; id: string }): string {
   return `organizations/${row.organizationId}/attachments/${row.id}`;
+}
+
+/**
+ * Where the attachment's bytes are read from: its own object, or, for a file stored once and attached again (a
+ * brochure sent on WhatsApp), the object of the attachment holding them, always in the row's own organization (the
+ * key between them includes it).
+ */
+export function bytesKeyOf(row: { organizationId: string; id: string; storedAsId: string | null }): string {
+  return storageKeyOf({ organizationId: row.organizationId, id: row.storedAsId ?? row.id });
 }
 
 export function toSummary(row: AttachmentRow): AttachmentSummary {

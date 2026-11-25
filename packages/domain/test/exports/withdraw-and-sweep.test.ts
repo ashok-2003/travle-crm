@@ -1,6 +1,7 @@
 // Keeping and deleting an export's file (spec B54, B55, D31, D32): 24 hours after it was ready the console's sweep
 // deletes it for good; a file stored late under an expired export goes too, and so does one under an export whose job
 // never finished; an erasure withdraws every export file of the organization at once. The search is never kept.
+import { createMemoryStorage } from "@travel-crm/integrations/storage";
 import { createPlatformDatabase, type PlatformDatabase } from "@travel-crm/db/platform";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { exportsToSweep, runExport, startExport, sweepExport, withdrawExportFiles } from "../../src/exports/index.js";
@@ -65,7 +66,7 @@ describe("keeping and deleting an export's file", () => {
   /** The sweep as the console runs it: a page of exports to visit, each swept in its own transaction. */
   async function sweep(now: Date) {
     const items = await platformDb.transaction((tx) => exportsToSweep(tx, now, 100, []));
-    for (const item of items) await platformDb.transaction((tx) => sweepExport(tx, item, now));
+    for (const item of items) await platformDb.transaction((tx) => sweepExport(tx, createMemoryStorage(), item, now));
     return items;
   }
   const exportOf = (id: string) => test.platform.dataExport.findUniqueOrThrow({ where: { id } });
@@ -111,7 +112,9 @@ describe("keeping and deleting an export's file", () => {
     const making = await anExport(organizationId, "making", now);
     const failed = await anExport(organizationId, "failed", now);
     const elsewhere = await anExport(await anAgency(test, "Kept exports"), "ready", now);
-    expect(await platformDb.transaction((tx) => withdrawExportFiles(tx, organizationId, now))).toEqual({
+    expect(
+      await platformDb.transaction((tx) => withdrawExportFiles(tx, createMemoryStorage(), organizationId, now)),
+    ).toEqual({
       exports: 2,
       files: 3,
     });
@@ -132,7 +135,10 @@ describe("keeping and deleting an export's file", () => {
     // An erasure lands between the job's pages.
     const source = testSource({
       page: async (context, access, filter, after) => {
-        if (after !== null) await platformDb.transaction((tx) => withdrawExportFiles(tx, organizationId, new Date()));
+        if (after !== null)
+          await platformDb.transaction((tx) =>
+            withdrawExportFiles(tx, createMemoryStorage(), organizationId, new Date()),
+          );
         return base.page(context, access, filter, after);
       },
     });

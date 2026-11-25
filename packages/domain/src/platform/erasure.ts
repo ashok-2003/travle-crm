@@ -160,13 +160,14 @@ export async function eraseSubject(services: PlatformServices, job: ErasureJob, 
       record.recordType === "person"
         ? await eraseCustomerParts(
             tx,
+            services.storage,
             actor,
             { organizationId, personId: record.recordId },
             now,
             services.sheetsHashes ?? null,
           )
         : null;
-    const files = await deleteRecordFiles(tx, { organizationId, ...record }, now);
+    const files = await deleteRecordFiles(tx, services.storage, { organizationId, ...record }, now);
     const shareLinks = await forgetRecordShareLinks(tx, { organizationId, ...record });
     const notifications = await forgetRecordNotifications(tx, {
       organizationId,
@@ -186,8 +187,8 @@ export async function eraseSubject(services: PlatformServices, job: ErasureJob, 
         : record.recordType === "person"
           ? { personId: record.recordId }
           : null;
-    const imports = await withdrawImportFiles(tx, organizationId, now, forgotten);
-    const dataExports = await withdrawExportFiles(tx, organizationId, now);
+    const imports = await withdrawImportFiles(tx, services.storage, organizationId, now, forgotten);
+    const dataExports = await withdrawExportFiles(tx, services.storage, organizationId, now);
     const exportsExpired = await expireOrganizationExports(services, tx, organizationId, "erasure", now);
     await recordAudit(tx, actor, {
       action: "subject.erased",

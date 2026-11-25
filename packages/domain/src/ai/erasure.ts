@@ -5,10 +5,12 @@
 // recordings and screenshots they were filled from. Deleted when the customer is erased, run on the platform's transaction.
 import { withDeleted, type OrgTx } from "@travel-crm/db";
 import { AI_INPUT_RECORD_TYPE } from "@travel-crm/contracts/files";
+import type { ObjectStorage } from "@travel-crm/integrations/storage";
 import { deleteRecordFiles } from "../files/index.js";
 
 export async function withdrawAiParts(
   tx: OrgTx,
+  storage: ObjectStorage,
   input: {
     organizationId: string;
     personId: string;
@@ -83,6 +85,7 @@ export async function withdrawAiParts(
   for (const recordId of new Set(inputs.map((row) => row.recordId))) {
     inputFiles += await deleteRecordFiles(
       tx,
+      storage,
       { organizationId: input.organizationId, recordType: AI_INPUT_RECORD_TYPE, recordId },
       input.now,
     );

@@ -1,6 +1,7 @@
 // Fill it for me: a proposal from typed words, a recording, a screenshot or a chat; one monthly call taken first and given back
 // when the AI doesn't answer or finds nothing; nothing saved by the fill; the row keeps paths and hashes, never words; a
 // recording only the member's own; a save that began as a fill audited as drafted by AI, with what the member changed.
+import { createMemoryStorage } from "@travel-crm/integrations/storage";
 import { randomUUID } from "node:crypto";
 import { AI_INPUT_RECORD_TYPE } from "@travel-crm/contracts/files";
 import { createPlatformDatabase, type PlatformDatabase } from "@travel-crm/db/platform";
@@ -314,7 +315,13 @@ describe("fill it for me", () => {
     );
 
     await platformDb.transaction((tx) =>
-      eraseCustomerParts(tx, systemActor(organizationId), { organizationId, personId: person.personId }, NOW),
+      eraseCustomerParts(
+        tx,
+        createMemoryStorage(),
+        systemActor(organizationId),
+        { organizationId, personId: person.personId },
+        NOW,
+      ),
     );
 
     expect(await inOrg((tx) => tx.aiFill.count({ where: { id: proposal.fillId } }))).toBe(0);
@@ -355,7 +362,13 @@ describe("fill it for me", () => {
       tx.lead.findUniqueOrThrow({ where: { id: lead.id }, select: { personId: true } }),
     );
     await platformDb.transaction((tx) =>
-      eraseCustomerParts(tx, systemActor(organizationId), { organizationId, personId: person.personId }, NOW),
+      eraseCustomerParts(
+        tx,
+        createMemoryStorage(),
+        systemActor(organizationId),
+        { organizationId, personId: person.personId },
+        NOW,
+      ),
     );
     for (const slot of [first, second, third]) {
       expect(await test.files.list(owner, { recordType: AI_INPUT_RECORD_TYPE, recordId: slot.recordId })).toEqual([]);

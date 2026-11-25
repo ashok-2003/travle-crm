@@ -71,7 +71,7 @@ export async function sendAiText(
  */
 export async function sendAiFile(
   tx: OrgTx,
-  store: { files: Files; storageLimitBytes: number | null },
+  store: { files: Files },
   target: AiMessageTarget,
   clientToken: string,
   from: AttachmentRefInput,
@@ -79,13 +79,10 @@ export async function sendAiFile(
   caption = "",
 ): Promise<string> {
   const messageId = uuidFromKey(clientToken);
-  const copy = await store.files.copyFileIn(
-    tx,
-    systemActor(target.organizationId),
-    from,
-    { recordType: WHATSAPP_RECORD_TYPE, recordId: messageId },
-    store.storageLimitBytes,
-  );
+  const copy = await store.files.copyFileIn(tx, systemActor(target.organizationId), from, {
+    recordType: WHATSAPP_RECORD_TYPE,
+    recordId: messageId,
+  });
   return sendAiText(tx, target, clientToken, caption, kind, {
     messageId,
     kind: kindOf(copy.contentType),

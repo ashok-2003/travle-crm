@@ -206,8 +206,14 @@ describe("the console's AI turn traces", () => {
     const erased = await aTurn(organizationId, a, 1);
     const kept = await aTurn(organizationId, b, 1);
     await services.platformDb.transaction(async (tx) => {
-      await withdrawAiParts(tx, { organizationId, personId: a.personId, phones: [a.phone], leadIds: [], now: NOW });
-      await withdrawWhatsApp(tx, { organizationId, personId: a.personId, phones: [a.phone], now: NOW });
+      await withdrawAiParts(tx, storage, {
+        organizationId,
+        personId: a.personId,
+        phones: [a.phone],
+        leadIds: [],
+        now: NOW,
+      });
+      await withdrawWhatsApp(tx, storage, { organizationId, personId: a.personId, phones: [a.phone], now: NOW });
     });
     expect((await listAiTraces(services, { organizationId, limit: 50 }, NOW)).traces.map((row) => row.id)).toEqual([
       kept.id,

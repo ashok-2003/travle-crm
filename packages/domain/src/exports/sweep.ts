@@ -3,6 +3,7 @@
 // gave up); and a file stored late under an export already expired or failed goes too. The sweep lists a page of
 // them, each case on its own index, then sweeps each in its own short transaction.
 import { type OrgTx, sql, type Sql } from "@travel-crm/db";
+import type { ObjectStorage } from "@travel-crm/integrations/storage";
 import { DATA_EXPORT_RECORD_TYPE } from "../files/index.js";
 import type { SweepItem } from "../imports/index.js";
 import { EXPORT_KEPT_MS } from "./export-runner.js";
@@ -60,7 +61,7 @@ export async function exportsToSweep(
  * Sweeps one export, held for the transaction: deletes its file and, when its time is up, marks it expired. An export
  * its job holds is skipped (SKIP LOCKED) for the next hour, as is one not yet due. Returns whether it swept.
  */
-export async function sweepExport(tx: OrgTx, item: SweepItem, now: Date): Promise<boolean> {
+export async function sweepExport(tx: OrgTx, storage: ObjectStorage, item: SweepItem, now: Date): Promise<boolean> {
   const abandoned = new Date(now.getTime() - EXPORT_KEPT_MS);
   const [row] = await tx.$queryRaw<{ status: string; expiresAt: Date | null; createdAt: Date }[]>`
     SELECT status, expires_at AS "expiresAt", created_at AS "createdAt"
@@ -74,6 +75,6 @@ export async function sweepExport(tx: OrgTx, item: SweepItem, now: Date): Promis
     row.status === "expired" ||
     row.status === "failed";
   if (!due) return false;
-  await expireExports(tx, item.organizationId, [item.id], now);
+  await expireExports(tx, storage, item.organizationId, [item.id], now);
   return true;
 }

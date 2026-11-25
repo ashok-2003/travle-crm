@@ -7,6 +7,7 @@ import { ownMessages } from "@travel-crm/integrations/jobs";
 import { exportsToSweep, sweepExport } from "../exports/index.js";
 import { importsToSweep, sweepImport, type SweepItem } from "../imports/index.js";
 import type { OrgTx } from "@travel-crm/db";
+import type { ObjectStorage } from "@travel-crm/integrations/storage";
 import type { ScheduledJob } from "../jobs/index.js";
 import { deleteFilesAfterCommit } from "./file-deletions.js";
 import type { PlatformServices } from "./services.js";
@@ -33,7 +34,7 @@ export class BulkFilesSweepFailedError extends AggregateError {
 /** One kind's sweep: what lists the next page, and what sweeps one item. */
 interface SweepKind {
   next(tx: OrgTx, now: Date, limit: number, visited: readonly string[]): Promise<SweepItem[]>;
-  sweep(tx: OrgTx, item: SweepItem, now: Date): Promise<boolean>;
+  sweep(tx: OrgTx, storage: ObjectStorage, item: SweepItem, now: Date): Promise<boolean>;
 }
 
 const kinds: readonly SweepKind[] = [
@@ -53,7 +54,7 @@ export async function sweepBulkFiles(services: PlatformServices, now: Date): Pro
       for (const item of page) {
         visited.push(item.id);
         try {
-          if (await services.platformDb.transaction((tx) => kind.sweep(tx, item, now))) {
+          if (await services.platformDb.transaction((tx) => kind.sweep(tx, services.storage, item, now))) {
             swept += 1;
             organizationIds.add(item.organizationId);
           }

@@ -6,7 +6,7 @@ import type { OrgTx } from "@travel-crm/db";
 import { withDeleted } from "@travel-crm/db";
 import type { ObjectStorage } from "@travel-crm/integrations/storage";
 import { DomainError } from "../kernel/index.js";
-import { storageKeyOf } from "./attachment-row.js";
+import { bytesKeyOf, storageKeyOf } from "./attachment-row.js";
 import { isShortLivedRecordType, isSystemOwnedRecordType } from "./record-types.js";
 
 /** One record whose files an erasure deletes, e.g. a traveller. */
@@ -38,14 +38,15 @@ export interface ExportedFile {
 export const LATE_WRITES_MS = 15 * 60 * 1000;
 
 /**
- * Where every file of the organization is stored, removed ones and unfinished uploads included: an export that copies
- * them. The keys are made from the rows (ids only), as for any file.
+ * Every file of the organization, removed ones and unfinished uploads included, with where its bytes are read from: an
+ * export that copies each one. A file sharing another's bytes is listed under its own id, with the holder's key. The
+ * keys are made from the rows (ids only), as for any file.
  */
-export async function storedFileKeys(tx: OrgTx, organizationId: string): Promise<string[]> {
+export async function storedFiles(tx: OrgTx, organizationId: string): Promise<{ attachmentId: string; key: string }[]> {
   const rows = await withDeleted(() =>
-    tx.attachment.findMany({ where: { organizationId }, select: { organizationId: true, id: true } }),
+    tx.attachment.findMany({ where: { organizationId }, select: { organizationId: true, id: true, storedAsId: true } }),
   );
-  return rows.map(storageKeyOf);
+  return rows.map((row) => ({ attachmentId: row.id, key: bytesKeyOf(row) }));
 }
 
 /**
@@ -71,11 +72,26 @@ export async function queueOrganizationFileDeletion(tx: OrgTx, organizationId: s
  * transaction, due at `now` (the caller's clock, which also decides what is due). Returns how many files went. A
  * system-owned record's files (an issued document's PDF) are refused: they go only with their record, in a purge. The
  * short-lived ones, an import's report and an export, are the exception: the sweep and erasure delete them (B53-B55).
+ *
+ * Each file behaves as if it held its own bytes: one sharing another's bytes goes alone (the outbox deletes a row's own
+ * object, which it has none of), and a file whose bytes others still share hands them on first (`handOverBytes`).
  */
-export async function deleteRecordFiles(tx: OrgTx, record: FileRecord, now: Date): Promise<number> {
+export async function deleteRecordFiles(
+  tx: OrgTx,
+  storage: ObjectStorage,
+  record: FileRecord,
+  now: Date,
+): Promise<number> {
   if (isSystemOwnedRecordType(record.recordType) && !isShortLivedRecordType(record.recordType)) {
     throw new DomainError("FORBIDDEN", "SYSTEM_OWNED_FILE", "These files belong to their record and go only with it");
   }
+  // Held for the step: a copy of one of them waits, then finds it gone (copies.ts reads its source under a share lock).
+  const rows = await tx.$queryRaw<{ id: string; storedAsId: string | null }[]>`
+    SELECT id, stored_as_id AS "storedAsId" FROM attachment
+    WHERE organization_id = ${record.organizationId}::uuid
+      AND record_type = ${record.recordType} AND record_id = ${record.recordId}::uuid
+    FOR UPDATE`;
+  for (const row of rows) if (row.storedAsId === null) await handOverBytes(tx, storage, record, row.id);
   // A plain DELETE: soft delete refuses Prisma's, and only the platform role has the right to it here.
   const deleted = await tx.$queryRaw<{ id: string }[]>`
     DELETE FROM attachment
@@ -86,6 +102,32 @@ export async function deleteRecordFiles(tx: OrgTx, record: FileRecord, now: Date
     data: deleted.map((row) => ({ targetOrganizationId: record.organizationId, attachmentId: row.id, dueAt: now })),
   });
   return deleted.length;
+}
+
+/**
+ * Before a file goes whose bytes others share, one of those staying (the oldest of the files not on the same record)
+ * takes them over: storage copies the object to its own key, it holds the bytes from then on, and the others staying
+ * name it. Each copy so survives its source's deletion, as when every copy was stored apart; the old object goes after
+ * the commit, through the outbox, so a rollback leaves at most a stray copy under the heir's own key, which its own
+ * deletion removes. A holder whose object storage has lost hands on nothing: the files sharing it were unreadable
+ * already, and an erasure goes on.
+ */
+async function handOverBytes(tx: OrgTx, storage: ObjectStorage, record: FileRecord, holderId: string): Promise<void> {
+  const { organizationId, recordType, recordId } = record;
+  const staying = await tx.$queryRaw<{ id: string }[]>`
+    SELECT id FROM attachment
+    WHERE organization_id = ${organizationId}::uuid AND stored_as_id = ${holderId}::uuid
+      AND NOT (record_type = ${recordType} AND record_id = ${recordId}::uuid)
+    ORDER BY created_at, id
+    FOR UPDATE`;
+  const heir = staying[0]?.id;
+  if (heir === undefined) return;
+  await storage.copy(storageKeyOf({ organizationId, id: holderId }), storageKeyOf({ organizationId, id: heir }));
+  await tx.$executeRaw`
+    UPDATE attachment SET stored_as_id = NULL WHERE organization_id = ${organizationId}::uuid AND id = ${heir}::uuid`;
+  await tx.$executeRaw`
+    UPDATE attachment SET stored_as_id = ${heir}::uuid
+    WHERE organization_id = ${organizationId}::uuid AND id = ANY(${staying.slice(1).map((row) => row.id)}::uuid[])`;
 }
 
 /** The organization's files, or one record's, removed ones included, each with a download link for `linkSeconds`. */
@@ -110,7 +152,7 @@ export async function exportedFiles(
       deleted: row.deletedAt !== null,
       downloadUrl:
         row.status === "ready"
-          ? await storage.presignDownload({ key: storageKeyOf(row), fileName: row.fileName }, linkSeconds)
+          ? await storage.presignDownload({ key: bytesKeyOf(row), fileName: row.fileName }, linkSeconds)
           : null,
     })),
   );

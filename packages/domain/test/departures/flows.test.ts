@@ -1,5 +1,6 @@
 // The rest of a departure's life (release 7a): the waitlist and the notice when seats free up, a quote put on a departure (its
 // dates are the departure's), a departure's profit with a cost of its own, what Today shows, and a customer's erasure.
+import { createMemoryStorage } from "@travel-crm/integrations/storage";
 import { createPlatformDatabase, type PlatformDatabase } from "@travel-crm/db/platform";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { cancelBooking } from "../../src/bookings/index.js";
@@ -267,6 +268,7 @@ describe("a departure's waitlist, quotes, money and Today", () => {
     const erased = await platformDb.transaction((tx) =>
       eraseCustomerParts(
         tx,
+        createMemoryStorage(),
         systemActor(world.organizationId),
         { organizationId: world.organizationId, personId: person.personId },
         now,

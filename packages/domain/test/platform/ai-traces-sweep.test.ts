@@ -146,7 +146,7 @@ describe("the hourly sweep of AI traces", () => {
     const { organizationId, traces } = await agency([1, 1]);
     const [erased, kept] = traces;
     const withdrawn = await test.services.platformDb.transaction((tx) =>
-      withdrawAiParts(tx, {
+      withdrawAiParts(tx, storage, {
         organizationId,
         personId: erased?.personId ?? "",
         phones: [erased?.phone ?? ""],
@@ -186,7 +186,9 @@ describe("the hourly sweep of AI traces", () => {
     });
     const byPhone = await addTrace(organizationId, chatId, 1);
     const withdraw = (input: { personId: string; phones: string[]; leadIds: string[] }) =>
-      test.services.platformDb.transaction((tx) => withdrawAiParts(tx, { organizationId, now: NOW, ...input }));
+      test.services.platformDb.transaction((tx) =>
+        withdrawAiParts(tx, storage, { organizationId, now: NOW, ...input }),
+      );
 
     expect((await withdraw({ personId: randomUUID(), phones: [], leadIds: [leadId] })).traces).toBe(1);
     expect((await withdraw({ personId: randomUUID(), phones: [phone], leadIds: [] })).traces).toBe(1);

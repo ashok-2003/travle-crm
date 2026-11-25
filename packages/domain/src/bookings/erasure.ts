@@ -4,6 +4,7 @@
 // (voucher tickets, ID photos). The booking, its amounts and its dates stay (the agency's books), and so do the issued
 // vouchers and itineraries, which follow the issued-document rules. Run on the platform's transaction.
 import { withDeleted, type OrgTx } from "@travel-crm/db";
+import type { ObjectStorage } from "@travel-crm/integrations/storage";
 import { deleteRecordFiles } from "../files/index.js";
 
 export interface BookingsErased {
@@ -19,13 +20,15 @@ export interface BookingsErased {
 /** Deleted rows too: a booking removed with its reverted quote, or a traveller removed with the headcount, held words as well. */
 export function eraseBookingParts(
   tx: OrgTx,
+  storage: ObjectStorage,
   input: { organizationId: string; leadIds: readonly string[]; now: Date },
 ): Promise<BookingsErased> {
-  return withDeleted(() => erase(tx, input));
+  return withDeleted(() => erase(tx, storage, input));
 }
 
 async function erase(
   tx: OrgTx,
+  storage: ObjectStorage,
   input: { organizationId: string; leadIds: readonly string[]; now: Date },
 ): Promise<BookingsErased> {
   const { organizationId, now } = input;
@@ -72,12 +75,13 @@ async function erase(
   let files = 0;
   for (const bookingId of bookingIds) {
     for (const recordType of ["payment_claim", "booking_feedback", "booking_voucher"]) {
-      files += await deleteRecordFiles(tx, { organizationId, recordType, recordId: bookingId }, now);
+      files += await deleteRecordFiles(tx, storage, { organizationId, recordType, recordId: bookingId }, now);
     }
   }
   for (const travellerId of travellerIds) {
     files += await deleteRecordFiles(
       tx,
+      storage,
       { organizationId, recordType: "booking_traveller", recordId: travellerId },
       now,
     );

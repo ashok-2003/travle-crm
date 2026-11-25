@@ -3,7 +3,7 @@ import type { ObjectStorage } from "@travel-crm/integrations/storage";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
 import type { AttachmentRefInput } from "@travel-crm/contracts/files";
-import { findAttachment, findAttachmentById, storageKeyOf, type AttachmentRow } from "./attachment-row.js";
+import { bytesKeyOf, findAttachment, findAttachmentById, type AttachmentRow } from "./attachment-row.js";
 import type { DownloadLink, FilesDependencies, StoredFile } from "./dependencies.js";
 
 /** Short: a link that leaks in a chat or a log stops working within minutes. */
@@ -57,7 +57,7 @@ export async function systemFile(
   if (row.sensitive && options.allowSensitive !== true) {
     throw new DomainError("FORBIDDEN", "SENSITIVE_FILE", "Sensitive files are shown only to staff allowed to see them");
   }
-  const body = await storage.get(storageKeyOf(row));
+  const body = await storage.get(bytesKeyOf(row));
   // A ready file that storage has lost is a fault, not a missing file: fail, so a job that wanted it is retried.
   if (!body) throw new Error(`Attachment ${row.id} is ready but storage holds nothing for it`);
   return { body, contentType: row.contentType };
@@ -71,7 +71,7 @@ function assertReady(row: AttachmentRow): void {
 async function presign(storage: ObjectStorage, row: AttachmentRow, inline = false): Promise<DownloadLink> {
   const expiresAt = new Date(Date.now() + DOWNLOAD_URL_SECONDS * 1000);
   const url = await storage.presignDownload(
-    { key: storageKeyOf(row), fileName: row.fileName, inline, ...(inline ? { contentType: row.contentType } : {}) },
+    { key: bytesKeyOf(row), fileName: row.fileName, inline, ...(inline ? { contentType: row.contentType } : {}) },
     DOWNLOAD_URL_SECONDS,
   );
   return { url, expiresAt };

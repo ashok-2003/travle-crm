@@ -1,5 +1,6 @@
 // Erasing a customer empties what the quotes and the hot-lead signals keep about them: the name typed to accept, the
 // notes on their quotes, a payment's reference, their signals. The amounts stay, and another customer's are untouched.
+import { createMemoryStorage } from "@travel-crm/integrations/storage";
 import { randomUUID } from "node:crypto";
 import { createDatabase, type Database, type OrgTx } from "@travel-crm/db";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
@@ -84,7 +85,13 @@ describe("erasing a customer who has quotes", () => {
     const erased = await aCustomer("Neha Joshi");
     const kept = await aCustomer("Arjun Rao");
     await platformDb.transaction((tx) =>
-      eraseCustomerParts(tx, systemActor(organizationId), { organizationId, personId: erased.personId }, now),
+      eraseCustomerParts(
+        tx,
+        createMemoryStorage(),
+        systemActor(organizationId),
+        { organizationId, personId: erased.personId },
+        now,
+      ),
     );
     const state = (customer: { leadId: string; quoteId: string }) =>
       inOrg(async (tx) => ({

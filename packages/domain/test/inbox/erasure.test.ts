@@ -1,6 +1,7 @@
 // Erasing a customer takes everything the sales inbox keeps about them (sales inbox spec 6, review finding I1): the words of
 // their scheduled messages, the tags on their chat, every member's read mark, the notes on their lead, the automatic answers
 // written to them, and the notices that named them. Another customer's chat is left as it was.
+import { createMemoryStorage } from "@travel-crm/integrations/storage";
 import { randomUUID } from "node:crypto";
 import { createPlatformDatabase, type PlatformDatabase } from "@travel-crm/db/platform";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
@@ -154,7 +155,7 @@ describe("erasing a customer who is in the sales inbox", () => {
     );
 
     const erased = await platformDb.transaction((tx) =>
-      eraseCustomerParts(tx, systemActor(organizationId), { organizationId, personId }, testNow),
+      eraseCustomerParts(tx, createMemoryStorage(), systemActor(organizationId), { organizationId, personId }, testNow),
     );
     expect(erased).toMatchObject({ aiTraces: 1 });
     expect(
@@ -205,7 +206,7 @@ describe("erasing a customer who is in the sales inbox", () => {
     if (chat.personId === null) throw new Error("The chat needs a person");
     const personId = chat.personId;
     await platformDb.transaction((tx) =>
-      eraseCustomerParts(tx, systemActor(organizationId), { organizationId, personId }, testNow),
+      eraseCustomerParts(tx, createMemoryStorage(), systemActor(organizationId), { organizationId, personId }, testNow),
     );
     const after = await inOrg((tx) => tx.whatsappMessage.findUniqueOrThrow({ where: { id: message.id } }));
     expect(after).toMatchObject({ aiText: null, aiTextKind: null, aiTextAt: null });
@@ -244,7 +245,7 @@ describe("erasing a customer who is in the sales inbox", () => {
     });
 
     await platformDb.transaction((tx) =>
-      eraseCustomerParts(tx, systemActor(organizationId), { organizationId, personId }, testNow),
+      eraseCustomerParts(tx, createMemoryStorage(), systemActor(organizationId), { organizationId, personId }, testNow),
     );
 
     expect(await inOrg((tx) => tx.paymentProof.count({ where: { conversationId: mine.id } }))).toBe(0);

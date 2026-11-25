@@ -2,9 +2,7 @@
 // counted before it is stored, each file copy recorded once it is made, both under the export row's lock. Once the
 // export has expired or been withdrawn (an erasure), the job stores nothing more, and deletes a copy it just made.
 import { asOrganization, type PlatformTx } from "@travel-crm/db/platform";
-import { ownMessage } from "@travel-crm/integrations/jobs";
-import { storedFileKeys } from "../files/index.js";
-import { isUuid } from "../kernel/index.js";
+import { storedFiles } from "../files/index.js";
 import { exportFileKey, exportPartKey, type ExportRow } from "./organization-export.js";
 import type { PlatformServices } from "./services.js";
 
@@ -88,29 +86,23 @@ export class PartWriter {
   }
 }
 
-/** A stored file's id, from its key: the files module keeps each under its attachment's id. */
-function attachmentIdOf(key: string): string {
-  const id = key.slice(key.lastIndexOf("/") + 1);
-  // Our own fixed words, so the failed-jobs list keeps them.
-  if (!isUuid(id)) throw ownMessage(new TypeError("A stored file's key doesn't end in its id"));
-  return id;
-}
-
 /**
- * Copies every file the organization keeps, removed ones included, beside the export, inside storage. A file whose
- * upload never finished has nothing stored, and nothing to copy.
+ * Copies every file the organization keeps, removed ones included, beside the export, inside storage, each under its
+ * own id (a file sharing another's bytes gets its own copy of them). A file whose upload never finished has nothing
+ * stored, and nothing to copy.
  */
 export async function copyFiles(services: PlatformServices, row: ExportRow): Promise<void> {
   const organizationId = row.targetOrganizationId;
-  const keys = await services.platformDb.transaction((tx) =>
-    asOrganization(tx, organizationId, (orgTx) => storedFileKeys(orgTx, organizationId)),
+  const files = await services.platformDb.transaction((tx) =>
+    asOrganization(tx, organizationId, (orgTx) => storedFiles(orgTx, organizationId)),
   );
-  for (let start = 0; start < keys.length; start += COPIES_AT_ONCE) {
+  for (let start = 0; start < files.length; start += COPIES_AT_ONCE) {
     const copied = await Promise.all(
-      keys.slice(start, start + COPIES_AT_ONCE).map(async (key) => {
-        const attachmentId = attachmentIdOf(key);
-        return (await services.storage.copy(key, exportFileKey(row, attachmentId))) ? attachmentId : null;
-      }),
+      files
+        .slice(start, start + COPIES_AT_ONCE)
+        .map(async ({ attachmentId, key }) =>
+          (await services.storage.copy(key, exportFileKey(row, attachmentId))) ? attachmentId : null,
+        ),
     );
     const ids = copied.filter((id) => id !== null);
     if (ids.length === 0) continue;
