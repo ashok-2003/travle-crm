@@ -1,47 +1,52 @@
 "use client";
 
-// /packages/<id> (release 7b): one package. Its words and price, its tiers (each a set of lines priced from the supplier rates
-// when a quote is made), for a group trip its seasons and departures, its photos, brochures, and for a group trip where customers pay, and publishing its page at /a/<sign-in code>/<package>.
+// /packages/<id> (release 7b, one page since easy package editing): a trip's name and status line, a side index, and its
+// four sections, each a short summary with Edit that saves that section alone: Prices & dates (with a group trip's price
+// calendar, seasons and departures), Itinerary, Details & rules, and Page & files (publishing, the AI-sell switch,
+// photos, brochures).
 import { SearchXIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
-import { PageHeader } from "@/components/page-header";
-import { BackLink } from "@/components/text-link";
+import { BackLink, TextLink } from "@/components/text-link";
 import { refusalOf } from "@/data/api-error";
 import { routes } from "@/lib/routes";
-import { PackageDeparturesCard } from "./package-departures-card";
-import { PackageFilesCard } from "./package-files-card";
-import { PackageForm, savedKey } from "./package-form";
-import { PackagePhotos } from "./package-photos";
-import { PublishCard } from "./publish-card";
-import { SeasonsCard } from "./seasons-card";
-import { SellCard } from "./sell-card";
-import { TiersCard } from "./tiers-card";
+import { PackageHeader } from "./package-header";
+import { sectionAnchors, type SectionKey } from "./package-section";
+import { DetailsSection } from "./section-details";
+import { ItinerarySection } from "./section-itinerary";
+import { PageSection } from "./section-page";
+import { PricesSection } from "./section-prices";
 import { usePackage } from "./use-packages";
+
+const sections: SectionKey[] = ["prices", "itinerary", "details", "page"];
 
 export function PackageScreen({ packageId }: { packageId: string }) {
   const t = useTranslations("packages.page");
+  const tSections = useTranslations("packages.sections");
   const detail = usePackage(packageId);
   const body = () => {
     if (detail.data) {
       const data = detail.data;
       return (
         <>
-          <BackLink href={routes.packages} label={t("back")} />
-          <PageHeader title={data.name} intro={t("intro")} />
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] xl:items-start">
-            {/* Keyed by the saved package, so a save shows what was kept. */}
-            <PackageForm key={savedKey(data)} detail={data} />
-            <div className="flex flex-col gap-6 xl:sticky xl:top-6">
-              <PublishCard detail={data} />
-              <SellCard detail={data} />
-              {data.kind === "group" && <SeasonsCard detail={data} />}
-              {data.kind === "group" && <PackageDeparturesCard detail={data} />}
-              <TiersCard detail={data} />
-              <PackagePhotos packageId={data.id} />
-              <PackageFilesCard packageId={data.id} />
+          <PackageHeader detail={data} />
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,11rem)_minmax(0,1fr)] lg:items-start">
+            <nav aria-label={t("index")} className="lg:sticky lg:top-6">
+              <ul className="flex flex-wrap gap-x-4 lg:flex-col">
+                {sections.map((section) => (
+                  <li key={section}>
+                    <TextLink href={`#${sectionAnchors[section]}`}>{tSections(`${section}.title`)}</TextLink>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+            <div className="flex min-w-0 flex-col gap-8">
+              <PricesSection detail={data} />
+              <ItinerarySection detail={data} />
+              <DetailsSection detail={data} />
+              <PageSection detail={data} />
             </div>
           </div>
         </>
@@ -64,7 +69,7 @@ export function PackageScreen({ packageId }: { packageId: string }) {
   };
   return (
     <div className="flex flex-col gap-6">
-      {detail.data === undefined && <BackLink href={routes.packages} label={t("back")} />}
+      <BackLink href={routes.packages} label={t("back")} />
       {body()}
     </div>
   );

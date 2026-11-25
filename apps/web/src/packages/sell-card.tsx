@@ -15,15 +15,16 @@ import { routes } from "@/lib/routes";
 import { useHolds } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
 import { WriteHint } from "@/subscription/write-hint";
+import { sectionAnchors } from "./package-section";
 import { usePackageChanges } from "./use-packages";
 
-/** Where to add what is missing: the agency's payment QR is on the AI agent's Setup page, the rest is further down this page. */
+/** Where to add what is missing: the agency's payment QR is on the AI agent's Setup page, the rest in a section of this page. */
 const gapPlace: Record<PackageDetail["sellGaps"][number], string> = {
-  room_types: "#group-details",
-  prices: "#package-seasons",
-  advance: "#group-details",
-  departures: "#package-departures",
-  from_price: "#package-details",
+  room_types: `#${sectionAnchors.prices}`,
+  prices: `#${sectionAnchors.prices}`,
+  advance: `#${sectionAnchors.prices}`,
+  departures: `#${sectionAnchors.prices}`,
+  from_price: `#${sectionAnchors.page}`,
   payment_details: `${routes.aiAgentSetup}#step-payment`,
 };
 
