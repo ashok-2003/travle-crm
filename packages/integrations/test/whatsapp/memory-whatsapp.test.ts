@@ -49,6 +49,32 @@ describe("the in-memory WhatsApp provider", () => {
     expect(provider.sent).toHaveLength(0);
   });
 
+  it("records a sent list in memory, and refuses one past the limits", async () => {
+    const provider = createMemoryWhatsAppProvider();
+    provider.addNumber("918888800000");
+    const sections = [{ rows: [{ id: "trips:manali", title: "Manali", description: "2 trips" }] }];
+    const result = await provider.sendList("918888800000", "+919876543210", {
+      body: "Pick a trip",
+      button: "See trips",
+      sections,
+    });
+    expect(result.ok).toBe(true);
+    expect(provider.sent).toHaveLength(1);
+    expect(provider.sent[0]).toMatchObject({
+      kind: "list",
+      to: "919876543210",
+      text: "Pick a trip",
+      list: { button: "See trips", sections },
+    });
+    const tooLong = await provider.sendList("918888800000", "919876543210", {
+      body: "x",
+      button: "See trips",
+      sections: [{ rows: [{ id: "a", title: "A".repeat(25) }] }],
+    });
+    expect(tooLong).toEqual({ ok: false, reason: "other", providerCode: "invalid_list" });
+    expect(provider.sent).toHaveLength(1);
+  });
+
   it("fails the next call as asked, then recovers", async () => {
     const provider = createMemoryWhatsAppProvider();
     provider.addNumber("918888800000");

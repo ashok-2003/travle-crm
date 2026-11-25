@@ -1,5 +1,5 @@
-// A card with reply buttons: queued as an automatic text with its buttons, sent by sendButtons, failed as any send, and
-// shown in the chat; a customer's tap keeps its id only when it is a reply button's.
+// A card with reply buttons, or a list: queued as an automatic text with its buttons or its list, sent by sendButtons or
+// sendList, failed as any send, and shown in the chat.
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { listMessages, queueSystemText, sendQueued } from "../../src/inbox/index.js";
@@ -19,6 +19,13 @@ const buttons = [
   { id: "book:0190f3a2-0000-7000-8000-000000000001", title: "Book these seats" },
   { id: "change:0190f3a2-0000-7000-8000-000000000001", title: "Change something" },
 ];
+const list = {
+  button: "See trips",
+  rows: [
+    { id: "trips:destination-1", title: "Goa", description: "2 trips · from ₹5,999 · next Fri 27 Nov" },
+    { id: "trips:destination-2", title: "Manali" },
+  ],
+};
 
 describe("a card with buttons", () => {
   let test: TestInbox;
@@ -35,7 +42,7 @@ describe("a card with buttons", () => {
       tx.whatsappConversation.findFirstOrThrow(),
     );
     const at = new Date(testNow.getTime() + 60_000);
-    const queue = () =>
+    const queue = (interactive: { buttons: typeof buttons } | { list: typeof list } = { buttons }) =>
       test.db.forOrg(connection.organizationId, (tx) =>
         queueSystemText(
           tx,
@@ -46,7 +53,7 @@ describe("a card with buttons", () => {
             origin: "automation",
             clientToken: randomUUID(),
             answers: true,
-            buttons,
+            ...interactive,
           },
           at,
         ),
@@ -90,5 +97,19 @@ describe("a card with buttons", () => {
     expect((await messages()).items.find((message) => message.id === second.messageId)).toMatchObject({
       status: "failed",
     });
+  });
+
+  it("sends a queued list by sendList, its rows in one section, and shows it in the chat", async () => {
+    const { queue, send, messages } = await chat();
+    const queued = await queue({ list });
+    if (!queued.ok) throw new Error(queued.code);
+    expect(await send(queued.messageId)).toBe("sent");
+    expect(test.provider.sent.at(-1)).toMatchObject({
+      kind: "list",
+      text: "*Goa*\nTotal ₹22,600",
+      list: { button: "See trips", sections: [{ rows: list.rows }] },
+    });
+    const shown = (await messages()).items.find((message) => message.id === queued.messageId);
+    expect(shown).toMatchObject({ buttons: null, list, tapped: false });
   });
 });

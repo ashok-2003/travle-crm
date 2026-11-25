@@ -153,6 +153,9 @@
       "caption": "Then it would send this card:",
       "tapped": "Tapped: {title}"
     },
+    "menu": {
+      "caption": "Then it would send this trip menu ({button}):"
+    },
     "natural": {
       "payment": "Then code sends:",
       "quiet": "It would stay quiet: {reason}",

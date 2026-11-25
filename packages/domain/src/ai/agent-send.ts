@@ -1,6 +1,7 @@
 // The AI agents' messages to a customer, in the turn's own transaction: each goes through the outbox with a token made
 // from the turn's, so a repeat of the turn sends none twice, and a refusal throws so the whole turn rolls back.
 import { WHATSAPP_RECORD_TYPE, type AttachmentRefInput } from "@travel-crm/contracts/files";
+import type { ChatList } from "@travel-crm/contracts/inbox";
 import type { OrgTx } from "@travel-crm/db";
 import type { WhatsAppButton } from "@travel-crm/integrations/whatsapp";
 import { recordAudit } from "../audit/index.js";
@@ -24,7 +25,10 @@ const refusals: Record<string, string> = {
   window_closed: "WINDOW_CLOSED",
 };
 
-/** Queues one message of the AI's (a file when `media` names one, `body` its caption) and returns its id. */
+/**
+ * Queues one message of the AI's (a file when `media` names one, `body` its caption; a card with its reply buttons or a
+ * list with its rows when `interactive` holds them) and returns its id.
+ */
 export async function sendAiText(
   tx: OrgTx,
   target: AiMessageTarget,
@@ -32,7 +36,7 @@ export async function sendAiText(
   body: string,
   kind: "reply" | "file" | "qr" | "payment",
   media?: { messageId: string; kind: "image" | "video" | "audio" | "document"; fileName: string },
-  buttons?: readonly WhatsAppButton[],
+  interactive?: { buttons: readonly WhatsAppButton[] } | { list: ChatList },
 ): Promise<string> {
   const sent = await queueSystemText(
     tx,
@@ -45,7 +49,7 @@ export async function sendAiText(
       // Answered by the AI: the chat no longer waits, unless it is handed to a person.
       answers: target.answers,
       ...(media === undefined ? {} : { media }),
-      ...(buttons === undefined ? {} : { buttons }),
+      ...interactive,
     },
     target.now,
   );

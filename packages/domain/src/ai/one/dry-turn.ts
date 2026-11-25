@@ -17,12 +17,12 @@ import {
   type NaturalDryTurn,
 } from "../natural/dry-turn.js";
 import { guardReads, readTools } from "../natural/turn-reads.js";
-import { stageAction } from "../natural/tools/action-tools.js";
 import type { ReadContext } from "../natural/tools/read-tools.js";
 import { startNaturalTrace } from "../natural/trace.js";
 import { oneBeforeTheModel } from "./before-the-model.js";
 import { buildOneContext } from "./context.js";
 import { runOneLoop } from "./loop.js";
+import { stageOneAction } from "./tools.js";
 
 export async function oneDryTurn(
   deps: NaturalDryDependencies & { toolAgent: ToolAgent },
@@ -86,7 +86,7 @@ export async function oneDryTurn(
             call: countedModel(deps.ai, { db, organizationId, now, timeZone }),
             read: readTools(db, organizationId, readContext, reads),
             stage: (name, args, words, quoted) =>
-              stageAction({ ...actions, quotedThisTurn: quoted }, name, args, words, { agent: "one" }),
+              stageOneAction({ ...actions, quotedThisTurn: quoted }, name, args, words),
             newerLine: () => Promise.resolve(false),
             clock,
           },

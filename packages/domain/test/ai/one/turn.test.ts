@@ -231,6 +231,45 @@ describe("the one agent's live turn", () => {
     expect(sent[1]?.buttons).toEqual(offerButtons(id));
   });
 
+  it(
+    "sends the trip menu after the words, shows it and the customer's pick to the next turn, and refuses a second " +
+      "menu that day",
+    async () => {
+      const on = await world();
+      const hello = await on.writes("Hello", -60);
+      const greeting = "Namaste! Which trip would you like to see?";
+      const showTrips = { name: "show_trips", arguments: {} };
+      on.model.answer({ text: greeting, toolCalls: [showTrips], reasoningDetails: thought }, "");
+      expect(await on.turn(hello)).toBe("replied");
+      const sent = await on.inOrg((tx) =>
+        tx.whatsappMessage.findMany({
+          where: { conversationId: on.chat.id, direction: "out" },
+          orderBy: { createdAt: "asc" },
+          select: { clientToken: true, body: true, buttons: true },
+        }),
+      );
+      expect(tokens(sent)).toEqual([`ai:${hello}`, `ai:${hello}:menu`]);
+      expect(sent[0]?.body).toBe(greeting);
+      expect(sent[1]).toMatchObject({ body: "Pick a trip, we'll send its plan.", buttons: { button: "See trips" } });
+      const { rows } = sent[1]?.buttons as { rows: { id: string; title: string }[] };
+      expect(rows.map((row) => row.title).sort()).toEqual(["Lohajung, Uttarakhand", "Sankri, Uttarakhand"]);
+      const sankri = rows.find((row) => row.title === "Sankri, Uttarakhand");
+      if (sankri === undefined) throw new Error("Sankri is on the menu");
+
+      // The customer picks Sankri; the next turn reads the menu that went and the pick, and a second menu is refused.
+      const pick = await on.write({ direction: "in", at: liveAt(120), body: sankri.title, buttonReplyId: sankri.id });
+      on.model.answer({ toolCalls: [showTrips], reasoningDetails: thought }, { text: "Kedarkantha it is!" });
+      expect(await on.turn(pick, liveAt(180))).toBe("replied");
+      const asked = on.model.requests.at(-1)?.messages ?? [];
+      const read = asked.map((message) => message.content).join("\n");
+      expect(read).toContain("[sent: trip menu: ");
+      expect(read).toContain("[picked from the trip menu] Sankri, Uttarakhand");
+      const refusal = asked.find((message) => message.role === "tool")?.content ?? "";
+      expect(refusal).toMatch(/^refused: the trip menu went to this chat today/u);
+      expect(tokens(await on.outbound()).slice(2)).toEqual([`ai:${pick}`]);
+    },
+  );
+
   it("sends B1 by its id on the LangGraph adapter, captioned with the trip's title for a nameless brochure", async () => {
     const on = await world();
     const asked = await on.writes("Kedarkantha ka brochure bhejo", -60);

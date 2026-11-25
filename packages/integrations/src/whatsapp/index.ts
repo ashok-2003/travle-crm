@@ -3,6 +3,7 @@
 export * from "./whatsapp-provider.js";
 export * from "./parsed-event.js";
 export { BUTTON_LIMITS } from "./button-limits.js";
+export { LIST_LIMITS } from "./list-limits.js";
 export { customerNumberOf, parseMsg91Event } from "./parse-msg91-event.js";
 export { createMemoryWhatsAppProvider, type MemoryWhatsAppProvider, type SentMessage } from "./memory-whatsapp.js";
 export {

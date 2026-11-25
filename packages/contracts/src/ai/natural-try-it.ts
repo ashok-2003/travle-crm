@@ -97,6 +97,14 @@ export const naturalTestAnswer = z.object({
   payment: z.array(z.string()).nullable(),
   /** The offer card the one agent would send after its words: its body and its button titles. */
   card: z.object({ body: z.string(), buttons: z.array(z.string()) }).optional(),
+  /** The one agent's trip menu after its words: its body, its button and its rows' titles and lines. */
+  menu: z
+    .object({
+      body: z.string(),
+      button: z.string(),
+      rows: z.array(z.object({ title: z.string(), description: z.string().optional() })),
+    })
+    .optional(),
   actions: z.array(naturalDryAction),
   outcome: z.enum(naturalTestOutcomes),
   state: naturalTestState,

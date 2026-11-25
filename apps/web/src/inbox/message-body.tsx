@@ -40,18 +40,21 @@ export function MessageBody({ message }: { message: ChatMessage }): ReactNode {
   const t = useTranslations("inbox.chat");
   switch (message.kind) {
     case "text":
-    case "template":
+    case "template": {
       if (message.tapped) return message.body === null ? t("tappedNoWords") : t("tapped", { text: message.body });
       if (message.body === null) return null;
-      if (message.buttons === null) return <Linked text={message.body} />;
+      // A card's buttons, or a list's rows (the AI's trip menu).
+      const titles = (message.buttons ?? message.list?.rows ?? null)?.map((choice) => choice.title).join(" · ");
+      if (titles === undefined) return <Linked text={message.body} />;
       return (
         <div className="flex flex-col gap-2">
           <Linked text={message.body} />
           <span className="text-caption text-muted-foreground">
-            {t("cardButtons", { titles: message.buttons.map((button) => button.title).join(" · ") })}
+            {t(message.buttons === null ? "cardList" : "cardButtons", { titles })}
           </span>
         </div>
       );
+    }
     case "image":
     case "video":
     case "audio":

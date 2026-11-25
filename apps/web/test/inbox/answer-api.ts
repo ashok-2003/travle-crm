@@ -60,6 +60,7 @@ export function aMessage(fields: Record<string, unknown> = {}) {
     starred: false,
     aiText: null,
     buttons: null,
+    list: null,
     tapped: false,
     ...fields,
   };

@@ -29,8 +29,8 @@ const trace = {
 };
 
 describe("the one agent's tool schemas", () => {
-  it("offers natural's fourteen tools, without the trip tools when the agency has no trips", () => {
-    expect(oneToolSchemas({ tripLabels: labels, brochureLabels: ["B1"] })).toHaveLength(14);
+  it("offers natural's fourteen tools and show_trips, without the trip tools when the agency has no trips", () => {
+    expect(oneToolSchemas({ tripLabels: labels, brochureLabels: ["B1"] })).toHaveLength(15);
     expect(oneToolSchemas({ tripLabels: [] }).map((tool) => tool.name)).toEqual([
       "update_lead",
       "resend_payment",
@@ -120,6 +120,17 @@ describe("the one agent's tool schemas", () => {
     expect(one).toBe(schemas({ voiceNotes: ["m1", "m2"], photos: ["m9"] }));
     expect(one).toContain("The message's reference, like m1.");
     expect(one).not.toContain('"enum":["m3"]');
+  });
+
+  it("offers show_trips with no arguments when the agency has trips, and parses a call with none", () => {
+    const show = oneToolSchemas({ tripLabels: labels }).find((tool) => tool.name === "show_trips");
+    expect(show?.description).toContain("trip menu");
+    expect(show?.schema.safeParse({}).success).toBe(true);
+    expect(oneToolSchemas({ tripLabels: [] }).map((tool) => tool.name)).not.toContain("show_trips");
+    expect(parseOneToolArguments("show_trips", "", labels)).toEqual({ ok: true, name: "show_trips", args: {} });
+    expect(parseOneToolArguments("show_trips", {}, labels)).toMatchObject({ ok: true });
+    expect(parseOneToolArguments("show_trips", { trip_id: "T1" }, labels).ok).toBe(false);
+    expect(oneReadTools).not.toContain("show_trips");
   });
 
   it("describes book with no customer words in its JSON Schema", () => {

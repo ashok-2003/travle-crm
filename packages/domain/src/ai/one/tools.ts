@@ -1,20 +1,26 @@
 // The one agent's tools as plain functions for the tool-agent port: a read answers at once, an action is checked and
-// staged into the turn's run, and a call that fails or is refused answers in words the model can act on, never a throw.
+// staged into the turn's run (the trip menu by its own code, the rest by natural's checks), and a call that fails or is
+// refused answers in words the model can act on, never a throw.
 import {
   naturalReadTools,
   parseOneToolArguments,
   type NaturalToolName,
   type OneMediaToolName,
+  type OneMenuToolName,
   type OneToolName,
   type OneToolSchema,
 } from "@travel-crm/contracts/ai";
 import type { AgentTool } from "@travel-crm/integrations/tool-agent";
 import { READ_FAILED, STAGE_FAILED, settled } from "../natural/loop/tool-calls.js";
 import type { LoopIO, ReadToolName } from "../natural/loop/types.js";
-import { withStaged, type StageOutcome } from "../natural/tools/action-tools.js";
+import { stageAction, withStaged, type ActionContext, type StageOutcome } from "../natural/tools/action-tools.js";
 import type { OneContext } from "./context.js";
 import type { NaturalTraceBuilder } from "../natural/trace.js";
 import type { QuoteFigures, StagedAction, StagedSet } from "../natural/types.js";
+import { stageTripMenu } from "./trip-menu.js";
+
+/** The tools that stage an action: natural's (its reads refuse to) and the trip menu. */
+export type OneActionName = NaturalToolName | OneMenuToolName;
 
 export interface OneRun {
   staged: StagedSet;
@@ -26,9 +32,9 @@ export interface OneRun {
 export interface OneToolIO {
   /** Natural's read tools, each in its own transaction. */
   read: LoopIO["read"];
-  /** `stageAction` with `{ agent: "one" }`; `quoted` holds this turn's figures so far. */
+  /** `stageOneAction`; `quoted` holds this turn's figures so far. */
   stage: (
-    name: NaturalToolName,
+    name: OneActionName,
     args: Record<string, unknown>,
     words: string,
     quoted: readonly QuoteFigures[],
@@ -39,7 +45,19 @@ export interface OneToolIO {
 
 const isMedia = (name: OneToolName): name is OneMediaToolName =>
   name === "transcribe_voice_note" || name === "look_at_image";
-const isRead = (name: NaturalToolName): name is ReadToolName => naturalReadTools.includes(name);
+const isRead = (name: OneToolName): name is ReadToolName => naturalReadTools.some((read) => read === name);
+
+/** An action of the one agent's checked and staged, or refused: the trip menu by its own code, the rest as natural's. */
+export function stageOneAction(
+  context: ActionContext,
+  name: OneActionName,
+  args: Record<string, unknown>,
+  words: string,
+): Promise<StageOutcome> {
+  return name === "show_trips"
+    ? Promise.resolve(stageTripMenu(context))
+    : stageAction(context, name, args, words, { agent: "one" });
+}
 
 /** A turn's run: code's own actions staged already, none of them the model's. */
 export function startOneRun(forced: readonly StagedAction[]): OneRun {
@@ -80,7 +98,7 @@ export function oneAgentTools(
     return answer.value;
   }
 
-  async function stage(name: NaturalToolName, args: Record<string, unknown>, words: string): Promise<string> {
+  async function stage(name: OneActionName, args: Record<string, unknown>, words: string): Promise<string> {
     const answer = await settled(() => io.stage(name, args, words, [...run.quoted]));
     if ("failed" in answer) {
       failed(name, answer.failed);

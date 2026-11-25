@@ -37,8 +37,8 @@ export const stampOf = (at: Date, clock: Omit<ChatClock, "now">) =>
   `${formatShortDay(calendarDateIn(at, clock.timeZone), clock.today)}, ${clockWords(at, clock.timeZone)}`;
 
 /**
- * What a line says on one line, fenced, cut past `most` characters: a past action in brackets, media as a marker, an
- * earlier assistant's figures out (unless `earlierWhole`).
+ * What a line says on one line, fenced, cut past `most` characters: a past action in brackets, media or a pick from the
+ * trip menu as a marker, an earlier assistant's figures out (unless `earlierWhole`).
  */
 export function lineWords(line: NaturalChatLine, most: number, options: { earlierWhole?: boolean } = {}): string {
   if (line.action !== undefined) return `[${oneLine(line.action)}]`;
@@ -57,7 +57,9 @@ export function lineWords(line: NaturalChatLine, most: number, options: { earlie
           ? "[file]"
           : `[file: ${oneLine(line.fileName)}]`
         : line.kind === "text" || line.kind === "template"
-          ? null
+          ? line.fromMenu === true
+            ? "[picked from the trip menu]"
+            : null
           : (markers[line.kind] ?? "[message]"));
   const said =
     // Only the one agent names a file (ref) and so reads what was heard or seen; natural's words stay as they were.

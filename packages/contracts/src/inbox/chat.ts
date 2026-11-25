@@ -161,6 +161,16 @@ export const chatButtons = z
   .min(1)
   .max(3);
 
+/** A list message's button and its rows (the AI's trip menu): one to ten, each an id, its title and a line under it. */
+export const chatList = z.object({
+  button: z.string(),
+  rows: z
+    .array(z.object({ id: z.string(), title: z.string(), description: z.string().optional() }))
+    .min(1)
+    .max(10),
+});
+export type ChatList = z.infer<typeof chatList>;
+
 export const chatMessage = z.object({
   id: recordId,
   direction: z.enum(["in", "out"]),
@@ -209,7 +219,9 @@ export const chatMessage = z.object({
   aiText: z.object({ kind: z.enum(["transcript", "description"]), text: z.string() }).nullable(),
   /** The reply buttons of a card the agency sent. */
   buttons: chatButtons.nullable(),
-  /** The customer pressed a reply button (its words, if any, are the body). */
+  /** The list the agency sent: the button that opens it and its rows. */
+  list: chatList.nullable(),
+  /** The customer pressed a reply button or picked a list's row (its words, if any, are the body). */
   tapped: z.boolean(),
 });
 export type ChatMessage = z.infer<typeof chatMessage>;

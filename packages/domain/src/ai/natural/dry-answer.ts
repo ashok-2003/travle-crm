@@ -23,11 +23,12 @@ import { cutText } from "./context/tokens.js";
 import { amountsIn } from "./guards/amounts.js";
 import { groundedSetOf } from "./guards/grounded.js";
 import { BOOK_TITLE, CHANGE_TITLE, offerCardBody } from "../one/card.js";
+import { menuSentWords } from "../one/trip-menu.js";
 import { stagedOf } from "./act-types.js";
 import type { LoopEnd } from "./loop/types.js";
 import type { NaturalTraceBuilder } from "./trace.js";
 import { isText, roomNames } from "./trips/trip-text.js";
-import type { QuoteFigures, StagedAction, StagedSet, TripSheet } from "./types.js";
+import type { QuoteFigures, StagedAction, StagedSet, TripMenu, TripSheet } from "./types.js";
 
 /** What the turn read and came with, for its answer. */
 export interface DryTurnRead {
@@ -115,7 +116,8 @@ function endedOf(end: LoopEnd, newText: string): Ended {
   }
 }
 
-function described(action: StagedAction, titleOf: (packageId: string) => string): NaturalDryAction {
+/** What a staged action would do; null for the trip menu, which the answer shows as the menu itself. */
+function described(action: StagedAction, titleOf: (packageId: string) => string): NaturalDryAction | null {
   switch (action.tool) {
     case "update_lead":
       return {
@@ -150,6 +152,8 @@ function described(action: StagedAction, titleOf: (packageId: string) => string)
     case "suggest_close":
     case "stay_quiet":
       return action;
+    case "show_trips":
+      return null;
   }
 }
 
@@ -259,7 +263,12 @@ function offerWords(offer: LiveOffer, today: CalendarDate): string {
 }
 
 /** The agent's lines for the chat: each message, then a mark for what went beside it, as a live chat shows it. */
-function historyOf(ended: Ended, read: DryTurnRead, titleOf: (packageId: string) => string): string[] {
+function historyOf(
+  ended: Ended,
+  read: DryTurnRead,
+  titleOf: (packageId: string) => string,
+  menu: TripMenu | null,
+): string[] {
   const { staged } = ended;
   const sent = stagedOf(staged, "send_brochure");
   const offered = stagedOf(staged, "offer_booking");
@@ -269,6 +278,7 @@ function historyOf(ended: Ended, read: DryTurnRead, titleOf: (packageId: string)
     ...ended.messages,
     sent === null ? null : `[sent: ${titleOf(sent.packageId)} brochure]`,
     offered === null ? null : `[offered: ${offerWords(offered.offer, read.today)}]`,
+    menu === null ? null : `[${menuSentWords(menu.rows.map((row) => row.title))}]`,
     book === null
       ? null
       : `[held: ${String(seats)} ${seats === 1 ? "seat" : "seats"} on ` +
@@ -287,7 +297,7 @@ export function dryAnswerOf(
   const ended = endedOf(end, read.newText);
   const titleOf = (packageId: string) =>
     read.sheets.find((sheet) => sheet.packageId === packageId)?.title ?? "a trip not on sale now";
-  const actions = [...ended.staged.values()].map((action) => described(action, titleOf));
+  const actions = [...ended.staged.values()].flatMap((action) => described(action, titleOf) ?? []);
   if (ended.task !== null) actions.push({ tool: "create_task", kind: "question", text: ended.task });
   // Only the one agent's offer is sent as a card; natural's has none, and none goes beside held seats or a hand-over.
   const offered = stagedOf(ended.staged, "offer_booking");
@@ -295,15 +305,26 @@ export function dryAnswerOf(
     offered?.card === true && ended.outcome !== "handed_off" && !ended.staged.has("book")
       ? { body: offerCardBody(offered.offer, read.sheets, read.today), buttons: [BOOK_TITLE, CHANGE_TITLE] }
       : null;
+  // The trip menu goes as the card does: not beside held seats or a hand-over.
+  const shownMenu = stagedOf(ended.staged, "show_trips")?.menu;
+  const menu =
+    shownMenu !== undefined && ended.outcome !== "handed_off" && !ended.staged.has("book") ? shownMenu : null;
   const paying = ended.staged.has("book") || ended.staged.has("resend_payment");
   return {
     messages: ended.messages,
     payment: paying ? read.paymentLines : null,
     ...(card === null ? {} : { card }),
+    // The rows' ids are code's, for the pick: the screen shows their words.
+    ...(menu === null
+      ? {}
+      : { menu: { ...menu, rows: menu.rows.map(({ title, description }) => ({ title, description })) } }),
     actions,
     outcome: ended.outcome,
     state: stateAfter(ended, read),
-    history: historyOf(ended, read, titleOf).map((text) => ({ from: "agent", text: cutText(text, TEST_LINE_MAX) })),
+    history: historyOf(ended, read, titleOf, menu).map((text) => ({
+      from: "agent",
+      text: cutText(text, TEST_LINE_MAX),
+    })),
     trace: trace.finish(ended.outcome, ended.fallback, endedMs),
   };
 }
