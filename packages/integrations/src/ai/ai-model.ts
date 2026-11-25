@@ -164,6 +164,11 @@ export type AiResult =
       ms?: number;
       /** The reasoning to send back unchanged with this answer's tool calls (`AiMessage.reasoningDetails`). */
       reasoningDetails?: unknown;
+      /**
+       * What the model thought before it answered, in its own short summary (the agent's turns on a reasoning model, by
+       * the Responses API): for the trace alone, never for a log or the customer.
+       */
+      reasoningSummary?: string;
     }
   | {
       /**

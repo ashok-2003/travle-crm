@@ -166,7 +166,9 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   `createAiModel` traces every model call as a generation; an agent turn runs inside `tracing.turn(...)` (one trace per
   turn, its chat the session) and adds what it learns with `tracing.note(...)`; tests read `createMemoryTracing()`. A
   deliberate exception (the owner, 2026-11-16): prompts and replies go to Langfuse in full, phones and emails masked; the
-  Logger's no-personal-data rule is unchanged. Tracing never changes or slows what it traces.
+  Logger's no-personal-data rule is unchanged. Tracing never changes or slows what it traces. The agent's turns on the
+  primary reasoning model go by the Responses API (`ai/responses.ts`), so their generations carry the model's reasoning
+  summary as its thinking (`AiResult.reasoningSummary`, the trace's alone, never a log).
 - **AI prompts** (the owner, 2026-11-16): Langfuse is the source of truth, read through the `AiPrompts` port
   (`@travel-crm/integrations/prompts`; none without `LANGFUSE_*`). The agent's prompt is `whatsapp-agent/real-agent`:
   live turns read label `production`, Try it's Draft reads `draft` (the live one when there is none), each generation

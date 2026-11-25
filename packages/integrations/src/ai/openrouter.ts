@@ -5,10 +5,11 @@
 // OpenRouter's own fields (`provider.zdr`, zero data retention on every request) are sent ONLY to OpenRouter: other
 // endpoints reject fields they don't know, and keep what their own terms say. Tools go as OpenAI-style functions; reasoning
 // is `reasoning` and `reasoning_details` on OpenRouter, `reasoning_effort` elsewhere (Gemini), and a tool call's extra data
-// (Gemini's thought signature) goes back unchanged. On Vertex AI, a service account's token takes the key's place, a
-// recording's format goes as its MIME type, and a big system message and its tools go once, as a context cache the
-// requests name (vertex-cache.ts). The key or token is sent as a header and appears nowhere else: not in a message, a log
-// or an error.
+// (Gemini's thought signature) goes back unchanged. The agent's turns on an OpenAI reasoning model go by the Responses API,
+// which also returns the model's reasoning summary (responses.ts). On Vertex AI, a service account's token takes the key's
+// place, a recording's format goes as its MIME type, and a big system message and its tools go once, as a context cache
+// the requests name (vertex-cache.ts). The key or token is sent as a header and appears nowhere else: not in a message, a
+// log or an error.
 import {
   NEXT_MODEL_MIN_LEFT_MS,
   type AiAudioFormat,
@@ -20,6 +21,7 @@ import {
   type AiRequest,
   type AiResult,
 } from "./ai-model.js";
+import { readResponses, responsesBody, usesResponses, type ResponsesReply } from "./responses.js";
 import { createVertexCache } from "./vertex-cache.js";
 
 export const OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1";
@@ -194,6 +196,15 @@ function reasoningSetting(request: AiRequest, openRouter: boolean): object {
     : { reasoning_effort: request.reasoning.effort };
 }
 
+type ReasoningModel = NonNullable<OpenRouterOptions["reasoningModel"]>;
+
+/** A reasoning model's room to think and answer: the request's, never less than its own. */
+const roomOf = (request: AiRequest, reasoningModel: ReasoningModel): number =>
+  Math.max(request.maxTokens ?? 500, reasoningModel.maxCompletionTokens);
+
+/** A reasoning model's prompt cache key: the feature and the request's user (an organization's id). */
+const cacheKeyOf = (request: AiRequest): string => `${request.feature}:${request.user ?? "none"}`;
+
 /** The answer's length, temperature and effort: as the request asks, or a reasoning model's own (its option's comment). */
 function lengthAndEffort(
   request: AiRequest,
@@ -208,9 +219,9 @@ function lengthAndEffort(
     };
   }
   return {
-    max_completion_tokens: Math.max(request.maxTokens ?? 500, reasoningModel.maxCompletionTokens),
+    max_completion_tokens: roomOf(request, reasoningModel),
     reasoning_effort: reasoningModel.effort,
-    prompt_cache_key: `${request.feature}:${request.user ?? "none"}`,
+    prompt_cache_key: cacheKeyOf(request),
   };
 }
 
@@ -318,6 +329,16 @@ export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
       } catch {
         return { ok: false, reason: "unavailable" };
       }
+      // The agent's turn on a reasoning model goes by the Responses API, with the reasoning model's own settings.
+      const reasoningModel = options.reasoningModel;
+      const responses =
+        reasoningModel !== undefined && usesResponses(request)
+          ? {
+              effort: reasoningModel.effort,
+              maxOutputTokens: roomOf(request, reasoningModel),
+              promptCacheKey: cacheKeyOf(request),
+            }
+          : null;
       let limited = false;
       let tried = false;
       for (const model of list) {
@@ -336,29 +357,35 @@ export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
           controller.abort();
         }, limit);
         try {
-          // A request naming a cache sends neither the system message nor the tools: Vertex refuses them beside one.
-          const post = (asJson: boolean, cache: string | null) =>
-            send(`${base}/chat/completions`, {
+          const postTo = (path: string, body: object) =>
+            send(`${base}${path}`, {
               method: "POST",
               signal: controller.signal,
               headers: { "content-type": "application/json", authorization: `Bearer ${bearer}` },
-              body: JSON.stringify({
-                model,
-                messages: (asJson ? withSchemaInSystem(request) : request.messages)
-                  .slice(cache === null ? 0 : 1)
-                  .map((message) => wireMessage(message, vertex)),
-                ...lengthAndEffort(request, openRouter, options.reasoningModel),
-                ...responseFormat(request, asJson),
-                ...(cache === null ? toolSettings(request) : { extra_body: { google: { cached_content: cache } } }),
-                ...(request.user === undefined ? {} : { user: request.user }),
-                // OpenRouter only: zero data retention on every request, and only providers that honour all the parameters sent.
-                ...(openRouter && options.zeroRetention !== false
-                  ? { provider: { zdr: true, require_parameters: true } }
-                  : {}),
-              }),
+              body: JSON.stringify(body),
             });
-          const cached = cacheOf === null ? null : await cacheOf(request, model, bearer, controller.signal);
-          let response = await post(false, cached?.name ?? null);
+          // A request naming a cache sends neither the system message nor the tools: Vertex refuses them beside one.
+          const post = (asJson: boolean, cache: string | null) =>
+            postTo("/chat/completions", {
+              model,
+              messages: (asJson ? withSchemaInSystem(request) : request.messages)
+                .slice(cache === null ? 0 : 1)
+                .map((message) => wireMessage(message, vertex)),
+              ...lengthAndEffort(request, openRouter, options.reasoningModel),
+              ...responseFormat(request, asJson),
+              ...(cache === null ? toolSettings(request) : { extra_body: { google: { cached_content: cache } } }),
+              ...(request.user === undefined ? {} : { user: request.user }),
+              // OpenRouter only: zero data retention on every request, and only providers that honour all the parameters sent.
+              ...(openRouter && options.zeroRetention !== false
+                ? { provider: { zdr: true, require_parameters: true } }
+                : {}),
+            });
+          // A Responses request has no schema and no Vertex cache, so neither retry below is ever its.
+          const cached =
+            cacheOf === null || responses !== null ? null : await cacheOf(request, model, bearer, controller.signal);
+          let response = await (responses === null
+            ? post(false, cached?.name ?? null)
+            : postTo("/responses", responsesBody(request, model, responses)));
           // Vertex refused the cache (it ended early, say): forgotten, and the same model asked once more without it.
           if (cached !== null && (response.status === 400 || response.status === 404)) {
             cached.forget();
@@ -378,7 +405,11 @@ export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
             // another model would refuse it too.
             return { ok: false, reason: response.status === 400 && hasTools(request) ? "bad_request" : "unavailable" };
           }
-          const body = (await response.json()) as ChatCompletion;
+          const reply: unknown = await response.json();
+          const { completion: body, reasoningSummary }: { completion: ChatCompletion; reasoningSummary: string } =
+            responses === null
+              ? { completion: reply as ChatCompletion, reasoningSummary: "" }
+              : readResponses(reply as ResponsesReply);
           if (body.choices?.[0]?.finish_reason === "content_filter") return { ok: false, reason: "refused" };
           // Off OpenRouter, the answer goes back under the name asked: Azure answers with the model's dated name, which
           // isn't a deployment it takes back, so a tool round named that way would fail.
@@ -386,7 +417,7 @@ export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
           const answer = answerOf(body, named, Date.now() - started, hasTools(request));
           if (answer === null) continue;
           restingUntil.delete(model);
-          return answer;
+          return reasoningSummary === "" ? answer : { ...answer, reasoningSummary };
         } catch {
           // A timeout or a network failure: the next model may answer. Nothing of the error is kept: it could name the request.
           continue;

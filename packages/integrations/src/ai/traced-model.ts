@@ -1,10 +1,11 @@
 // The AI model with every call traced: one model-call observation per call, named for its feature (and its answer's schema,
-// so the agent's two calls tell apart), with the messages sent, the answer, the model that gave it and its tokens (cached
-// input apart, as Langfuse prices it), or ERROR and the reason; a tool round shows its calls in OpenAI's shape, which
-// Langfuse reads. The call is untouched: the request reaches the model as it came and the result comes back as it was
-// given, extra fields included, whatever happens to the tracing.
+// so the agent's two calls tell apart), with the messages sent, the answer (with the model's reasoning summary when it
+// gave one), the model that gave it and its tokens (cached input and reasoning apart, as Langfuse prices them), or ERROR
+// and the reason; a tool round shows its calls in OpenAI's shape, which Langfuse reads. The call is untouched: the request
+// reaches the model as it came and the result comes back as it was given, extra fields included, whatever happens to the
+// tracing.
 import { failureOf, type AiTracing, type GenerationEnd, type TracedGeneration } from "../tracing/ai-tracing.js";
-import type { AiMessage, AiModel, AiPart, AiRequest, AiToolCall } from "./ai-model.js";
+import type { AiMessage, AiModel, AiPart, AiRequest, AiResult, AiToolCall } from "./ai-model.js";
 
 /** An image or a recording, as the trace shows it: what it was and how big, never its bytes. */
 function placeholderOf(part: AiPart): string {
@@ -40,11 +41,38 @@ function tracedMessage(message: AiMessage): Record<string, unknown> {
   };
 }
 
-/** An answer as the trace shows it: its words, or, with tool calls, the assistant's message that holds them. */
-const tracedAnswer = (text: string, toolCalls: readonly AiToolCall[] | undefined): unknown =>
-  toolCalls === undefined || toolCalls.length === 0
-    ? text
-    : { role: "assistant", content: text, tool_calls: tracedToolCalls(toolCalls) };
+type Answer = Extract<AiResult, { ok: true }>;
+
+/**
+ * An answer as the trace shows it: its words alone, or the assistant's message that holds them with what the model
+ * thought (in the shape Langfuse shows as a model's thinking) and its tool calls.
+ */
+function tracedAnswer(answer: Answer): unknown {
+  const calls = answer.toolCalls ?? [];
+  const thought = answer.reasoningSummary ?? "";
+  if (calls.length === 0 && thought === "") return answer.text;
+  return {
+    role: "assistant",
+    content: answer.text,
+    ...(thought === "" ? {} : { thinking: [{ type: "thinking", content: thought }] }),
+    ...(calls.length === 0 ? {} : { tool_calls: tracedToolCalls(calls) }),
+  };
+}
+
+/**
+ * The tokens as Langfuse prices them, each counted once: cached input apart from the rest of the input (at a tenth), and
+ * reasoning apart from the rest of the output.
+ */
+function usageOf(answer: Answer): NonNullable<GenerationEnd["usage"]> {
+  const cached = answer.cachedTokens ?? 0;
+  const reasoning = answer.reasoningTokens ?? 0;
+  return {
+    input: Math.max(0, answer.inputTokens - cached),
+    output: Math.max(0, answer.outputTokens - reasoning),
+    ...(cached > 0 ? { input_cached_tokens: cached } : {}),
+    ...(reasoning > 0 ? { output_reasoning_tokens: reasoning } : {}),
+  };
+}
 
 /** Stable names: the feature, and the answer's schema when there is one ("ai.autopilot.understand_form"). */
 function nameOf(request: AiRequest): string {
@@ -95,16 +123,7 @@ export function withTracing(model: AiModel, tracing: AiTracing): AiModel {
         endCall(
           call,
           result.ok
-            ? {
-                output: tracedAnswer(result.text, result.toolCalls),
-                model: result.model,
-                // Cached input apart, under the key Langfuse prices at a tenth: the rest is input at its full price.
-                usage: {
-                  input: Math.max(0, result.inputTokens - (result.cachedTokens ?? 0)),
-                  output: result.outputTokens,
-                  ...((result.cachedTokens ?? 0) > 0 ? { input_cached_tokens: result.cachedTokens } : {}),
-                },
-              }
+            ? { output: tracedAnswer(result), model: result.model, usage: usageOf(result) }
             : { level: "ERROR", statusMessage: result.reason },
         );
         return result;
