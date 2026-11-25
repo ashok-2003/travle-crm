@@ -33,11 +33,29 @@ function fakeFetch(...replies: (object | number)[]) {
     bodies.push(JSON.parse(typeof init?.body === "string" ? init.body : "{}") as Record<string, unknown>);
     const reply = replies.shift() ?? 503;
     return Promise.resolve(
-      typeof reply === "number" ? new Response("no", { status: reply }) : new Response(JSON.stringify(reply)),
+      typeof reply === "number"
+        ? new Response("no", { status: reply })
+        : reply instanceof Response
+          ? reply
+          : new Response(JSON.stringify(reply)),
     );
   };
   return { fetcher, bodies };
 }
+/** Gemini's OpenAI endpoint refusing a well-formed request, as it now and then does (gone when sent again). */
+const invalidPayload = () =>
+  new Response(
+    JSON.stringify([
+      {
+        error: {
+          code: 400,
+          message: 'Invalid JSON payload received. Unknown name "": Root element must be a message.',
+          status: "INVALID_ARGUMENT",
+        },
+      },
+    ]),
+    { status: 400 },
+  );
 const completion = (message: object, finishReason = "stop", usage: object = {}) => ({
   model: "g/lite",
   usage,
@@ -177,6 +195,24 @@ describe("native tool calling through the OpenRouter adapter", () => {
     const { fetcher, bodies } = fakeFetch(400, words("Hi"));
     expect(await modelWith(fetcher).complete(request)).toEqual({ ok: false, reason: "bad_request" });
     expect(bodies).toHaveLength(1);
+  });
+
+  it("asks the same model once more when Gemini refuses a well-formed request as an invalid payload", async () => {
+    const { fetcher, bodies } = fakeFetch(invalidPayload(), words("Hi"));
+    expect(await modelWith(fetcher).complete(request)).toMatchObject({ ok: true, text: "Hi" });
+    expect(bodies).toHaveLength(2);
+    expect(bodies[1]).toEqual(bodies[0]);
+  });
+
+  it("moves on when the same model refuses it again: the next model, else unavailable, never bad_request", async () => {
+    const twice = fakeFetch(invalidPayload(), invalidPayload(), words("From flash"));
+    expect(await modelWith(twice.fetcher).complete(request)).toMatchObject({ ok: true, text: "From flash" });
+    expect(twice.bodies.map((body) => body.model)).toEqual(["g/lite", "g/lite", "g/flash"]);
+    // With no model left, the chain may still ask the next key or endpoint: unavailable, not a final bad_request.
+    const alone = fakeFetch(invalidPayload(), invalidPayload());
+    const one = createOpenRouterModel({ apiKey: KEY, models: { sales_agent: ["g/lite"] }, fetch: alone.fetcher });
+    expect(await one.complete(request)).toEqual({ ok: false, reason: "unavailable" });
+    expect(alone.bodies).toHaveLength(2);
   });
 
   it("still answers a 400 on a request without tools as unavailable", async () => {

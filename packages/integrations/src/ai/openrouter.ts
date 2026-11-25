@@ -259,6 +259,15 @@ function withSchemaInSystem(request: AiRequest): readonly AiMessage[] {
  */
 const refusesSchema = (response: Response): boolean => response.status === 400 || response.status === 404;
 
+/**
+ * Whether Gemini's OpenAI endpoint refused a well-formed request as an invalid payload ("Invalid JSON payload received.
+ * Unknown name "": Root element must be a message."), which it now and then does: the same request sent again goes
+ * through (a replay of 35 live agent turns, 2026-11-25: 13 hit it). The body is read here and never kept.
+ */
+const saysInvalidPayload = async (response: Response): Promise<boolean> =>
+  response.status === 400 &&
+  /Invalid JSON payload received|Root element must be a message/.test(await response.clone().text());
+
 const finishReasonOf = (reason: string | undefined): AiFinishReason =>
   reason === "stop" || reason === "tool_calls" || reason === "length" || reason === "content_filter" ? reason : "other";
 
@@ -383,16 +392,29 @@ export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
           // A Responses request has no schema and no Vertex cache, so neither retry below is ever its.
           const cached =
             cacheOf === null || responses !== null ? null : await cacheOf(request, model, bearer, controller.signal);
-          let response = await (responses === null
-            ? post(false, cached?.name ?? null)
-            : postTo("/responses", responsesBody(request, model, responses)));
+          // The last request sent, for Gemini's invalid-payload refusal below.
+          let sendAgain = () =>
+            responses === null
+              ? post(false, cached?.name ?? null)
+              : postTo("/responses", responsesBody(request, model, responses));
+          let response = await sendAgain();
           // Vertex refused the cache (it ended early, say): forgotten, and the same model asked once more without it.
           if (cached !== null && (response.status === 400 || response.status === 404)) {
             cached.forget();
-            response = await post(false, null);
+            sendAgain = () => post(false, null);
+            response = await sendAgain();
           }
           // The endpoint refused json_schema: the same model once more in json mode, the schema said in words.
-          if (request.schema !== undefined && refusesSchema(response)) response = await post(true, null);
+          if (request.schema !== undefined && refusesSchema(response)) {
+            sendAgain = () => post(true, null);
+            response = await sendAgain();
+          }
+          // Gemini refused a well-formed request as an invalid payload: once more, then the next model, never a final
+          // bad_request (the owner's replay, 2026-11-25), so the backup keys and the reasoning model behind them may answer.
+          if (await saysInvalidPayload(response)) {
+            response = await sendAgain();
+            if (await saysInvalidPayload(response)) continue;
+          }
           if (!response.ok) {
             if (response.status === 429) {
               limited = true;
