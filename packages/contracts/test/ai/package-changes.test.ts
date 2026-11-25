@@ -1,6 +1,11 @@
 // The change assistant's contracts: each kind of change parses, an unknown kind and a wrong field value are refused.
 import { describe, expect, it } from "vitest";
-import { applyPackageChangesInput, packageChange, proposePackageChangesInput } from "../../src/ai/package-changes.js";
+import {
+  applyPackageChangesInput,
+  packageChange,
+  proposePackageChangesInput,
+  tripFieldValueOf,
+} from "../../src/ai/package-changes.js";
 
 const id = "0192f3a0-0000-7000-8000-000000000001";
 const common = { id: "c1", evidence: [{ ref: "L1", text: "Double 6,999" }], flags: [] };
@@ -40,6 +45,24 @@ describe("packageChange", () => {
   it("refuses a trip field's value of the wrong type", () => {
     const wrong = { ...common, kind: "trip_field", field: "seatsPerDeparture", before: 10, value: "many" };
     expect(packageChange.safeParse(wrong).success).toBe(false);
+  });
+
+  it("holds a trip field to the trip page's own limit", () => {
+    const field = { ...common, kind: "trip_field", field: "inclusions", before: "" };
+    expect(packageChange.safeParse({ ...field, value: "x".repeat(3000) }).success).toBe(true);
+    expect(packageChange.safeParse({ ...field, value: "x".repeat(3001) }).success).toBe(false);
+  });
+
+  it("refuses a season label longer than the season input allows, and too many itinerary days", () => {
+    expect(packageChange.safeParse({ ...common, ...samples[0], label: "x".repeat(61) }).success).toBe(false);
+    const days = Array.from({ length: 61 }, () => ({ title: "Day", description: "" }));
+    expect(packageChange.safeParse({ ...common, kind: "itinerary", before: [], days }).success).toBe(false);
+  });
+
+  it("narrows a trip field's values by its field", () => {
+    const typed = tripFieldValueOf({ field: "weeklyDays", before: [5], value: [5, 6] });
+    if (typed.field === "weeklyDays") expect(typed.value.length).toBe(2);
+    else throw new Error("wrong field");
   });
 
   it("refuses an unknown flag", () => {

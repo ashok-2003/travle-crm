@@ -5,10 +5,10 @@ import { recordId } from "../identity/fields.js";
 import { calendarDate } from "../kernel/time.js";
 import { MAX_SEATS } from "../departures/seat-limit.js";
 import { roomPrices } from "../quotes/room-prices.js";
-import { MAX_QUOTE_PAISE, quoteDay } from "../quotes/quotes.js";
+import { packageFields, savePackageSeasonInput } from "../quotes/packages.js";
+import { MAX_QUOTE_DAYS, quoteDay } from "../quotes/quotes.js";
 
 const text = (max: number) => z.string().trim().max(max);
-const unique = (values: readonly unknown[]) => new Set(values).size === values.length;
 
 /** What the agency gave: its text, up to four photos or one PDF (uploaded as the rate reader's are), and its answers. */
 export const proposePackageChangesInput = z.strictObject({
@@ -34,11 +34,11 @@ export const packageChangeFlags = [
 const evidence = z.array(z.object({ ref: z.string(), text: z.string() }));
 const base = { id: z.string(), evidence, flags: z.array(z.enum(packageChangeFlags)) };
 
-const seasonValue = { label: text(80), prices: roomPrices };
+const seasonLabel = savePackageSeasonInput.shape.label;
+const seasonValue = { label: seasonLabel, prices: roomPrices };
 const departureRef = { departureId: recordId, startDate: calendarDate };
-const paise = z.int().min(0).max(MAX_QUOTE_PAISE);
 
-/** The trip fields an agency can change by message, and the type of each one's value. */
+/** The trip fields an agency can change by message, and the type of each one's value (the trip page's own rules). */
 export const tripFields = [
   "seatsPerDeparture",
   "advancePerPersonPaise",
@@ -50,18 +50,20 @@ export const tripFields = [
   "exclusions",
   "cancellationNotes",
 ] as const;
+export type TripField = (typeof tripFields)[number];
 
 const tripFieldValue = {
-  seatsPerDeparture: z.int().min(1).max(MAX_SEATS).nullable(),
-  advancePerPersonPaise: paise.nullable(),
-  weeklyDays: z.array(z.int().min(0).max(6)).max(7).refine(unique, "Each day once"),
-  departureMonths: z.array(z.int().min(1).max(12)).max(12).refine(unique, "Each month once"),
-  pickupPoints: text(500),
-  startCity: text(80),
-  inclusions: text(4000),
-  exclusions: text(4000),
-  cancellationNotes: text(4000),
+  seatsPerDeparture: packageFields.seatsPerDeparture,
+  advancePerPersonPaise: packageFields.advancePerPersonPaise,
+  weeklyDays: packageFields.weeklyDays,
+  departureMonths: packageFields.departureMonths,
+  pickupPoints: packageFields.pickupPoints,
+  startCity: packageFields.startCity,
+  inclusions: packageFields.inclusions,
+  exclusions: packageFields.exclusions,
+  cancellationNotes: packageFields.cancellationNotes,
 } as const;
+type TripFieldValues = { [Field in TripField]: z.infer<(typeof tripFieldValue)[Field]> };
 
 const tripFieldChange = z
   .object({
@@ -80,6 +82,19 @@ const tripFieldChange = z
     }
   });
 
+/** A trip field change with `before` and `value` typed by its field, so a screen can switch on `field`. */
+export type TypedTripFieldChange = {
+  [Field in TripField]: { field: Field; before: TripFieldValues[Field]; value: TripFieldValues[Field] };
+}[TripField];
+
+/** Narrows a parsed trip_field change's values by its field (the parse already checked them). */
+export const tripFieldValueOf = (change: { field: TripField; before: unknown; value: unknown }): TypedTripFieldChange =>
+  ({
+    field: change.field,
+    before: tripFieldValue[change.field].parse(change.before),
+    value: tripFieldValue[change.field].parse(change.value),
+  }) as TypedTripFieldChange;
+
 export const packageChange = z.discriminatedUnion("kind", [
   // endsOn null: until changed.
   z.object({
@@ -94,8 +109,8 @@ export const packageChange = z.discriminatedUnion("kind", [
     ...base,
     kind: z.literal("season_change"),
     seasonIds: z.array(recordId).min(1),
-    label: text(80),
-    before: z.object({ label: text(80), prices: roomPrices }),
+    label: seasonLabel,
+    before: z.object({ label: z.string(), prices: roomPrices }),
     prices: roomPrices,
   }),
   z.object({ ...base, kind: z.literal("departures_add"), dates: z.array(calendarDate).min(1).max(62) }),
@@ -112,7 +127,12 @@ export const packageChange = z.discriminatedUnion("kind", [
   tripFieldChange,
   z.object({ ...base, kind: z.literal("note_add"), line: text(500).min(1) }),
   z.object({ ...base, kind: z.literal("note_remove"), line: text(500).min(1) }),
-  z.object({ ...base, kind: z.literal("itinerary"), before: z.array(quoteDay), days: z.array(quoteDay) }),
+  z.object({
+    ...base,
+    kind: z.literal("itinerary"),
+    before: z.array(quoteDay).max(MAX_QUOTE_DAYS),
+    days: z.array(quoteDay).max(MAX_QUOTE_DAYS),
+  }),
   z.object({ ...base, kind: z.literal("ai_selling"), on: z.boolean() }),
 ]);
 export type PackageChange = z.infer<typeof packageChange>;
