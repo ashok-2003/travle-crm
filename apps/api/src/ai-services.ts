@@ -1,9 +1,10 @@
-// The AI model the features call (ADR 0029), built once per process: the primary model first when AI_PRIMARY_* are set
-// (an OpenAI reasoning model on its own endpoint, for every feature but those that hear recordings), then the keys: from
-// AI_API_KEY with AI_BASE_URL and the models when
+// The AI model the features call (ADR 0029), built once per process: the keys first, from AI_API_KEY with AI_BASE_URL
+// and the models when
 // those are set (any OpenAI-compatible endpoint, Google's Gemini direct included), or from AI_VERTEX_SERVICE_ACCOUNT's
 // token in the key's place (Gemini on Vertex AI, ruling R14), with AI_BACKUP_API_KEY's AI behind it when that is set (and
-// AI_BACKUP_API_KEY_2's, on the same endpoint and models, behind that), then the fallback providers (AI_FALLBACK_* and
+// AI_BACKUP_API_KEY_2's, on the same endpoint and models, behind that), then the reasoning model when AI_PRIMARY_* are set
+// (an OpenAI reasoning model on its own endpoint, for every feature but those that hear recordings; the name is from when
+// it was asked first), then the fallback providers (AI_FALLBACK_* and
 // AI_FALLBACK_2_*, each its own endpoint, key and models), else OpenRouter with its zero-data-retention
 // routing from OPENROUTER_API_KEY. Null when no key is set: the features then say the AI isn't set up. The journeys' fake
 // (AI_TEST_SERVER_URL, never in production) receives OpenRouter's calls in its place. Every call goes through the
@@ -135,11 +136,12 @@ function fallbackModels(environment: AiSettings, logger: Logger): AiModel[] {
 }
 
 /**
- * The primary model (the owner, 2026-11-24): gpt-5-mini on Azure AI Foundry, asked before every key for all but what
- * holds a recording (voice notes, Fill it for me), which it can't hear. Medium effort with room to think: a replay of 40
- * live turns found medium as right as high, inside the agent's turn time, and accuracy matters more than speed here.
+ * The reasoning model of AI_PRIMARY_* (gpt-5-mini on Azure AI Foundry): asked first from 2026-11-24, then behind the keys
+ * from 2026-11-25 (the owner: Gemini answers the customers better), when every key refused and before the free fallback
+ * providers, for all but what holds a recording (voice notes, Fill it for me), which it can't hear. Medium effort with
+ * room to think: a replay of 40 live turns found medium as right as high, inside the agent's turn time.
  */
-function primaryModel(environment: AiSettings, logger: Logger): AiModel | null {
+function reasoningModelBehindKeys(environment: AiSettings, logger: Logger): AiModel | null {
   const { AI_PRIMARY_API_KEY: apiKey, AI_PRIMARY_BASE_URL: baseUrl, AI_PRIMARY_MODELS: list } = environment;
   if (apiKey === undefined || baseUrl === undefined || list === undefined) return null;
   return createOpenRouterModel({
@@ -167,15 +169,13 @@ function primaryModel(environment: AiSettings, logger: Logger): AiModel | null {
 }
 
 function modelOf(environment: AiSettings, logger: Logger): AiModel | null {
-  const primary = primaryModel(environment, logger);
-  const keys = keysModelOf(environment, logger);
-  if (primary === null) return keys;
-  return keys === null ? primary : withModelChain([primary, keys]);
+  const reasoning = reasoningModelBehindKeys(environment, logger);
+  return keysModelOf(environment, logger, reasoning === null ? [] : [reasoning]) ?? reasoning;
 }
 
 // The owner allowed the sales agent on Gemini direct as a proof of concept (2026-11-17); zero data retention is to be
-// revisited before scale.
-function keysModelOf(environment: AiSettings, logger: Logger): AiModel | null {
+// revisited before scale. `behindKeys` are asked after every key and before the fallback providers.
+function keysModelOf(environment: AiSettings, logger: Logger, behindKeys: AiModel[]): AiModel | null {
   // One credential for every feature: the service account (its token kept and renewed for the process's life), or the key.
   const vertex = environment.AI_VERTEX_SERVICE_ACCOUNT;
   // Never a token to the adapter's default address (OpenRouter's), whatever the start-up check let through.
@@ -213,9 +213,9 @@ function keysModelOf(environment: AiSettings, logger: Logger): AiModel | null {
       ...zeroRetention,
       onRateLimited: logRateLimits(logger, vertex === undefined ? "AI_API_KEY" : "AI_VERTEX_SERVICE_ACCOUNT"),
     });
-    const fallbacks = fallbackModels(environment, logger);
+    const after = [...behindKeys, ...fallbackModels(environment, logger)];
     if (environment.AI_BACKUP_API_KEY === undefined) {
-      return fallbacks.length === 0 ? first : withModelChain([first, ...fallbacks]);
+      return after.length === 0 ? first : withModelChain([first, ...after]);
     }
     // The backup keeps the first's endpoint and models unless it names its own.
     const backupChat = environment.AI_BACKUP_CHAT_MODELS ?? chat;
@@ -248,7 +248,7 @@ function keysModelOf(environment: AiSettings, logger: Logger): AiModel | null {
       first,
       backup(environment.AI_BACKUP_API_KEY, "AI_BACKUP_API_KEY"),
       ...(second === undefined ? [] : [backup(second, "AI_BACKUP_API_KEY_2")]),
-      ...fallbacks,
+      ...after,
     ]);
   }
   const apiKey = environment.OPENROUTER_API_KEY;
