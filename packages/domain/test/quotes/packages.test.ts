@@ -254,7 +254,9 @@ describe("packages and the quotes made from them", () => {
     it("lists its address, its page and how many tiers it has", async () => {
       const id = await aPackage();
       await world.inOrg((tx) => saveTier(tx, world.manager, { packageId: id, name: "Standard", lines: [line()] }));
-      const listed = (await world.inOrg((tx) => listPackages(tx, today))).find((one) => one.id === id);
+      const listed = (await world.inOrg((tx) => listPackages(tx, world.organizationId, today))).find(
+        (one) => one.id === id,
+      );
       expect(listed).toMatchObject({ tierCount: 1, published: false, kind: "custom", nights: 5, aiSellable: false });
       expect(listed?.slug).toMatch(/^package-/);
     });
@@ -302,7 +304,7 @@ describe("packages and the quotes made from them", () => {
       await departure("2026-11-21", "closed");
       await departure("2026-11-28", "cancelled");
       const custom = await aPackage({ priceDisplay: "from", fromPricePaise: 1_800_000 });
-      const listed = await world.inOrg((tx) => listPackages(tx, today));
+      const listed = await world.inOrg((tx) => listPackages(tx, world.organizationId, today));
       expect(listed.find((one) => one.id === group.id)).toMatchObject({
         kind: "group",
         nights: null,

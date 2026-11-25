@@ -120,7 +120,7 @@ export function packagePageRoutes(dependencies: WebsiteFormRouteDependencies): H
         const today = calendarDateIn(at, organization.timeZone);
         // 3. The package, and a submission already in the ledger, answered as it was the first time.
         const known = await db.forOrg(organizationId, async (tx) => {
-          const row = await publishedPackage(tx, slug, { organizationId, now: at });
+          const row = await publishedPackage(tx, slug, { organizationId, now: at, today });
           if (row === null) throw pageUnavailable();
           return { packageId: row.id, prior: await findPackageSubmission(tx, input.submissionId) };
         });

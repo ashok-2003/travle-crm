@@ -68,6 +68,10 @@ export const packageKinds = ["custom", "group"] as const;
 export const packageKind = z.enum(packageKinds);
 export type PackageKind = (typeof packageKinds)[number];
 
+/** What a package still needs before the AI may sell it. */
+export const sellGaps = ["room_types", "prices", "advance", "departures", "payment_details", "from_price"] as const;
+export type SellGap = (typeof sellGaps)[number];
+
 /** A ready package ("Manali 5 days") in the agency's list: a quote starts from it in one tap, and the AI may sell it. */
 export const quotePackage = z.object({
   id: recordId,
@@ -86,6 +90,10 @@ export const quotePackage = z.object({
   /** The "From" price a custom trip shows (each person), when it has one. */
   fromPricePaise: z.int().nullable(),
   aiSellable: z.boolean(),
+  /** Whether the AI sells it now: the switch is on and nothing is missing. */
+  aiSells: z.boolean(),
+  /** The first thing still missing while the switch is on and the AI does not sell it; null otherwise. */
+  aiGap: z.enum(sellGaps).nullable(),
   /** A group trip's departures from today on that are not cancelled. */
   departuresAhead: z.int(),
 });
@@ -182,10 +190,6 @@ export type SetPackageSellableInput = z.infer<typeof setPackageSellableInput>;
 /** What a package still needs before its page can be published. */
 export const publishGaps = ["name", "slug", "summary", "photo"] as const;
 export type PublishGap = (typeof publishGaps)[number];
-
-/** What a package still needs before the AI may sell it. */
-export const sellGaps = ["room_types", "prices", "advance", "departures", "payment_details", "from_price"] as const;
-export type SellGap = (typeof sellGaps)[number];
 
 /** A tier's line as the editor reads it: with the name of the rate it prices from ("Hotel Aurora: Deluxe room"), if it has one. */
 export const tierLineView = tierLine.extend({ rateLabel: z.string().nullable() });

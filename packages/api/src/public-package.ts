@@ -109,7 +109,11 @@ export async function publicPackageOf(
   if (agency === null) return null;
   const today = calendarDateIn(input.now, agency.timeZone);
   const found = await services.db.forOrg(agency.organizationId, async (tx) => {
-    const row = await publishedPackage(tx, input.slug, { organizationId: agency.organizationId, now: input.now });
+    const row = await publishedPackage(tx, input.slug, {
+      organizationId: agency.organizationId,
+      now: input.now,
+      today,
+    });
     if (row === null) return null;
     return {
       row,
@@ -159,9 +163,10 @@ export async function publicPackageListOf(
 ): Promise<PublicPackageList | null> {
   const agency = await findAgency(services, input.code);
   if (agency === null) return null;
+  const today = calendarDateIn(input.now, agency.timeZone);
   const found = await services.db.forOrg(agency.organizationId, async (tx) => ({
     settings: await publicPageSettingsOf(tx),
-    rows: await publishedPackages(tx, { organizationId: agency.organizationId, now: input.now }),
+    rows: await publishedPackages(tx, { organizationId: agency.organizationId, now: input.now, today }),
     open: await pagesAreOn(tx, { organizationId: agency.organizationId, now: input.now }),
     whatsapp: await whatsappUsNumber(tx),
   }));
