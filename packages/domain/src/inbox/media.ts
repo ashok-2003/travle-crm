@@ -5,9 +5,11 @@
 // from 60 s, capped at an hour each: it gives up within about 6 hours). A row still pending after 24 hours is settled `failed`
 // (code `unavailable`) by the health check, or by a copy-job retry landing after 24 hours, which only a health re-queue can
 // produce; nothing queues it again. The job
-// carries ids only; the file is the chat's, and nothing is rendered or resized on our server.
+// carries ids only; the file is the chat's, and nothing is rendered or resized on our server. A stored file publishes
+// whatsapp.media-stored, for what reads it as it arrives (the AI agent's look at a customer's photo or PDF).
 import { WHATSAPP_RECORD_TYPE, whatsappContentTypes } from "@travel-crm/contracts/files";
 import { ownMessage, type JobData } from "@travel-crm/integrations/jobs";
+import { publishEvent } from "../jobs/index.js";
 import { systemActor } from "../kernel/index.js";
 import { isUuid } from "../kernel/index.js";
 import { COPY_MEDIA_QUEUE, type InboxDependencies } from "./dependencies.js";
@@ -18,6 +20,7 @@ import { bumpUsage, monthStartOf } from "./usage.js";
 export const MAX_MEDIA_BYTES = 64 * 1024 * 1024;
 /** A file still pending this long after it arrived is given up on: well past the job's own retries, leaving room for an outage. */
 export const GIVE_UP_AFTER_MS = 24 * 60 * 60 * 1000;
+export const MEDIA_STORED_EVENT = "whatsapp.media-stored";
 
 const extensionOf: Readonly<Record<string, string>> = {
   "image/jpeg": "jpg",
@@ -67,6 +70,7 @@ export async function copyMedia(
         fileName: true,
         kind: true,
         createdAt: true,
+        conversationId: true,
         conversation: { select: { connectionId: true } },
       },
     }),
@@ -146,6 +150,10 @@ export async function copyMedia(
     await tx.whatsappMessage.update({
       where: { id: messageId },
       data: { mediaState: "stored", mediaUrl: null, mediaAttempts: { increment: 1 } },
+    });
+    await publishEvent(tx, {
+      type: MEDIA_STORED_EVENT,
+      payload: { conversationId: message.conversationId, messageId },
     });
     await bumpUsage(
       tx,

@@ -1,6 +1,6 @@
 "use client";
 
-// /settings/departures (release 7a): how long a hold lasts, when a batch reads "Filling fast", and the beds in a room when the
+// /settings/departures (release 7a): how long a hold lasts, when a departure reads "Filling fast", and the beds in a room when the
 // rooms are drafted.
 import {
   saveDepartureSettingsInput,

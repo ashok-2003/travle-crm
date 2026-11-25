@@ -333,11 +333,11 @@ describe("empty seats", () => {
       }),
     );
     expect((await ask()).text).toContain("₹6,999.00 per person including GST");
-    // The departure's own prices win over the season's.
+    // The departure's own price wins over the season's for its room; the other rooms keep the season's.
     await world.inOrg((tx) =>
-      tx.departure.update({ where: { id: s.departure.id }, data: { priceDoublePaise: 900_000n } }),
+      tx.departure.update({ where: { id: s.departure.id }, data: { priceTriplePaise: 750_000n } }),
     );
-    expect((await ask()).text).toContain("₹9,000.00 per person including GST");
+    expect((await ask()).text).toContain("₹7,500.00 per person including GST");
   });
 
   it("drops the price line when the departure has none", async () => {

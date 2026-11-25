@@ -194,6 +194,8 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   - it sends a brochure by the owner's name and description (`package_brochure`), hears voice notes and sees photos
     (saved on the message), and offers bookings as a card with Book and Change buttons (a tap's id is
     `whatsapp_message.button_reply_id`);
+  - a customer's photo or PDF is read once when its file is stored (`ai.read-file`, one counted call), even while a
+    person answers, so the agent and the summary know what was sent; it opens no second task it already has open;
   - it reads a chat summary (`ai_chat.chat_summary`) and only the messages after its point;
   - the reply's words have no code checks: the prompt carries those rules, and the tools keep the data checks.
 - **Assignment** (release 4): a lead that arrives by itself (an import row or Sheets row naming no owner, the website

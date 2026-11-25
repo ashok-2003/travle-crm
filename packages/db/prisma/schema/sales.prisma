@@ -156,6 +156,7 @@ model QuoteTemplate {
   tiers                 QuoteTemplateTier[]
   seasons               PackageSeason[]
   brochures             PackageBrochure[]
+  changeRuns            PackageChangeRun[]
   departures            Departure[]
   quotes                Quote[]
   enquiries             PackageEnquiry[]

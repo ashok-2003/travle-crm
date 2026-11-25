@@ -3,3 +3,4 @@
 export * from "./quotes.js";
 export * from "./packages.js";
 export * from "./room-prices.js";
+export * from "./season-columns.js";

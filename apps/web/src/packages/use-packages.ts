@@ -3,6 +3,7 @@
 // A package's reads and changes (release 7b): the package for its page, a section of it saved, its tiers, its photos
 // (three steps: ask where to put the file, put it straight into storage, name it), the "From" helper, and making quotes
 // from it. A change loads the package again, and the lists of packages.
+import type { SavePackageSeasonInput } from "@travel-crm/contracts/quotes";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTRPC, useTRPCClient } from "@/data/trpc";
 import { uploadFile } from "@/files/upload";
@@ -22,11 +23,14 @@ export function usePackageChanges() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const refreshWork = useRefreshWork();
+  // Prices and seasons change the departures' calendar, and any change takes away the AI box's Undo all.
   const options = {
     onSuccess: () =>
       Promise.all([
         queryClient.invalidateQueries({ queryKey: trpc.packages.pathKey() }),
         queryClient.invalidateQueries({ queryKey: trpc.quotes.packages.pathKey() }),
+        queryClient.invalidateQueries({ queryKey: trpc.departures.pathKey() }),
+        queryClient.invalidateQueries({ queryKey: trpc.ai.packageChanges.latest.pathKey() }),
       ]),
   };
   return {
@@ -40,22 +44,44 @@ export function usePackageChanges() {
     ),
     saveTier: useMutation(trpc.packages.saveTier.mutationOptions(options)),
     removeTier: useMutation(trpc.packages.removeTier.mutationOptions(options)),
-    saveSeason: useMutation(trpc.packages.saveSeason.mutationOptions(options)),
-    saveSpecialPrices: useMutation(trpc.packages.saveSpecialPrices.mutationOptions(options)),
+    savePriceTable: useMutation(trpc.packages.savePriceTable.mutationOptions(options)),
     // One section of the trip saved; a schedule change made or moved departures, so their lists load again, and a
     // destination named anew was added to the agency's list, so its pickers and Settings load it again.
     updatePart: useMutation(
       trpc.packages.updatePart.mutationOptions({
         onSuccess: (_saved, input) =>
-          Promise.all([
-            options.onSuccess(),
-            queryClient.invalidateQueries({ queryKey: trpc.departures.pathKey() }),
-            input.newDestinationName === undefined ? null : refreshWork(),
-          ]),
+          Promise.all([options.onSuccess(), input.newDestinationName === undefined ? null : refreshWork()]),
       }),
     ),
     copyNote: useMutation(trpc.packages.copyNote.mutationOptions(options)),
-    removeSeason: useMutation(trpc.packages.removeSeason.mutationOptions(options)),
+  };
+}
+
+/**
+ * A price-table column is one or more seasons (Regular split around Christmas). Changing one season's dates is made
+ * season by season; removing a column is one call (and renaming one goes through the price table's save).
+ */
+export function usePackageColumnChanges() {
+  const trpc = useTRPC();
+  const client = useTRPCClient();
+  const queryClient = useQueryClient();
+  const refresh = () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: trpc.packages.pathKey() }),
+      queryClient.invalidateQueries({ queryKey: trpc.quotes.packages.pathKey() }),
+      queryClient.invalidateQueries({ queryKey: trpc.departures.pathKey() }),
+      queryClient.invalidateQueries({ queryKey: trpc.ai.packageChanges.latest.pathKey() }),
+    ]);
+  return {
+    saveSeasons: useMutation({
+      mutationFn: async (inputs: readonly SavePackageSeasonInput[]) => {
+        for (const input of inputs) await client.packages.saveSeason.mutate(input);
+      },
+      onSettled: refresh,
+    }),
+    // The whole column goes in one transaction: all its seasons or none.
+    removeColumn: useMutation(trpc.packages.removeSeasonColumn.mutationOptions({ onSettled: refresh })),
+    addSeason: useMutation(trpc.packages.saveSpecialPrices.mutationOptions({ onSuccess: refresh })),
   };
 }
 

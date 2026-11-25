@@ -18,17 +18,21 @@ import { WriteHint } from "@/subscription/write-hint";
 import { sectionAnchors } from "./package-section";
 import { usePackageChanges } from "./use-packages";
 
+/** The card's own place on the page: the header's reason the AI does not sell links here. */
+export const sellAnchor = "ai-sells";
+
 /** Where to add what is missing: the agency's payment QR is on the AI agent's Setup page, the rest in a section of this page. */
 const gapPlace: Record<PackageDetail["sellGaps"][number], string> = {
   room_types: `#${sectionAnchors.prices}`,
   prices: `#${sectionAnchors.prices}`,
-  advance: `#${sectionAnchors.prices}`,
-  departures: `#${sectionAnchors.prices}`,
+  advance: `#${sectionAnchors.departures}`,
+  departures: `#${sectionAnchors.departures}`,
   from_price: `#${sectionAnchors.page}`,
   payment_details: `${routes.aiAgentSetup}#step-payment`,
 };
 
-export function SellCard({ detail }: { detail: PackageDetail }) {
+/** `inline`: inside another card (Page and AI), as a part with its own heading instead of a card of its own. */
+export function SellCard({ detail, inline = false }: { detail: PackageDetail; inline?: boolean }) {
   const t = useTranslations("packages.sell");
   const id = useId();
   const hintId = `${id}-write`;
@@ -38,8 +42,8 @@ export function SellCard({ detail }: { detail: PackageDetail }) {
   const { setSellable } = usePackageChanges();
   const blocked = !detail.sellable && detail.sellGaps.length > 0;
   const gaps = detail.sellGaps.length > 0;
-  return (
-    <SectionCard title={t("title")}>
+  const body = (
+    <>
       <Field orientation="horizontal" className="min-h-11">
         <Switch
           id={id}
@@ -79,6 +83,21 @@ export function SellCard({ detail }: { detail: PackageDetail }) {
         </div>
       )}
       <RefusalAlert error={setSellable.error} />
-    </SectionCard>
+    </>
+  );
+  if (!inline) {
+    return (
+      <SectionCard title={t("title")} anchor={sellAnchor}>
+        {body}
+      </SectionCard>
+    );
+  }
+  return (
+    <div id={sellAnchor} role="region" aria-labelledby={`${id}-title`} className="flex scroll-mt-6 flex-col gap-4">
+      <h3 id={`${id}-title`} className="font-semibold">
+        {t("title")}
+      </h3>
+      {body}
+    </div>
   );
 }

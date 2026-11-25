@@ -43,6 +43,7 @@ export {
   aiReplyHandler,
   runAiNudges,
 } from "./agent-worker.js";
+export { AI_READ_FILE_QUEUE, aiFileStoredListener, aiReadFileHandler } from "./read-on-arrival.js";
 export { AI_HANDOFF_KIND, AI_TOKEN_PREFIX, agentAnswers, runAgentTurn, type AgentDependencies } from "./agent.js";
 export {
   AI_BOOKING_KIND,
@@ -77,6 +78,15 @@ export { recordOfferSent } from "./seats/sent.js";
 export { readRateSheet } from "./rates/read-rate-sheet.js";
 export { findTrips } from "./drafts/find-trips.js";
 export { draftPackage } from "./drafts/draft-package.js";
+export {
+  applyPackageChanges,
+  changeRights,
+  latestPackageChangeRun,
+  proposePackageChanges,
+  undoPackageChanges,
+  type ApplyContext,
+  type ChangeRights,
+} from "./package-changes/index.js";
 export { recordRatesApplied } from "./rates/applied.js";
 export { rateSheetSourceLink } from "./rates/source-link.js";
 export type { Spreadsheets } from "@travel-crm/integrations/spreadsheets";

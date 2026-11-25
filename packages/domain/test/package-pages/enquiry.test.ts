@@ -140,7 +140,7 @@ describe("a public package page and its enquiry", () => {
     await world.close();
   });
 
-  const open = () => ({ organizationId: world.organizationId, now });
+  const open = () => ({ organizationId: world.organizationId, now, today: "2026-11-10" });
   const pages = (enabled: boolean) =>
     world.inOrg((tx) => savePublicPageSettings(tx, world.manager, { enabled, about: "", instagramUrl: "" }));
   const input = (
@@ -201,6 +201,47 @@ describe("a public package page and its enquiry", () => {
       }
       await subscriptions.platform.subscription.update({ where, data: { status: "active", statusChangedAt: now } });
       expect(await world.inOrg((tx) => publishedPackage(tx, "kedarnath-yatra", open()))).not.toBeNull();
+    });
+
+    it("shows a group trip's worked-out From price only while it shows one, and none with no departure ahead", async () => {
+      await world.inOrg((tx) =>
+        tx.quoteTemplate.update({
+          where: { id: packageId },
+          data: { kind: "group", roomTypes: ["quad"], priceDisplay: "from" },
+        }),
+      );
+      try {
+        expect((await world.inOrg((tx) => publishedPackage(tx, "kedarnath-yatra", open())))?.fromPricePaise).toBeNull();
+        await world.inOrg(async (tx) => {
+          const made = await aDeparture(tx, { startDate: "2026-12-10", endDate: "2026-12-15" });
+          await tx.departure.update({
+            where: { id: made.id },
+            data: { templateId: packageId, priceQuadPaise: 549_900n },
+          });
+        });
+        expect((await world.inOrg((tx) => publishedPackage(tx, "kedarnath-yatra", open())))?.fromPricePaise).toBe(
+          549_900,
+        );
+        const listed = await world.inOrg((tx) => publishedPackages(tx, open()));
+        expect(listed.find((one) => one.id === packageId)?.fromPricePaise).toBe(549_900);
+        // "Price on enquiry" is honoured: the worked-out price is not shown.
+        await world.inOrg((tx) =>
+          tx.quoteTemplate.update({ where: { id: packageId }, data: { priceDisplay: "on_enquiry" } }),
+        );
+        expect((await world.inOrg((tx) => publishedPackage(tx, "kedarnath-yatra", open())))?.fromPricePaise).toBeNull();
+        const relisted = await world.inOrg((tx) => publishedPackages(tx, open()));
+        expect(relisted.find((one) => one.id === packageId)?.fromPricePaise).toBeNull();
+      } finally {
+        await world.inOrg((tx) =>
+          tx.departure.updateMany({ where: { templateId: packageId }, data: { templateId: null } }),
+        );
+        await world.inOrg((tx) =>
+          tx.quoteTemplate.update({
+            where: { id: packageId },
+            data: { kind: "custom", roomTypes: [], priceDisplay: "from" },
+          }),
+        );
+      }
     });
 
     it("shows no price when the agency chose 'on enquiry', and nothing of a package taken down", async () => {

@@ -124,6 +124,7 @@ function fallbackModels(environment: AiSettings, logger: Logger): AiModel[] {
               reach_out: list,
               draft_days: list,
               draft_packages: list,
+              change_package: list,
               ...agentModels({}, list),
             },
             zeroRetention: false,
@@ -155,6 +156,7 @@ function primaryModel(environment: AiSettings, logger: Logger): AiModel | null {
       reach_out: list,
       draft_days: list,
       draft_packages: list,
+      change_package: list,
       sales_agent: list,
       agent_image: list,
       chat_summary: list,
@@ -204,6 +206,7 @@ function keysModelOf(environment: AiSettings, logger: Logger): AiModel | null {
         // Drafting a plan is longer writing than a reply: the chat models.
         draft_days: chat,
         draft_packages: chat,
+        change_package: chat,
         ...agent,
       },
       ...(environment.AI_BASE_URL === undefined ? {} : { baseUrl: environment.AI_BASE_URL }),
@@ -230,6 +233,7 @@ function keysModelOf(environment: AiSettings, logger: Logger): AiModel | null {
           ask_report: backupFast,
           draft_days: backupChat,
           draft_packages: backupChat,
+          change_package: backupChat,
           // The backup's own chat models serve every agent use; without them, the first's lists.
           ...(environment.AI_BACKUP_CHAT_MODELS === undefined
             ? agent
@@ -265,6 +269,7 @@ function keysModelOf(environment: AiSettings, logger: Logger): AiModel | null {
       reach_out: environment.AI_SUGGEST_MODELS,
       draft_days: environment.AI_SUGGEST_MODELS,
       draft_packages: environment.AI_SUGGEST_MODELS,
+      change_package: environment.AI_SUGGEST_MODELS,
       ...agentModels(environment, environment.AI_AGENT_MODELS ?? environment.AI_SUGGEST_MODELS),
     },
     ...(testServer === undefined

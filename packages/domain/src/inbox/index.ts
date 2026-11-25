@@ -139,7 +139,7 @@ export {
 } from "./sender.js";
 export { windowEndOf, windowIsOpen, WINDOW_MS } from "./window.js";
 export { checkAllConnections, checkConnection } from "./health.js";
-export { copyMedia, copyMediaJob, MAX_MEDIA_BYTES } from "./media.js";
+export { copyMedia, copyMediaJob, MAX_MEDIA_BYTES, MEDIA_STORED_EVENT } from "./media.js";
 export { messageNoticeListener, pastCustomerNoticeListener, type NoticeDependencies } from "./notices.js";
 export { processWhatsAppBody } from "./process-event.js";
 export { routeListener } from "./route-listener.js";

@@ -69,14 +69,11 @@ test("the Owner drafts a group package from the agency's documents, chooses betw
   // The package editor opens on a group package with the drafted season; the AI may not sell it yet.
   await expect(page).toHaveURL(/\/packages\//);
   await expect(page.getByRole("heading", { level: 1, name: "Manali 5N6D" })).toBeVisible();
-  await expect(page.getByRole("region", { name: "Prices & dates" })).toContainText(
-    "A group trip that departs on set dates",
-  );
-  const seasons = page.getByRole("region", { name: "Seasons and room prices" });
-  await expect(seasons).toContainText("Regular");
-  await expect(seasons).toContainText("₹6,999");
-  await expect(seasons).toContainText("₹7,799");
-  await expect(seasons).not.toContainText("₹7,499");
+  const prices = page.getByRole("region", { name: "Prices", exact: true });
+  await expect(prices.getByRole("textbox", { name: "Triple, Regular" })).toHaveValue(/6,?999/);
+  await expect(prices.getByRole("textbox", { name: "Double, Regular" })).toHaveValue(/7,?799/);
+  await expect(prices.getByRole("textbox", { name: "Triple, Regular" })).not.toHaveValue(/7,?499/);
+  await expect(page.getByRole("region", { name: "Departures", exact: true })).toBeVisible();
   await expect(page.getByRole("switch", { name: "AI can sell this package" })).not.toBeChecked();
   await expectAccessible(page);
   const saved = await inAgency(agency.organizationId, (tx) => tx.quoteTemplate.findFirstOrThrow());

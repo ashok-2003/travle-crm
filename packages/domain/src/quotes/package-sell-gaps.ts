@@ -21,7 +21,7 @@ export const departurePriceColumn = {
 
 type DeparturePrices = Record<(typeof departurePriceColumn)[RoomType], bigint | null>;
 
-interface SellRow {
+export interface SellRow {
   id: string;
   kind: string;
   fromPricePaise: bigint | null;
@@ -30,7 +30,7 @@ interface SellRow {
 }
 
 const asDay = (day: CalendarDate) => new Date(`${day}T00:00:00Z`);
-const sellColumns = {
+export const sellColumns = {
   id: true,
   kind: true,
   fromPricePaise: true,
@@ -93,7 +93,7 @@ function gapsOf(
 }
 
 /** Each of these packages with its gaps, read in one query per table. */
-async function gapsOfRows(
+export async function gapsOfRows(
   tx: OrgTx,
   rows: readonly SellRow[],
   today: CalendarDate,

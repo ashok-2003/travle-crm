@@ -20,7 +20,9 @@ import {
   packagePhotoRefInput,
   requestPackagePhotoInput,
   removePackageSeasonInput,
+  removeSeasonColumnInput,
   savePackageSeasonInput,
+  savePriceTableInput,
   saveSpecialPricesInput,
   saveTierInput,
   setPackagePublishedInput,
@@ -47,8 +49,10 @@ import {
   removePackagePhoto,
   requestPackageFileUpload,
   removePackageSeason,
+  removeSeasonColumn,
   removeTier,
   savePackageSeason,
+  savePriceTable,
   saveSpecialPrices,
   requestPackagePhotoUpload,
   tiersOf,
@@ -140,10 +144,24 @@ export const packagesRouter = router({
       ctx.db.forOrg(ctx.member.organizationId, (tx) => saveSpecialPrices(tx, ctx.member, input)),
     ),
 
+  /** The price table: room types and every column's prices, in one transaction. */
+  savePriceTable: editor
+    .input(savePriceTableInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => savePriceTable(tx, ctx.member, input)),
+    ),
+
   removeSeason: editor
     .input(removePackageSeasonInput)
     .mutation(({ ctx, input }) =>
       ctx.db.forOrg(ctx.member.organizationId, (tx) => removePackageSeason(tx, ctx.member, input.seasonId)),
+    ),
+
+  /** A price-table column removed whole: all its seasons or none. */
+  removeSeasonColumn: editor
+    .input(removeSeasonColumnInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => removeSeasonColumn(tx, ctx.member, input)),
     ),
 
   /** "Calculate from the catalog": a suggestion for "From ₹X", never saved by itself. */

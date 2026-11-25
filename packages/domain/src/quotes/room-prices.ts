@@ -30,8 +30,8 @@ function offeredOnly(prices: RoomPrices, offered: readonly RoomType[]): RoomPric
 }
 
 /**
- * The prices for a date. A departure that sets any price brings its own whole set (a premium batch never borrows the
- * season's); otherwise the season covering the date, both ends included.
+ * The prices for a date: the season covering it (both ends included) with a departure's own prices laid over it, room
+ * by room, so a batch that prices only quad keeps the season's other rooms. With no season, only its own prices.
  */
 export function priceOn(
   date: CalendarDate,
@@ -39,10 +39,13 @@ export function priceOn(
   departure: { title: string; prices: RoomPrices } | null,
   offered: readonly RoomType[],
 ): PricedDate | null {
-  if (departure && roomTypes.some((type) => departure.prices[type] !== null)) {
-    return { prices: offeredOnly(departure.prices, offered), source: "departure", label: departure.title };
-  }
   const season = seasons.find((candidate) => candidate.startsOn <= date && date <= candidate.endsOn);
+  const hasOwn = departure !== null && roomTypes.some((type) => departure.prices[type] !== null);
+  if (departure && hasOwn) {
+    const merged = { ...emptyPrices };
+    for (const type of roomTypes) merged[type] = departure.prices[type] ?? season?.prices[type] ?? null;
+    return { prices: offeredOnly(merged, offered), source: "departure", label: departure.title };
+  }
   if (!season) return null;
   return { prices: offeredOnly(season.prices, offered), source: "season", label: season.label };
 }

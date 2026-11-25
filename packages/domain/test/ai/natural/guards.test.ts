@@ -56,6 +56,23 @@ describe("trace flags, which are not checks", () => {
     ]);
   });
 
+  it("does not know the last day of a season with no end", () => {
+    const open: TripSheet = {
+      ...kedarkantha,
+      seasons: [
+        {
+          name: "Winter",
+          from: parseCalendarDate("2026-11-01"),
+          until: parseCalendarDate("2099-12-31"),
+          perPersonPaise: { triple: 1 },
+        },
+      ],
+    };
+    expect(traceFlags("Prices hold till 31/12/2099", { ...flagContext, sheets: [open] })).toEqual([
+      "date_not_in_data:2099-12-31",
+    ]);
+  });
+
   it("flags nothing the data, the owner or the customer holds", () => {
     const fewSeats: TripSheet = {
       ...kedarkantha,

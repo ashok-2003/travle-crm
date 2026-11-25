@@ -12,7 +12,7 @@ import {
 import { recordId } from "../identity/fields.js";
 import { calendarDate } from "../kernel/index.js";
 import { MAX_SEATS } from "../departures/seat-limit.js";
-import { roomBooking, roomPrices, roomPricesOutput, roomType } from "./room-prices.js";
+import { roomBooking, roomPrices, roomPricesOutput, roomType, type RoomPrices, type RoomType } from "./room-prices.js";
 import { MAX_QUOTE_PAISE, quoteDay, quoteItem, quoteTaxRate, MAX_QUOTE_DAYS, MAX_QUOTE_ITEMS } from "./quotes.js";
 
 const text = (max: number) => z.string().trim().max(max);
@@ -31,6 +31,8 @@ export const MAX_PACKAGE_BROCHURES = 5;
 export const MAX_HIGHLIGHTS = 10;
 /** The most a package's notes may hold. */
 export const MAX_PACKAGE_NOTES = 3000;
+/** A season that "lasts until changed" ends on this day. */
+export const OPEN_SEASON_END = "2099-12-31";
 
 /** A tier's line: priced from a rate when it has one, else at its fixed price; neither makes a "needs a rate" line. */
 export const tierLine = z.strictObject({
@@ -68,6 +70,10 @@ export const packageKinds = ["custom", "group"] as const;
 export const packageKind = z.enum(packageKinds);
 export type PackageKind = (typeof packageKinds)[number];
 
+/** What a package still needs before the AI may sell it. */
+export const sellGaps = ["room_types", "prices", "advance", "departures", "payment_details", "from_price"] as const;
+export type SellGap = (typeof sellGaps)[number];
+
 /** A ready package ("Manali 5 days") in the agency's list: a quote starts from it in one tap, and the AI may sell it. */
 export const quotePackage = z.object({
   id: recordId,
@@ -86,6 +92,10 @@ export const quotePackage = z.object({
   /** The "From" price a custom trip shows (each person), when it has one. */
   fromPricePaise: z.int().nullable(),
   aiSellable: z.boolean(),
+  /** Whether the AI sells it now: the switch is on and nothing is missing. */
+  aiSells: z.boolean(),
+  /** The first thing still missing while the switch is on and the AI does not sell it; null otherwise. */
+  aiGap: z.enum(sellGaps).nullable(),
   /** A group trip's departures from today on that are not cancelled. */
   departuresAhead: z.int(),
 });
@@ -183,10 +193,6 @@ export type SetPackageSellableInput = z.infer<typeof setPackageSellableInput>;
 export const publishGaps = ["name", "slug", "summary", "photo"] as const;
 export type PublishGap = (typeof publishGaps)[number];
 
-/** What a package still needs before the AI may sell it. */
-export const sellGaps = ["room_types", "prices", "advance", "departures", "payment_details", "from_price"] as const;
-export type SellGap = (typeof sellGaps)[number];
-
 /** A tier's line as the editor reads it: with the name of the rate it prices from ("Hotel Aurora: Deluxe room"), if it has one. */
 export const tierLineView = tierLine.extend({ rateLabel: z.string().nullable() });
 export type TierLineView = z.infer<typeof tierLineView>;
@@ -228,6 +234,16 @@ export const savePackageSeasonInput = z
   });
 export type SavePackageSeasonInput = z.infer<typeof savePackageSeasonInput>;
 export const removePackageSeasonInput = z.strictObject({ seasonId: recordId });
+/** A price-table column removed whole: every season it is made of, in one transaction. */
+export const removeSeasonColumnInput = z.strictObject({
+  packageId: recordId,
+  seasonIds: z
+    .array(recordId)
+    .min(1)
+    .max(100)
+    .refine((ids) => new Set(ids).size === ids.length, "A season is named twice"),
+});
+export type RemoveSeasonColumnInput = z.infer<typeof removeSeasonColumnInput>;
 
 /** Special prices for some dates: the seasons around them are split to make room. */
 export const saveSpecialPricesInput = z
@@ -372,3 +388,39 @@ export const describeBrochureInput = z.strictObject({
   description: oneLine(BROCHURE_DESCRIPTION_MAX),
 });
 export type DescribeBrochureInput = z.infer<typeof describeBrochureInput>;
+
+/** Whether a column prices at least one of the room types the trip sells (shared with the domain's own check). */
+export const columnHasPrice = (sold: readonly RoomType[], prices: RoomPrices) =>
+  sold.some((type) => prices[type] !== null);
+
+/** A trip's price table saved in one go: its room types, and per column (seasons sharing a label and prices) the new prices. */
+export const savePriceTableInput = z
+  .strictObject({
+    packageId: recordId,
+    roomTypes: z.array(roomType).min(1).max(6).refine(unique, "Each room type once"),
+    columns: z
+      .array(
+        z.strictObject({
+          seasonIds: z.array(recordId).min(1),
+          label: text(60).min(1),
+          prices: roomPrices,
+        }),
+      )
+      .min(1),
+  })
+  .superRefine((value, context) => {
+    const ids = value.columns.flatMap((column) => column.seasonIds);
+    if (!unique(ids)) {
+      context.addIssue({ code: "custom", message: "A season is named twice", path: ["columns"] });
+    }
+    value.columns.forEach((column, index) => {
+      if (!columnHasPrice(value.roomTypes, column.prices)) {
+        context.addIssue({
+          code: "custom",
+          message: "Give at least one room type a price",
+          path: ["columns", index, "prices"],
+        });
+      }
+    });
+  });
+export type SavePriceTableInput = z.infer<typeof savePriceTableInput>;

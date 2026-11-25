@@ -5,7 +5,7 @@
 import { expectAccessible } from "./support/accessibility";
 import { expect, signInByEmail, test } from "./support/fixtures";
 import { callApi, dayInIndia } from "./support/leads";
-import { aLeadFor, aPackage } from "./support/packages";
+import { aLeadFor, aPackage, updatePackage } from "./support/packages";
 import { saveBusinessProfile } from "./support/documents";
 
 test.use({ actionTimeout: 15_000 });
@@ -31,37 +31,31 @@ test("an Owner makes a group package, prices its seasons, sees its departures an
   await expect(page.getByRole("heading", { level: 1, name: "Manali 5N6D" })).toBeVisible();
   await expectAccessible(page);
 
-  // The kind, the rooms, the days, the seats and the advance (Prices & dates), the nights (Itinerary), the GST and the
-  // pickup points (Details & rules): each section saves alone.
-  await page.getByRole("button", { name: "Edit Prices & dates" }).click();
-  const editing = page.getByRole("group", { name: "Prices & dates" });
-  await editing.getByRole("radio", { name: "A group trip that departs on set dates" }).check();
-  await editing.getByRole("button", { name: "Triple", exact: true }).click();
-  await editing.getByRole("button", { name: "Double", exact: true }).click();
-  await editing.getByRole("button", { name: "Fri", exact: true }).click();
-  await editing.getByRole("button", { name: "Sat", exact: true }).click();
-  await editing.getByLabel("Seats on each departure").fill("20");
-  await editing.getByLabel("Starts from").fill("Delhi");
-  await editing.getByLabel("Advance to hold a seat (each person)").fill("2,000");
-  await editing.getByRole("button", { name: "Save" }).click();
-  await expect(page.getByText("Prices & dates saved").first()).toBeVisible();
-  await page.getByRole("button", { name: "Edit Itinerary" }).click();
-  await page.getByLabel("Nights", { exact: true }).fill("5");
-  await page.getByRole("group", { name: "Itinerary" }).getByRole("button", { name: "Save" }).click();
-  await expect(page.getByText("Itinerary saved").first()).toBeVisible();
-  await page.getByRole("button", { name: "Edit Details & rules" }).click();
-  const details = page.getByRole("group", { name: "Details & rules" });
-  await details.getByRole("switch", { name: "Prices include GST" }).check();
+  // The kind, the rooms, the days and the seats come from the api (a group trip's page has no form for them any more);
+  // the nights, the pickup points and the start are Trip details, saved with one Save.
+  await updatePackage(page, packageId, {
+    kind: "group",
+    roomTypes: ["triple", "double"],
+    weeklyDays: [5, 6],
+    seatsPerDeparture: 20,
+    advancePerPersonPaise: 200_000,
+    pricesIncludeGst: true,
+  });
+  await page.reload();
+  await page.getByRole("button", { name: "Edit Trip details" }).click();
+  const details = page.getByRole("group", { name: "Trip details" });
+  await details.getByLabel("Nights", { exact: true }).fill("5");
+  await details.getByLabel("Where it starts").fill("Delhi");
   await details.getByLabel("Pickup points").fill("Kashmere Gate\nMajnu ka Tilla");
   await details.getByRole("button", { name: "Save" }).click();
-  await expect(page.getByText("Details & rules saved").first()).toBeVisible();
+  await expect(page.getByText("Trip details saved").first()).toBeVisible();
 
   // The first season covers the next five weeks and the second the weeks after: the departures fall in both.
   const first = { label: "Nov", from: dayInIndia(1), to: dayInIndia(35) };
   const second = { label: "Dec to Jan peak", from: dayInIndia(36), to: dayInIndia(120) };
-  const seasons = page.getByRole("region", { name: "Seasons and room prices" });
-  await expect(seasons).toContainText("No seasons yet");
-  await seasons.getByRole("button", { name: "Add a season" }).click();
+  const prices = page.getByRole("region", { name: "Prices", exact: true });
+  await expect(prices).toContainText("No season yet");
+  await prices.getByRole("button", { name: "Add season" }).click();
   let dialog = page.getByRole("dialog");
   await dialog.getByLabel("Name", { exact: true }).fill(first.label);
   await dialog.getByRole("textbox", { name: "First day" }).fill(inputDay(first.from));
@@ -70,8 +64,8 @@ test("an Owner makes a group package, prices its seasons, sees its departures an
   await dialog.getByLabel("Double, per person").fill("7,799");
   await expectAccessible(page);
   await dialog.getByRole("button", { name: "Save" }).click();
-  await expect(seasons).toContainText("Nov");
-  await seasons.getByRole("button", { name: "Add a season" }).click();
+  await expect(dialog).toBeHidden();
+  await prices.getByRole("button", { name: "Add season" }).click();
   dialog = page.getByRole("dialog");
   await dialog.getByLabel("Name", { exact: true }).fill(second.label);
   await dialog.getByRole("textbox", { name: "First day" }).fill(inputDay(second.from));
@@ -79,13 +73,14 @@ test("an Owner makes a group package, prices its seasons, sees its departures an
   await dialog.getByLabel("Triple, per person").fill("8,999");
   await dialog.getByLabel("Double, per person").fill("9,999");
   await dialog.getByRole("button", { name: "Save" }).click();
-  await expect(seasons).toContainText("Dec to Jan peak");
-  await expect(seasons).toContainText("Triple: ₹6,999");
+  await expect(dialog).toBeHidden();
+  await expect(prices.getByRole("textbox", { name: "Triple, Nov" })).toHaveValue(/6,?999/);
+  await expect(prices.getByRole("textbox", { name: "Triple, Dec to Jan peak" })).toHaveValue(/8,?999/);
 
-  // The departures made when the package was saved.
-  const departuresCard = page.getByRole("region", { name: "Departures" });
-  await expect(departuresCard.getByRole("link", { name: "Manali 5N6D" }).first()).toBeVisible();
-  await expect(departuresCard).toContainText("20 of 20");
+  // The departures made when the package was saved: the calendar names both seasons and shows a departure with its seats.
+  const departuresCard = page.getByRole("region", { name: "Departures", exact: true });
+  await expect(departuresCard.getByRole("list", { name: "Seasons" })).toContainText("Dec to Jan peak");
+  await expect(departuresCard.getByRole("button", { name: /20 (?:of 20 )?left/ }).first()).toBeVisible();
 
   // A brochure goes straight to storage.
   const files = page.getByRole("region", { name: "Brochures" });

@@ -66,11 +66,24 @@ describe("saving one section of a trip", () => {
     expect((await world.inOrg((tx) => findPackage(tx, id))).nights).toBeNull();
   });
 
-  it("runs a full save's checks: a taken slug and a missing from-price are refused", async () => {
+  it("runs a full save's checks: a taken slug and a custom trip's missing from-price are refused", async () => {
     await aPackage("Slug owner", "taken-address");
     const id = await aPackage("Checked part");
     expect(await reasonOf(savePart({ packageId: id, slug: "taken-address" }))).toBe("PACKAGE_SLUG_TAKEN");
-    expect(await reasonOf(savePart({ packageId: id, priceDisplay: "from" }))).toBe("FROM_PRICE_REQUIRED");
+    // A custom trip needs the amount it shows; a group trip's is worked out.
+    expect(await reasonOf(savePart({ packageId: id, kind: "custom", priceDisplay: "from" }))).toBe(
+      "FROM_PRICE_REQUIRED",
+    );
+    expect(await reasonOf(savePart({ packageId: id, priceDisplay: "from" }))).toBeNull();
     expect((await world.inOrg((tx) => findPackage(tx, id))).slug).toBeNull();
+  });
+
+  it("turns a group trip showing its worked-out From into a custom one on enquiry, until a price is typed", async () => {
+    const id = await aPackage("Kind switch");
+    expect(await reasonOf(savePart({ packageId: id, priceDisplay: "from" }))).toBeNull();
+    expect(await reasonOf(savePart({ packageId: id, kind: "custom" }))).toBeNull();
+    const row = await world.inOrg((tx) => findPackage(tx, id));
+    expect(row.kind).toBe("custom");
+    expect(row.priceDisplay).toBe("on_enquiry");
   });
 });
