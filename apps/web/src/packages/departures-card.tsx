@@ -7,7 +7,7 @@
 import type { CalendarDeparture } from "@travel-crm/contracts/departures";
 import { seasonColumns, type PackageDetail } from "@travel-crm/contracts/quotes";
 import { useTranslations } from "next-intl";
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { LoadFailedAlert } from "@/components/load-failed-alert";
 import { LoadingRows } from "@/components/loading-rows";
 import { BOTTOM_SHEET_CLASSES } from "@/components/responsive-dialog";
@@ -21,6 +21,7 @@ import { addDays, monthOf, type Day, type Month } from "./departure-calendar-day
 import { DayPanel } from "./day-panel";
 import { DeparturesAgenda } from "./departures-agenda";
 import { DeparturesMonth } from "./departures-month";
+import { sectionAnchors } from "./package-section";
 import { RepeatsLine } from "./repeats-line";
 import { seasonDates } from "./season-words";
 import { seasonTint } from "./season-colours";
@@ -29,6 +30,7 @@ import { useDepartureCalendar } from "./use-departure-calendar";
 
 export function DeparturesCard({ detail }: { detail: PackageDetail }) {
   const t = useTranslations("packages.departuresCalendar");
+  const headingId = useId();
   const wide = useWideScreen();
   const today = useAgencyToday();
   const [month, setMonth] = useState<Month>(monthOf(today));
@@ -67,10 +69,10 @@ export function DeparturesCard({ detail }: { detail: PackageDetail }) {
     );
 
   return (
-    <Card>
+    <Card id={sectionAnchors.departures} role="region" aria-labelledby={headingId} className="scroll-mt-6">
       <CardHeader>
         <CardTitle>
-          <h2>{t("title")}</h2>
+          <h2 id={headingId}>{t("title")}</h2>
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-6">

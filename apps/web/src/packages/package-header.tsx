@@ -13,8 +13,8 @@ import { TextLink } from "@/components/text-link";
 import { useDepartureList } from "@/departures/use-departures";
 import { formatCalendarDay } from "@/lib/format";
 import { useQuotePackages } from "@/quotes/use-quotes";
-import { dayKeyOf } from "./price-calendar-days";
 import { sellAnchor } from "./sell-card";
+import { useAgencyToday } from "./use-agency-today";
 
 export function PackageHeader({ detail }: { detail: PackageDetail }) {
   const t = useTranslations("packages.header");
@@ -22,7 +22,7 @@ export function PackageHeader({ detail }: { detail: PackageDetail }) {
   const group = detail.kind === "group";
   const upcoming = useDepartureList("upcoming", group, detail.id);
   const listed = useQuotePackages().data?.find((one) => one.id === detail.id);
-  const today = dayKeyOf(new Date());
+  const today = useAgencyToday();
   // The list also holds a departure already under way; the next is the first still to start.
   const next = upcoming.data?.find((departure) => departure.startDate >= today);
   const firstGap = detail.sellGaps[0];

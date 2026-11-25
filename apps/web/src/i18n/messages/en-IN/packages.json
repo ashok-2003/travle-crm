@@ -318,10 +318,6 @@
       "from_price": "no From price"
     }
   },
-  "packageDepartures": {
-    "loading": "Loading departures",
-    "loadFailed": "The departures didn't load."
-  },
   "files": {
     "title": "Brochures",
     "intro": "Up to {max} brochures (PDF or a picture, 25 MB each). The AI shares them with customers who ask for details. The AI picks a brochure by its name and description.",
@@ -357,28 +353,6 @@
       "wrongType": "Choose a PDF or a picture (JPEG, PNG or WebP).",
       "tooLarge": "Choose a file of up to {size}."
     }
-  },
-  "calendar": {
-    "title": "Price calendar",
-    "seatsLeft": "{day}, {free, plural, one {# seat} other {# seats}} left",
-    "full": "{day}, full",
-    "cancelledDay": "{day}, cancelled",
-    "legendTitle": "Price periods",
-    "legendDates": "{from} to {to}",
-    "legendPrice": "{room} {price}",
-    "noSeasons": "No prices are set yet.",
-    "moveHint": "Tap another day to see what it offers.",
-    "rangeStart": "Set special prices from here",
-    "rangePrompt": "Tap the last day of the special prices.",
-    "rangeStop": "Never mind",
-    "addDeparture": "Add a departure",
-    "added": "Departure added",
-    "alreadyThere": "A departure is already on this day.",
-    "cancelledThere": "A cancelled departure is on this day. Reopen it instead.",
-    "reopen": "Reopen",
-    "reopened": "Departure opened again",
-    "viewDeparture": "Open departure",
-    "specialLabel": "Special prices"
   },
   "copyNote": {
     "open": "Copy a line to other trips",
