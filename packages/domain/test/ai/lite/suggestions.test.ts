@@ -1,68 +1,22 @@
-// The lite agent's suggestions to mark a lead Lost or Not a lead: written by the act step once, never again for a kind a
-// person turned down, and moved only by a person's yes, inside their scope; erased with the customer.
-import { liteFacts, type UnderstandForm } from "@travel-crm/contracts/ai";
+// The agent's suggestions to mark a lead Lost or Not a lead: written once, never again for a kind a person turned down,
+// and moved only by a person's yes, inside their scope; erased with the customer.
 import { createPlatformDatabase, type PlatformDatabase } from "@travel-crm/db/platform";
 import { softDeleted } from "@travel-crm/db";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
-import { actOnMove } from "../../../src/ai/lite/act.js";
-import { situationOf } from "../../../src/ai/lite/lookups/situation.js";
 import {
   decideStageSuggestion,
   stageSuggestionOfLead,
   stageSuggestionsOf,
   suggestStage,
 } from "../../../src/ai/lite/suggestions.js";
-import type { CheckedForm, Decision } from "../../../src/ai/lite/types.js";
 import { withdrawAiParts } from "../../../src/ai/erasure.js";
 import { DomainError } from "../../../src/kernel/index.js";
 import { auditOf, memberOf } from "../../imports/support/test-imports.js";
 import { createTestInbox, type TestInbox } from "../../inbox/support.js";
-import { liteAgency, liteToday, liteTurnAt } from "./support/lite-agency.js";
+import { liteAgency, liteTurnAt } from "./support/lite-agency.js";
 
 type Agency = Awaited<ReturnType<typeof liteAgency>>;
 
-const notInterested = { kind: "lost", lostReason: "other", reason: "Said they're not interested." } as const;
-const closing = (on: Agency, suggest: Decision["suggest"]): Decision => ({
-  move: { kind: "fixed", text: "close" },
-  stage: "quoted",
-  why: "test",
-  facts: { ...liteFacts.parse({ agent: "lite" }), lastMove: "close" },
-  stopFollowUps: true,
-  note: null,
-  task: null,
-  stageTo: null,
-  suggest,
-});
-const formWith = (looksFake: boolean, why: string): CheckedForm => {
-  const form: UnderstandForm = {
-    intents: [{ name: "package_question", proof: "" }],
-    details: {
-      package: null,
-      place: null,
-      date: null,
-      adults: null,
-      children: null,
-      name: null,
-      pickup_city: null,
-      room: null,
-      pay_in_full: null,
-    },
-    open_to_other_trips: "unknown",
-    lookups: [],
-    language: "english",
-    summary: "",
-    score: {
-      chance: 3,
-      label: "cold",
-      reasons: [],
-      looks_fake: looksFake,
-      fake_why: why,
-      standing: "",
-      next_step: "",
-    },
-  };
-  return { form, proofs: {}, dropped: [] };
-};
 const failure = (error: unknown) => (error instanceof DomainError ? error.reason : String(error));
 
 describe("the agent's suggestion to mark a lead Lost or Not a lead", () => {
@@ -77,39 +31,9 @@ describe("the agent's suggestion to mark a lead Lost or Not a lead", () => {
     await test.close();
   });
 
-  /** The act step for a turn with this decision (and form), as the turn runs it. */
-  function act(on: Agency, decision: Decision, checked: CheckedForm | null = null) {
-    return on.inOrg(async (tx) => {
-      const situation = await situationOf(
-        tx,
-        { index: [], answers: {}, facts: decision.facts, today: liteToday, now: liteTurnAt },
-        [],
-      );
-      return actOnMove(
-        tx,
-        { files: test.files, recipients: () => Promise.resolve([]), storageLimitBytes: null, supplierStateCode: "27" },
-        {
-          organizationId: on.organizationId,
-          conversationId: on.chat.id,
-          token: on.message.id,
-          kind: "reply",
-          now: liteTurnAt,
-          today: liteToday,
-          timeZone: "Asia/Kolkata",
-          decision,
-          language: "english",
-          reply: { text: "Okay, thank you.", filled: [] },
-          situation,
-          checked,
-          model: null,
-          agencyName: "Sharma Holidays",
-        },
-      );
-    });
-  }
   const rows = (on: Agency) => on.inOrg((tx) => tx.leadAiSuggestion.findMany({ where: { leadId: on.leadId } }));
   const owner = (on: Agency) => memberOf(on.organizationId, "org-owner");
-  const suggest = (on: Agency, kind: "lost" | "not_a_lead" = "lost") =>
+  const suggest = (on: Agency, kind: "lost" | "not_a_lead" = "lost", reason = "Because.") =>
     on.inOrg((tx) =>
       suggestStage(tx, {
         organizationId: on.organizationId,
@@ -117,17 +41,15 @@ describe("the agent's suggestion to mark a lead Lost or Not a lead", () => {
         conversationId: on.chat.id,
         kind,
         lostReason: kind === "lost" ? "other" : null,
-        reason: "Because.",
+        reason,
         now: liteTurnAt,
       }),
     );
 
-  it("not interested suggests Lost once", async () => {
+  it("suggests Lost once, audited", async () => {
     const on = await liteAgency(test);
-    await act(on, closing(on, notInterested));
-    expect(await rows(on)).toMatchObject([
-      { kind: "lost", lostReason: "other", reason: "Said they're not interested.", state: "open" },
-    ]);
+    expect(await suggest(on)).toBe(true);
+    expect(await rows(on)).toMatchObject([{ kind: "lost", lostReason: "other", reason: "Because.", state: "open" }]);
     expect(await auditOf(test, on.organizationId, on.leadId).then((a) => a.map((e) => e.action))).toContain(
       "ai.stage-suggested",
     );
@@ -136,23 +58,11 @@ describe("the agent's suggestion to mark a lead Lost or Not a lead", () => {
     expect(await rows(on)).toHaveLength(1);
   });
 
-  it("looks fake suggests Not a lead with its reason", async () => {
-    const on = await liteAgency(test);
-    await act(on, closing(on, null), formWith(true, "Typed a keyboard mash"));
-    expect(await rows(on)).toMatchObject([
-      { kind: "not_a_lead", lostReason: null, reason: "Looks fake: Typed a keyboard mash", state: "open" },
-    ]);
-    const clean = await liteAgency(test);
-    await act(clean, closing(clean, null), formWith(false, ""));
-    expect(await rows(clean)).toEqual([]);
-  });
-
   it("cuts a long reason at 200 characters", async () => {
     const on = await liteAgency(test);
-    await act(on, closing(on, null), formWith(true, "x".repeat(160)));
+    expect(await suggest(on, "not_a_lead", "x".repeat(300))).toBe(true);
     const [row] = await rows(on);
-    expect(row?.reason).toBe(`Looks fake: ${"x".repeat(160)}`);
-    expect((row?.reason ?? "").length).toBeLessThanOrEqual(200);
+    expect(row?.reason).toBe("x".repeat(200));
   });
 
   it("a declined kind is not suggested again, another kind is", async () => {

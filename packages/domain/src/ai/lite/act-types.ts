@@ -1,4 +1,4 @@
-// What the lite turn's act step takes and gives back.
+// What an act step takes and gives back, in the lite shape the one agent's act gates still read.
 import type { LiteLanguage } from "@travel-crm/contracts/ai";
 import type { Files } from "../../files/index.js";
 import type { CalendarDate } from "../../kernel/index.js";
@@ -37,21 +37,3 @@ export interface LiteActInput {
   model: string | null;
   agencyName: string;
 }
-
-export type LiteActResult =
-  | "already"
-  /** The AI may no longer write here (mayWrite's reason, or "off"): nothing was written. */
-  | { stopped: string }
-  | {
-      leadId: string | null;
-      /** Every message sent, in order. */
-      sentIds: string[];
-      /** The reply's words as sent (a fixed line, the money message, the composed reply); null when none went. */
-      text: string | null;
-      /** The spans of `text` code wrote. */
-      filled: Found[];
-      bookingId: string | null;
-      handedOver: boolean;
-      /** Codes of what changed: "lead:adults", "stage:quote_sent", "booking", "note:quoted"... */
-      actions: string[];
-    };

@@ -64,15 +64,16 @@ const oneLine = (text: string) =>
 
 const labelled = (name: string, text: string) => (text === "" ? null : `${name}: ${oneLine(text)}`);
 
-function headOf(sheet: TripSheet): string {
-  return [
-    `${sheet.label} ${sheet.title}`,
+/** A trip's first lines, labelled, so its ID reads as a tool's handle and never as part of its name. */
+function headOf(sheet: TripSheet): (string | null)[] {
+  const where = [
     sheet.place,
     sheet.nights === null ? null : `${String(sheet.nights)} ${sheet.nights === 1 ? "night" : "nights"}`,
     sheet.startCity === "" ? null : `from ${sheet.startCity}`,
   ]
     .filter(isText)
     .join(" · ");
+  return [`Trip ID: ${sheet.label}`, `Name: ${sheet.title}`, where === "" ? null : `Where: ${where}`];
 }
 
 /** The main stops: each day title's first place, without the start city or a repeat, 4 at most. */
@@ -111,7 +112,7 @@ export function tripInFull(sheet: TripSheet, today: CalendarDate): string {
     (one) => `- ${day(one.startsOn)}: ${seatWords(one.freeSeats)}${priceOfDate(one)}`,
   );
   return [
-    headOf(sheet),
+    ...headOf(sheet),
     labelled("Summary", sheet.summary),
     sheet.highlights.length === 0 ? null : `Highlights: ${sheet.highlights.join("; ")}`,
     ...sheet.days.map(
@@ -136,22 +137,22 @@ export function tripInFull(sheet: TripSheet, today: CalendarDate): string {
     .join("\n");
 }
 
-/** One line a trip; `dates`, when given (a month a lookup asked), replace the next 3: the first 5, then how many more. */
-export function tripIndexLine(sheet: TripSheet, today: CalendarDate, dates?: readonly CalendarDate[]): string {
+/** A trip's short entry, a label a line; `dates`, when given (a month a lookup asked), replace the next 3: the first 5, then how many more. */
+export function tripIndexEntry(sheet: TripSheet, today: CalendarDate, dates?: readonly CalendarDate[]): string {
   const shown = dates?.slice(0, MONTH_DATES) ?? sheet.departures.slice(0, INDEX_DATES).map((one) => one.startsOn);
   const total = dates?.length ?? sheet.departures.length;
   const more = total > shown.length ? ` and ${String(total - shown.length)} more` : "";
   const stops = stopsOf(sheet);
   return [
-    headOf(sheet),
+    ...headOf(sheet),
     sheet.fromPaise === null
       ? null
-      : `from ${formatRupees(sheet.fromPaise)} (the lowest room; quote or get_trip gives each room's)`,
-    shown.length === 0 ? "no open dates" : `${shown.map((day) => formatShortDay(day, today)).join(", ")}${more}`,
-    stops.length === 0 ? null : `stops: ${stops.join(", ")}`,
+      : `Price: from ${formatRupees(sheet.fromPaise)} per person, the lowest room (quote or get_trip gives each room's)`,
+    `Dates: ${shown.length === 0 ? "no open dates" : `${shown.map((day) => formatShortDay(day, today)).join(", ")}${more}`}`,
+    stops.length === 0 ? null : `Stops: ${stops.join(", ")}`,
   ]
     .filter(isText)
-    .join(" · ");
+    .join("\n");
 }
 
 /** The way on when a lookup names no trip: "the trips are T1, T2", or "the trips are T1–T40" for many. */

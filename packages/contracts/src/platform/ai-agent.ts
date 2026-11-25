@@ -1,6 +1,6 @@
 // The console's pause of the WhatsApp AI agent: for every agency, or for one.
 import { z } from "zod";
-import { agentKinds, agentSetupSteps } from "../ai/index.js";
+import { agentSetupSteps } from "../ai/index.js";
 import { recordId } from "../identity/index.js";
 
 /** A pause in force: since when. */
@@ -44,23 +44,3 @@ export type OrganizationAgentState = z.infer<typeof organizationAgentState>;
 /** How many agencies "Resume one agency at a time" paused on their own. */
 export const resumeOneAtATimeResult = z.object({ paused: z.int().min(0) });
 export type ResumeOneAtATimeResult = z.infer<typeof resumeOneAtATimeResult>;
-
-/** The result of an agency's last private replay of its recent chats (counts only). */
-export const replaySummary = z.object({
-  at: z.iso.datetime(),
-  chats: z.int(),
-  passed: z.int(),
-  failedChecks: z.record(z.string(), z.int()),
-});
-export type ReplaySummary = z.infer<typeof replaySummary>;
-
-/** Which agent answers an agency, and how its last replay went (null until one has run). */
-export const organizationAgentChoice = z.object({
-  agent: z.enum(agentKinds),
-  lastReplay: replaySummary.nullable(),
-  replaying: z.boolean(),
-});
-export type OrganizationAgentChoice = z.infer<typeof organizationAgentChoice>;
-
-export const chooseAgentInput = z.strictObject({ organizationId: recordId, agent: z.enum(agentKinds) });
-export type ChooseAgentInput = z.infer<typeof chooseAgentInput>;

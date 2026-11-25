@@ -131,6 +131,22 @@ async function callProvider(
       ...replyTo,
     });
   }
+  if (message.kind === "text" && message.list !== null) {
+    return provider.sendList(message.integratedNumber, message.phoneE164, {
+      body: message.body ?? "",
+      button: message.list.button,
+      sections: [
+        {
+          rows: message.list.rows.map(({ id, title, description }) => ({
+            id,
+            title,
+            ...(description === undefined ? {} : { description }),
+          })),
+        },
+      ],
+      ...replyTo,
+    });
+  }
   if (message.kind === "text")
     return provider.sendText(message.integratedNumber, message.phoneE164, message.body ?? "", replyTo);
   const [file] = await dependencies.files.list(systemActor(organizationId), {

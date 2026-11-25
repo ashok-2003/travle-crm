@@ -1,5 +1,6 @@
-// The agency every lite test starts from: a connected number, a customer who has written, a ready setup (a Kedarnath group
-// package with two departures, payment details, answers, name and tone), and the autopilot on.
+// The agency many agent tests start from (first written for the lite agent): a connected number, a customer who has
+// written, a ready setup (a Kedarnath group package with two departures, payment details, answers, name and tone), and
+// the autopilot on. Its turns run the one agent, on the in-memory tool agent.
 import {
   AGENCY_PAYMENT_QR_RECORD_TYPE,
   PACKAGE_BROCHURE_RECORD_TYPE,
@@ -9,6 +10,7 @@ import type { RoomType } from "@travel-crm/contracts/quotes";
 import type { Database } from "@travel-crm/db";
 import { createMemoryAiModel, withTracing } from "@travel-crm/integrations/ai";
 import { createMemoryLogger } from "@travel-crm/integrations/logging";
+import { createMemoryToolAgent } from "@travel-crm/integrations/tool-agent";
 import type { AiTracing } from "@travel-crm/integrations/tracing";
 import {
   runAgentTurn,
@@ -17,7 +19,6 @@ import {
   saveAgentBasics,
   saveAiSettings,
 } from "../../../../src/ai/index.js";
-import type { TraceSink } from "../../../../src/ai/lite/types.js";
 import { parseCalendarDate } from "../../../../src/kernel/index.js";
 import type { Entitlements } from "../../../../src/subscriptions/index.js";
 import { aLead } from "../../../crm/support/records.js";
@@ -76,7 +77,7 @@ export async function liteAgency(test: TestInbox, options: { ready?: boolean; ro
       ownerUserId: owner.userId,
     });
     await saveAiSettings(tx, owner, { enabled: true, scoring: true }, { providerReady: true, now: testNow });
-    await storeAutopilot(tx, organizationId, { autopilot: true, agent: "lite", agentName: "Riya", tone: "friendly" });
+    await storeAutopilot(tx, organizationId, { autopilot: true, agentName: "Riya", tone: "friendly" });
     await tx.organizationProfile.upsert({
       where: { organizationId },
       create: {
@@ -193,7 +194,6 @@ export async function liteAgency(test: TestInbox, options: { ready?: boolean; ro
     at = liteTurnAt,
     options: {
       token?: string;
-      traces?: TraceSink;
       db?: Database;
       identity?: typeof identity;
       entitlements?: Entitlements;
@@ -211,7 +211,7 @@ export async function liteAgency(test: TestInbox, options: { ready?: boolean; ro
         agencyName: () => Promise.resolve("Sharma Holidays"),
         files: test.files,
         managers: () => Promise.resolve([]),
-        ...(options.traces === undefined ? {} : { traces: options.traces }),
+        toolAgent: createMemoryToolAgent(),
       },
       { organizationId, conversationId: chat.id, kind: "reply", token: options.token ?? message.id },
       at,
@@ -220,7 +220,7 @@ export async function liteAgency(test: TestInbox, options: { ready?: boolean; ro
    * The minute job at `at`, or by the clock `at` reads (lead follow-up tasks, then the follow-ups due), for this agency
    * alone: the job visits every agency in the shared database, and only this one has the AI.
    */
-  const nudges = (at: Date | (() => Date), traces?: TraceSink, tracing?: AiTracing) =>
+  const nudges = (at: Date | (() => Date), tracing?: AiTracing) =>
     runAiNudges(
       {
         db: test.db,
@@ -232,7 +232,7 @@ export async function liteAgency(test: TestInbox, options: { ready?: boolean; ro
         agencyName: () => Promise.resolve("Sharma Holidays"),
         files: test.files,
         managers: () => Promise.resolve([]),
-        ...(traces === undefined ? {} : { traces }),
+        toolAgent: createMemoryToolAgent(),
       },
       typeof at === "function" ? at : () => at,
     );

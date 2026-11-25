@@ -63,20 +63,23 @@ function MessageContent({ message, after }: { message: ChatMessage; after?: Reac
   const t = useTranslations("inbox.chat");
   switch (message.kind) {
     case "text":
-    case "template":
+    case "template": {
       if (message.tapped)
         return ended(message.body === null ? t("tappedNoWords") : t("tapped", { text: message.body }));
       if (message.body === null) return ended(null);
-      if (message.buttons === null) return <WhatsAppText text={message.body} after={after} />;
+      // A card's buttons, or a list's rows (the AI's trip menu).
+      const titles = (message.buttons ?? message.list?.rows ?? null)?.map((choice) => choice.title).join(" · ");
+      if (titles === undefined) return <WhatsAppText text={message.body} after={after} />;
       return (
         <div className="flex flex-col gap-2">
           <WhatsAppText text={message.body} />
           <span className="text-caption text-muted-foreground">
-            {t("cardButtons", { titles: message.buttons.map((button) => button.title).join(" · ") })}
+            {t(message.buttons === null ? "cardList" : "cardButtons", { titles })}
             {after}
           </span>
         </div>
       );
+    }
     case "image":
     case "video":
     case "audio":

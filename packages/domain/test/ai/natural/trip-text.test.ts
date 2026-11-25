@@ -1,6 +1,6 @@
 // A trip as the natural agent reads it: in full (spec 4.2) and as one index line, from a literal sheet.
 import { describe, expect, it } from "vitest";
-import { seatWords, tripIndexLine, tripInFull } from "../../../src/ai/natural/trips/trip-text.js";
+import { seatWords, tripIndexEntry, tripInFull } from "../../../src/ai/natural/trips/trip-text.js";
 import type { TripSheet } from "../../../src/ai/natural/types.js";
 import { parseCalendarDate } from "../../../src/kernel/index.js";
 
@@ -52,7 +52,11 @@ const excludingGst: TripSheet = { ...kedarkantha, pricesIncludeGst: false };
 describe("a trip as the natural agent reads it", () => {
   it("writes a trip in full with its numbers, rooms by season, advance and the next departures", () => {
     const text = tripInFull(kedarkantha, today);
-    expect(text.split("\n")[0]).toBe("T1 Kedarkantha Trek · Sankri, Uttarakhand · 5 nights · from Dehradun");
+    expect(text.split("\n").slice(0, 3)).toEqual([
+      "Trip ID: T1",
+      "Name: Kedarkantha Trek",
+      "Where: Sankri, Uttarakhand · 5 nights · from Dehradun",
+    ]);
     for (const part of [
       "triple ₹9,499 per person",
       "Starts at ₹9,499 per person, the lowest room's price",
@@ -137,10 +141,15 @@ describe("a trip as the natural agent reads it", () => {
     expect([seatWords(500), seatWords(6), seatWords(5), seatWords(1)]).toEqual(["open", "open", "5 left", "1 left"]);
   });
 
-  it("writes one index line with the from-price, the next 3 dates and the main stops", () => {
-    expect(tripIndexLine(kedarkantha, today)).toBe(
-      "T1 Kedarkantha Trek · Sankri, Uttarakhand · 5 nights · from Dehradun · from ₹9,499 (the lowest room; quote or get_trip gives each room's) · Sat 12 Dec, Sat 19 Dec, Sat 26 Dec · stops: Sankri, Juda ka Talab, Kedarkantha summit",
-    );
+  it("writes one labelled index entry with the trip's ID, the from-price, the next 3 dates and the main stops", () => {
+    expect(tripIndexEntry(kedarkantha, today).split("\n")).toEqual([
+      "Trip ID: T1",
+      "Name: Kedarkantha Trek",
+      "Where: Sankri, Uttarakhand · 5 nights · from Dehradun",
+      "Price: from ₹9,499 per person, the lowest room (quote or get_trip gives each room's)",
+      "Dates: Sat 12 Dec, Sat 19 Dec, Sat 26 Dec",
+      "Stops: Sankri, Juda ka Talab, Kedarkantha summit",
+    ]);
   });
 
   it("says how many more departures are open beyond the 3 shown", () => {
@@ -151,7 +160,7 @@ describe("a trip as the natural agent reads it", () => {
         startsOn: parseCalendarDate(startsOn),
       })),
     };
-    expect(tripIndexLine(weekly, today)).toContain("Sat 12 Dec, Sat 19 Dec, Sat 26 Dec and 2 more · stops");
+    expect(tripIndexEntry(weekly, today)).toContain("Dates: Sat 12 Dec, Sat 19 Dec, Sat 26 Dec and 2 more\n");
   });
 
   it("names at most 4 stops, each a day title's first place, and says when no date is open", () => {
@@ -163,7 +172,9 @@ describe("a trip as the natural agent reads it", () => {
         text: "",
       })),
     };
-    expect(tripIndexLine(longer, today)).toContain("no open dates · stops: Har ki Dun, Osla, Seema, Ruinsara Tal");
+    expect(tripIndexEntry(longer, today)).toContain(
+      "Dates: no open dates\nStops: Har ki Dun, Osla, Seema, Ruinsara Tal",
+    );
     expect(tripInFull(longer, today)).toContain("no open dates");
   });
 });

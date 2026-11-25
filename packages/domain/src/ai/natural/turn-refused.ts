@@ -1,37 +1,20 @@
 // Ruling 7 (spec 3.2's last line): the act refused the booking the turn staged (the seats went, a hold was there already,
-// the price changed) and rolled it back, so nothing went. With a call left and 8 seconds of the turn, the model answers
-// once more on its own transcript and the app's check of what happened, with the trip's open dates and the turn's other
-// actions kept; otherwise, or when that answer is refused too, nothing goes to the customer and the team gets a task
-// saying what wasn't done (the owner, 2026-11-24: no automatic holding line).
+// the price changed) and rolled it back, so nothing went: the app's check of what happened for the model's one more
+// answer, and the act when nothing goes to the customer and the team gets a task saying what wasn't done (the owner,
+// 2026-11-24: no automatic holding line).
 import { formatShortDay, parseCalendarDate } from "../../kernel/index.js";
-import type { NaturalContext } from "./context/build.js";
 import { cutText } from "./context/tokens.js";
 import { stagedOf } from "./act-types.js";
-import { NATURAL_LIMITS, runNaturalLoop, type LoopEnd, type LoopIO, type LoopSettings } from "./loop.js";
 import { CUSTOMER_FACING, without } from "./loop/ends.js";
-import { appCheck } from "./loop/words.js";
-import type { NaturalTraceBuilder } from "./trace.js";
 import { datesOnSale } from "./trips/dates-on-sale.js";
-import { actOnTurn, MONEY_ACTIONS, type LiveTurn, type TurnAct } from "./turn-act.js";
-import { actAndSettle, actOfEnd, doneOf, endedOf, type TurnDone } from "./turn-done.js";
+import type { LiveTurn, TurnAct } from "./turn-act.js";
 import type { StagedSet } from "./types.js";
 
-/** The loop a turn ran, to run once more. */
-export interface TurnLoop {
-  context: NaturalContext;
-  io: LoopIO;
-  settings: LoopSettings;
-  trace: NaturalTraceBuilder;
-}
-
-type FinalEnd = Extract<LoopEnd, { end: "final" }>;
 export interface Refused {
   refused: string;
   message: string;
 }
 
-/** Ruling 7: one more call only with this much of the turn left. */
-const ONE_MORE_MS = 8_000;
 /** The open dates the app check names, soonest first. */
 const MOST_OPEN = 6;
 const TASK_CHARS = 500;
@@ -96,52 +79,4 @@ export function refusedAct(turn: LiveTurn, staged: StagedSet, refused: Refused, 
     model: null,
     fallback: `refused:${refused.refused}`,
   };
-}
-
-function refusedFallback(
-  turn: LiveTurn,
-  loop: TurnLoop,
-  end: FinalEnd,
-  refused: Refused,
-  customerText: string,
-): Promise<TurnDone> {
-  const act = refusedAct(turn, end.staged, refused, customerText);
-  loop.trace.staged(act.staged);
-  return actAndSettle(turn, act);
-}
-
-/** After the act refused the turn's booking: one more call if one is left and there is time, else the team's task. */
-export async function afterRefusal(
-  turn: LiveTurn,
-  loop: TurnLoop,
-  end: FinalEnd,
-  refused: Refused,
-  customerText: string,
-): Promise<TurnDone> {
-  const { context, io, settings, trace } = loop;
-  const left = settings.startedMs + NATURAL_LIMITS.turnMs - io.clock();
-  if (end.callsUsed >= NATURAL_LIMITS.calls || left < ONE_MORE_MS) {
-    return refusedFallback(turn, loop, end, refused, customerText);
-  }
-  const note = await refusalNote(turn, end.staged, refused);
-  const again = await runNaturalLoop(
-    { ...context, messages: [...end.transcript, appCheck(note)] },
-    io,
-    // The model re-decides the money: the other staged actions stay forced; `book` and `resend_payment` are left out.
-    { ...settings, forced: [...without(end.staged, MONEY_ACTIONS).values()], callsUsed: end.callsUsed },
-    trace,
-  );
-  switch (again.end) {
-    case "superseded":
-      return endedOf(turn, "superseded", null);
-    case "model_failed":
-      return refusedFallback(turn, loop, end, refused, customerText);
-    case "fallback":
-      return actAndSettle(turn, actOfEnd(again));
-    case "final": {
-      const act = actOfEnd(again);
-      const result = await actOnTurn(turn, act);
-      return "refused" in result ? refusedFallback(turn, loop, again, result, customerText) : doneOf(turn, act, result);
-    }
-  }
 }

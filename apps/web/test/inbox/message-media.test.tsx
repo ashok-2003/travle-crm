@@ -57,6 +57,7 @@ const message = (extra: Partial<ChatMessage> = {}): ChatMessage => ({
   starred: false,
   aiText: null,
   buttons: null,
+  list: null,
   tapped: false,
   editedAt: null,
   revokedAt: null,

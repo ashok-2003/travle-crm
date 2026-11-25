@@ -21,13 +21,12 @@ describe("visibleConsoleItems", () => {
       "jobs",
       "updates",
       "emails",
-      "aiPrompts",
       "log",
       "staff",
     ]);
   });
 
-  it("shows support everything but Failed emails, AI prompts and Staff", () => {
+  it("shows support everything but Failed emails and Staff", () => {
     expect(keys(visibleConsoleItems(platformStaff("support")))).toEqual([
       "home",
       "onboard",
@@ -52,7 +51,6 @@ describe("visibleConsoleItems", () => {
       jobs: consoleRoutes.jobs,
       updates: consoleRoutes.updates,
       emails: consoleRoutes.emails,
-      aiPrompts: consoleRoutes.aiPrompts,
       log: consoleRoutes.log,
       staff: consoleRoutes.staff,
     });

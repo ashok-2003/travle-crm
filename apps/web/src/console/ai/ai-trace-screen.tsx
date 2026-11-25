@@ -1,8 +1,8 @@
 "use client";
 
-// /console/organizations/<id>/ai-traces/<traceId>: one lite agent turn, whole, a super admin's alone: its index row,
-// then one part at a time. Opening it is written in the platform log, so it is fetched once. A turn no longer kept
-// (14 days, or its customer erased) says so; a missing file is said plainly with the row still shown.
+// /console/organizations/<id>/ai-traces/<traceId>: one agent turn's index row, a super admin's alone (its detail is in
+// Langfuse). Opening it is written in the platform log, so it is fetched once. A turn no longer kept (14 days, or its
+// customer erased) says so.
 import { InfoIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Details } from "@/components/details";
@@ -12,12 +12,9 @@ import { useInstantText } from "@/components/instant-text";
 import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
 import { BackLink, TextLink } from "@/components/text-link";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { refusalOf } from "@/data/api-error";
 import { consoleRoutes } from "../routes";
 import { isSuperAdmin, useStaff } from "../session/staff-context";
-import { DecisionPart, LookupsPart, SentPart, UnderstandPart, WritePart } from "./ai-trace-parts";
 import { useAiTrace } from "./use-ai-traces";
 import { useTraceWords } from "./trace-words";
 
@@ -49,7 +46,7 @@ function Turn({ organizationId, traceId }: { organizationId: string; traceId: st
     }
     return <LoadingRows rows={4} shape="twoLines" label={t("loading")} />;
   }
-  const { trace, priced, file } = turn.data;
+  const { trace, priced } = turn.data;
   const none = tNone("none");
   const rows = [
     { label: t("details.startedAt"), value: instantText(trace.startedAt) },
@@ -60,65 +57,11 @@ function Turn({ organizationId, traceId }: { organizationId: string; traceId: st
     { label: t("details.tokens"), value: words.tokens(trace.inputTokens, trace.outputTokens) },
     ...(priced && trace.costPaise !== null ? [{ label: t("details.cost"), value: words.cost(trace.costPaise) }] : []),
     { label: t("details.duration"), value: words.duration(trace.durationMs) },
-    ...(file === null || file.promptVersions.length === 0
-      ? []
-      : [
-          {
-            label: t("details.prompts"),
-            value: (
-              <span className="flex flex-col">
-                {file.promptVersions.map((piece) => (
-                  <span key={piece.name} className="numbers wrap-anywhere">
-                    {piece.current === null || piece.current === piece.used
-                      ? t("promptVersion", { name: piece.name, used: piece.used })
-                      : t("promptChanged", { name: piece.name, used: piece.used, current: piece.current })}
-                  </span>
-                ))}
-              </span>
-            ),
-            hint: (
-              <TextLink href={consoleRoutes.aiPrompts} inline>
-                {t("promptsLink")}
-              </TextLink>
-            ),
-          },
-        ]),
   ];
   return (
     <>
       <Details rows={rows} />
       <TextLink href={consoleRoutes.aiTraces(organizationId, trace.conversationId)}>{t("thisChat")}</TextLink>
-      {file === null ? (
-        <Alert>
-          <InfoIcon aria-hidden="true" />
-          <AlertDescription>{t("fileMissing")}</AlertDescription>
-        </Alert>
-      ) : (
-        <Tabs defaultValue="understand" className="gap-4">
-          <TabsList className="h-auto flex-wrap">
-            <TabsTrigger value="understand">{t("tabs.understand")}</TabsTrigger>
-            <TabsTrigger value="lookups">{t("tabs.lookups", { count: file.lookups.length })}</TabsTrigger>
-            <TabsTrigger value="decision">{t("tabs.decision")}</TabsTrigger>
-            <TabsTrigger value="write">{t("tabs.write")}</TabsTrigger>
-            <TabsTrigger value="sent">{t("tabs.sent")}</TabsTrigger>
-          </TabsList>
-          <TabsContent value="understand">
-            <UnderstandPart file={file} />
-          </TabsContent>
-          <TabsContent value="lookups">
-            <LookupsPart file={file} />
-          </TabsContent>
-          <TabsContent value="decision">
-            <DecisionPart file={file} move={trace.move} stage={trace.saleStage} />
-          </TabsContent>
-          <TabsContent value="write">
-            <WritePart file={file} />
-          </TabsContent>
-          <TabsContent value="sent">
-            <SentPart file={file} />
-          </TabsContent>
-        </Tabs>
-      )}
     </>
   );
 }

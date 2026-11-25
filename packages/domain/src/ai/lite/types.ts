@@ -1,11 +1,11 @@
-// The lite turn's shared types, declarations only: what it takes, decides, reads, traces and gives back.
+// The lite turn's shared types, declarations only, kept for the parts the one agent still uses: what a turn takes,
+// decides, reads and gives back.
 import type { Database } from "@travel-crm/db";
 import type {
   AgencyQuestionTopic,
   ChecklistItem,
   HandOverReason,
   LiteFacts,
-  LiteIntent,
   LookupTool,
   UnderstandForm,
 } from "@travel-crm/contracts/ai";
@@ -20,7 +20,6 @@ import type { CalendarDate } from "../../kernel/index.js";
 import type { SubscriptionAccess } from "../../subscriptions/index.js";
 import type { TurnKind } from "../may-write.js";
 import type { BookingRecipients } from "../booking.js";
-import type { Found } from "./phrase-match.js";
 
 export interface LiteDependencies {
   db: Database;
@@ -36,7 +35,6 @@ export interface LiteDependencies {
    */
   identity?: Pick<Identity, "firstOwner" | "leadWorkers" | "organizationProfile" | "memberContacts" | "membersHolding">;
   logger?: Logger;
-  traces?: TraceSink;
   /** The minute job's clock: a follow-up reads it again before it acts, so its checks hold when it sends. */
   clock?: () => Date;
   /** The traced turn this runs in, told what the customer wrote; without one, nothing is. */
@@ -57,24 +55,6 @@ export type SaleStage =
   "exploring" | "package_picked" | "details_complete" | "quoted" | "waiting_for_payment" | "payment_to_check";
 
 export type { HandOverReason };
-
-export type FixedTextKey =
-  | "price_from"
-  | "price_full"
-  | "seats_left"
-  | "book_payment"
-  | "book_payment_full"
-  | "payment_again"
-  | "payment_heading"
-  | "screenshot_received"
-  | "ask_screenshot"
-  | "hand_over"
-  | "voice_note"
-  | "identity"
-  | "not_run"
-  | "close"
-  | "later"
-  | "how_can_i_help";
 
 export type Move =
   | { kind: "greet"; packageIds: string[] } // [] asks where they'd like to go
@@ -215,59 +195,4 @@ export interface CheckedForm {
   form: UnderstandForm;
   proofs: Partial<Record<AiFilledField, FieldProof>>;
   dropped: string[];
-}
-
-export type PromptPieceName =
-  | "understand.instructions"
-  | "understand.intents"
-  | "understand.form"
-  | "write.instructions"
-  | "write.voice"
-  | "write.moves"
-  | "fixed.texts";
-
-export interface LiteTrace {
-  id: string;
-  organizationId: string;
-  conversationId: string;
-  leadId: string | null;
-  kind: TurnKind;
-  startedAt: Date;
-  durationMs: number;
-  outcome: LiteOutcome;
-  reason: string | null;
-  move: Move["kind"] | null;
-  stage: SaleStage | null;
-  why: string | null;
-  /** What the decision left for plan 3b to store: the lead's note, the owner's follow-up, the Lost suggestion. */
-  note: Decision["note"];
-  task: Decision["task"];
-  suggest: Decision["suggest"];
-  intents: LiteIntent[];
-  promptVersions: Record<PromptPieceName, number>;
-  model: string | null;
-  inputTokens: number;
-  outputTokens: number;
-  /** The context's messages, referenced, never copied. */
-  messageIds: string[];
-  /** Every block but "Messages". */
-  understand: { blocks: Record<string, string>; raw: string | null } | null;
-  lookups: { request: LookupRequest; result: LookupResult }[];
-  checks: { name: string; passed: boolean; detail: string | null }[];
-  write: { blocks: Record<string, string>; raw: string[] } | null;
-  /** The item the move asked the customer for (the bench marks a question for what the chat already held). */
-  asked: ChecklistItem | null;
-  /** The reply's words as they went out (a fixed line, the money message, the composed reply), and every message sent. */
-  sent: {
-    messageIds: string[];
-    text: string | null;
-    /** The spans of `text` that code wrote (amounts, dates, seats), which the model never typed. */
-    filled: Found[];
-  };
-  /** Codes: "lead:adults", "stage:quote_sent", "booking"... */
-  actions: string[];
-}
-
-export interface TraceSink {
-  record(trace: LiteTrace): Promise<void>;
 }

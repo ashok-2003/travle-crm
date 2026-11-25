@@ -9,7 +9,7 @@ import type { Move } from "../../../src/ai/lite/types.js";
 import { addDays, instantAt, parseCalendarDate, parseTimeOfDay } from "../../../src/kernel/index.js";
 import { createTestInbox, type TestInbox } from "../../inbox/support.js";
 import { liteAgency, liteTurnAt } from "./support/lite-agency.js";
-import { greeting, understood, written } from "./support/turn-script.js";
+import { greeting } from "./support/turn-script.js";
 
 const india = "Asia/Kolkata";
 const day = parseCalendarDate("2026-11-10");
@@ -235,7 +235,7 @@ describe("whether the silence still stands", () => {
 
   it("counts a reaction as an answer only when asked to", async () => {
     const on = await liteAgency(test);
-    on.model.answer(understood([["hello", "Hi"]]), written(greeting));
+    on.model.answer(greeting);
     expect(await on.turn()).toBe("replied");
     const quiet = (options?: { reactions?: boolean }) => on.inOrg((tx) => stillQuiet(tx, on.chat.id, options));
     expect(await quiet()).toBe(true);
@@ -254,7 +254,7 @@ describe("whether the silence still stands", () => {
   /** The reply turn, then `emoji` set on our messages sent before `before` (all of them by default). */
   async function reacted(emoji: string, before?: Date) {
     const on = await liteAgency(test);
-    on.model.answer(understood([["hello", "Hi"]]), written(greeting));
+    on.model.answer(greeting);
     expect(await on.turn()).toBe("replied");
     const react = (sentBefore = before) =>
       on.inOrg((tx) =>

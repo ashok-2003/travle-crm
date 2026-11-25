@@ -1,17 +1,23 @@
-// Try it on the one agent (the agency's own): it sends its turns to ai.testOne with natural's state and the chat's id,
-// with no model, temperature or prompt choice, and shows its answer as the new agent's.
+// Try it on the one agent: it sends its turns to ai.testOne with natural's state, the prompt chosen (live, or the draft
+// in Langfuse, which Why says it couldn't read when there was none) and the chat's id, with no model or temperature
+// choice, and shows its answer, its offer card and its trip menu.
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 import { TestSection } from "@/ai/test-section";
 import { messages } from "@/i18n/messages";
-import { fakeApi, renderWithApi } from "../organization/api";
+import { fakeApi, newQueryClient, renderWithApi } from "../organization/api";
 import { screenIs } from "../organization/render";
-import { clientRunning } from "./try-it-client";
 
 const words = messages.ai.test;
 beforeEach(() => {
   screenIs("wide");
+  // Radix's Select reaches for pointer capture and scrolling, which jsdom lacks.
+  Object.assign(Element.prototype, {
+    hasPointerCapture: () => false,
+    releasePointerCapture: () => undefined,
+    scrollIntoView: () => undefined,
+  });
 });
 
 const state = {
@@ -66,13 +72,14 @@ const answer = {
 describe("Try it on the one agent", () => {
   it("sends the one agent's turns to ai.testOne with no choice, and shows its answer", async () => {
     const api = fakeApi();
-    renderWithApi(<TestSection />, clientRunning("one"));
+    renderWithApi(<TestSection />, newQueryClient());
     await userEvent.type(screen.getByLabelText(words.message), "Kedarkantha in Dec?");
     await userEvent.click(screen.getByRole("button", { name: words.send }));
     expect(api.last().path).toBe("ai.testOne");
     expect(api.last().input).toEqual({
       messages: [{ from: "customer", text: "Kedarkantha in Dec?" }],
       state: null,
+      prompt: "live",
       chatId: expect.any(String) as unknown,
     });
     api.last().answer(answer);
@@ -85,7 +92,7 @@ describe("Try it on the one agent", () => {
 
   it("shows the card's buttons and sends a tap", async () => {
     const api = fakeApi();
-    renderWithApi(<TestSection />, clientRunning("one"));
+    renderWithApi(<TestSection />, newQueryClient());
     await userEvent.type(screen.getByLabelText(words.message), "Kedarkantha 19 Dec, 2 log");
     await userEvent.click(screen.getByRole("button", { name: words.send }));
     const card = { body: "*Kedarkantha*\nTotal ₹18,998", buttons: ["Book these seats", "Change something"] };
@@ -96,5 +103,39 @@ describe("Try it on the one agent", () => {
     expect(api.last().input).toMatchObject({
       messages: expect.arrayContaining([{ from: "customer", text: "Tapped: Book these seats" }]) as unknown,
     });
+  });
+
+  it("sends the draft prompt once chosen, and says in Why when the draft couldn't be read", async () => {
+    const user = userEvent.setup();
+    const api = fakeApi();
+    renderWithApi(<TestSection />, newQueryClient());
+    await user.click(screen.getByRole("combobox", { name: words.prompt }));
+    await user.click(await screen.findByRole("option", { name: words.prompts.draft }));
+    await user.type(screen.getByLabelText(words.message), "Kedarkantha in Dec?");
+    await user.click(screen.getByRole("button", { name: words.send }));
+    expect(api.last().input).toMatchObject({ prompt: "draft" });
+    // No draft in Langfuse: the turn ran the live prompt, as its label says.
+    api.last().answer(answer);
+    await user.click(await screen.findByRole("button", { name: words.why.open }));
+    expect(screen.getByText(words.natural.why.noDraft)).toBeVisible();
+  });
+
+  it("shows the trip menu a turn would send, with its rows", async () => {
+    const api = fakeApi();
+    renderWithApi(<TestSection />, newQueryClient());
+    await userEvent.type(screen.getByLabelText(words.message), "Hello");
+    await userEvent.click(screen.getByRole("button", { name: words.send }));
+    const menu = {
+      body: "Pick a trip, we'll send its plan.",
+      button: "See trips",
+      rows: [{ title: "Manali", description: "2 trips · from ₹5,999 · next Fri 27 Nov" }, { title: "Spiti" }],
+    };
+    api.last().answer({ ...answer, menu });
+    expect(await screen.findByText("Then it would send this trip menu (See trips):")).toBeVisible();
+    expect(screen.getByText(menu.body)).toBeVisible();
+    const rows = screen.getByRole("list", { name: "See trips" });
+    expect(rows).toHaveTextContent("Manali");
+    expect(rows).toHaveTextContent("2 trips · from ₹5,999 · next Fri 27 Nov");
+    expect(rows).toHaveTextContent("Spiti");
   });
 });

@@ -1,5 +1,5 @@
-// The natural agent's loop as its callers see it: the caps, what it asks of the turn around it (the model, the tools, the
-// guards, the chat and the clock), its settings and how a turn ends; and one run of the turn, which a restart begins again.
+// The loop as its callers see it: the caps, what it asks of the turn around it (the model, the tools, the chat and the
+// clock), how a turn ends, and one run of the turn, which a restart begins again.
 import type { NaturalToolName } from "@travel-crm/contracts/ai";
 import {
   NEXT_MODEL_MIN_LEFT_MS,
@@ -9,7 +9,7 @@ import {
   type AiRequest,
   type AiResult,
 } from "@travel-crm/integrations/ai";
-import type { GuardName, traceFlags, WordsVerdict } from "../guards/check-words.js";
+import type { GuardName, WordsVerdict } from "../guards/check-words.js";
 import type { StageOutcome } from "../tools/action-tools.js";
 import type { QuoteFigures, StagedAction, StagedSet } from "../types.js";
 
@@ -47,19 +47,6 @@ export interface LoopIO {
   newerLine(): Promise<boolean>;
   /** Epoch milliseconds. */
   clock(): number;
-}
-
-export interface LoopSettings {
-  startedMs: number;
-  organizationId: string;
-  /** Try it's own choice, named on every call; without one, the first answer's model is pinned. */
-  model?: string;
-  temperature?: number;
-  /** Staged by code before the model (ruling 6): they never end a turn. */
-  forced: readonly StagedAction[];
-  /** Calls spent already (0 unless set): plan 2's one more call after an act refusal passes them. */
-  callsUsed?: number;
-  flagContext: Parameters<typeof traceFlags>[1];
 }
 
 export type FallbackReason = "cap" | "steps" | "deadline" | `guard:${GuardName}` | "model";

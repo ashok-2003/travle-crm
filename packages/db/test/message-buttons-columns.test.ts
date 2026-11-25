@@ -1,4 +1,5 @@
-// The message's button columns: a card holds one to three buttons, and a tap's id is at most 256 characters.
+// The message's button columns: a card holds one to three buttons, a list one to ten rows, and a tap's id is at most 256
+// characters.
 // Rows are written as the migrator so the checks alone are under test (a check fails before a foreign key is looked at).
 import { randomUUID } from "node:crypto";
 import pg from "pg";
@@ -42,5 +43,21 @@ describe("the message's button columns", () => {
     });
     // Within the limits the checks pass and the row then meets its foreign keys.
     await expect(insert([1, 2, 3].map(button), "x".repeat(256))).rejects.toMatchObject({ code: "23503" });
+  });
+
+  it("takes a list's button and one to ten rows in the same column, and refuses none or more", async () => {
+    const list = (rows: number) => ({
+      button: "See trips",
+      rows: Array.from({ length: rows }, (_, n) => ({ id: `trips:${String(n)}`, title: "Goa" })),
+    });
+    for (const rows of [0, 11]) {
+      await expect(insert(list(rows), null)).rejects.toMatchObject({ constraint: "whatsapp_message_buttons_count" });
+    }
+    await expect(insert({ button: "See trips", rows: "Goa" }, null)).rejects.toMatchObject({
+      constraint: "whatsapp_message_buttons_count",
+    });
+    // Within the limits the check passes and the row then meets its foreign keys.
+    await expect(insert(list(1), null)).rejects.toMatchObject({ code: "23503" });
+    await expect(insert(list(10), null)).rejects.toMatchObject({ code: "23503" });
   });
 });

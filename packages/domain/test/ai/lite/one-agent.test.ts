@@ -1,13 +1,13 @@
-// With one WhatsApp agent every turn is the lite turn, whatever an agency's old switches say: both queues run it, a
-// customer's message queues on ai.reply, an AI follow-up task is the team's, and Try it is the lite dry run.
+// Every turn is the one agent's, whatever an agency's old switches say: the ai.reply queue runs it, a customer's message
+// queues on ai.reply, and an AI follow-up task is the team's.
 import { randomUUID } from "node:crypto";
+import { createMemoryToolAgent } from "@travel-crm/integrations/tool-agent";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { aiCustomerWroteListener, aiReplyHandler, liteDryRun, type AgentDependencies } from "../../../src/ai/index.js";
+import { aiCustomerWroteListener, aiReplyHandler, type AgentDependencies } from "../../../src/ai/index.js";
 import { systemActor } from "../../../src/kernel/index.js";
-import { memberOf } from "../../imports/support/test-imports.js";
 import { createTestInbox, testNow, type TestInbox } from "../../inbox/support.js";
 import { liteAgency, liteEntitlements, liteTurnAt } from "./support/lite-agency.js";
-import { greeting, outbound, understood, written, type Agency } from "./support/turn-script.js";
+import { greeting, outbound, type Agency } from "./support/turn-script.js";
 
 describe("one agent", () => {
   let test: TestInbox;
@@ -26,26 +26,28 @@ describe("one agent", () => {
     agencyName: () => Promise.resolve("Sharma Holidays"),
     files: test.files,
     managers: () => Promise.resolve([]),
+    toolAgent: createMemoryToolAgent(),
   });
 
-  it("every agency's turn is the lite turn, whatever its old switches say", async () => {
+  it("every agency's turn is the one agent's, whatever its old switches say", async () => {
     const on = await liteAgency(test);
-    await on.inOrg((tx) => tx.aiAutopilot.updateMany({ data: { lite: false, grounded: true } }));
-    on.model.answer(understood([["hello", "Hi"]]), written(greeting));
+    await on.inOrg((tx) => tx.aiAutopilot.updateMany({ data: { lite: true, grounded: true } }));
+    on.model.answer(greeting);
     expect(await on.turn()).toBe("replied");
-    expect(on.model.requests[0]?.schema?.name).toBe("understand_form");
+    // The one agent offers the model its tools; lite asked for its Understand form.
+    expect(on.model.requests[0]?.tools).toBeDefined();
+    expect(on.model.requests[0]?.schema).toBeUndefined();
   });
 
-  it("a turn queued on ai.reply, the one queue, answers as lite", async () => {
+  it("a turn queued on ai.reply, the one queue, answers", async () => {
     const on = await liteAgency(test);
     const dependencies: AgentDependencies & { logger: typeof on.logger } = dependenciesOf(on);
     const handler = aiReplyHandler(dependencies);
     expect([handler.queue, handler.concurrency]).toEqual(["ai.reply", 5]);
-    on.model.answer(understood([["hello", "Hi"]]), written(greeting));
+    on.model.answer(greeting);
     // The handler reads the clock itself; only Date is faked, so the database and timers run as they do.
     vi.useFakeTimers({ now: liteTurnAt, toFake: ["Date"] });
     await handler.handle({ organizationId: on.organizationId, conversationId: on.chat.id, messageId: on.message.id });
-    expect(on.model.requests[0]?.schema?.name).toBe("understand_form");
     expect(await outbound(on)).toHaveLength(1);
   });
 
@@ -82,17 +84,5 @@ describe("one agent", () => {
     expect(await on.nudges(new Date(testNow.getTime() + 2 * 3_600_000))).toBe(0);
     expect(await on.inOrg((tx) => tx.aiFollowUpTouch.count())).toBe(0);
     expect(await outbound(on)).toHaveLength(0);
-  });
-
-  it("Try it is the lite dry run", async () => {
-    const on = await liteAgency(test, { ready: false });
-    on.model.answer(understood([["discount", "discount"]]));
-    await liteDryRun(
-      { db: test.db, ai: on.model, agencyName: () => Promise.resolve("Sharma Holidays") },
-      memberOf(on.organizationId, "org-owner"),
-      { messages: [{ from: "customer", text: "any discount?" }], state: null },
-      testNow,
-    );
-    expect(on.model.requests[0]?.schema?.name).toBe("understand_form");
   });
 });

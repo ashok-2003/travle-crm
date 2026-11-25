@@ -1,4 +1,4 @@
-// /console/organizations/<id>/ai-traces/<traceId>: one lite agent turn, whole, a super admin's. The server reads only
+// /console/organizations/<id>/ai-traces/<traceId>: one AI agent turn's row, a super admin's. The server reads only
 // the two ids; opening the turn is the browser's one call, and the platform log records it.
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";

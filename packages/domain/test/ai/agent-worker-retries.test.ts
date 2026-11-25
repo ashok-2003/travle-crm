@@ -1,10 +1,9 @@
-// A natural turn whose model fails is sent again after two minutes, then after ten; the third failure sends the
-// customer nothing (the owner, 2026-11-24: no automatic holding line) and leaves the team a task, and the AI stays on.
-// An old attempt ends quietly when the customer wrote since, and five chats run at once.
+// A turn whose model fails is sent again after two minutes, then after ten; the third failure sends the customer
+// nothing (the owner, 2026-11-24: no automatic holding line) and leaves the team a task, and the AI stays on. An old
+// attempt ends quietly when the customer wrote since, and five chats run at once.
 import { randomUUID } from "node:crypto";
 import { createMemoryToolAgent } from "@travel-crm/integrations/tool-agent";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { setAgent } from "../../src/ai/agent-choice.js";
 import { systemActor } from "../../src/kernel/index.js";
 import { aiChatResumedListener, aiReplyHandler, type AgentDependencies } from "../../src/ai/index.js";
 import { replyDayOf } from "../../src/ai/may-write.js";
@@ -14,7 +13,7 @@ import { FIRST_LINE, liveAgency, liveAt, liveNow, type LiveAgency } from "./natu
 
 const FAILED = { ok: false, reason: "unavailable" } as const;
 
-describe("a failed natural turn is tried again, then left to the team", () => {
+describe("a failed turn is tried again, then left to the team", () => {
   let test: TestInbox;
   beforeAll(() => {
     test = createTestInbox();
@@ -90,33 +89,6 @@ describe("a failed natural turn is tried again, then left to the team", () => {
     // Nothing went, so the day's cap counts nothing.
     expect(state.lastReplyAt).toBeNull();
     // The model was never asked: the fallback is code's.
-    expect(on.model.requests).toHaveLength(0);
-  });
-
-  it("retries one's failed model after 2 and 10 minutes", async () => {
-    const on = await liveAgency(test);
-    await on.inOrg((tx) => setAgent(tx, systemActor(on.organizationId), "one"));
-    const handler = handlerOf(on);
-    const from = test.queue.sent.length;
-    clockAt(liveNow);
-    on.model.answer(FAILED);
-    await handler.handle(jobOf(on, on.message.id));
-    on.model.answer(FAILED);
-    await handler.handle(retries(from)[0]?.data ?? {});
-    expect(retries(from).map((job) => job.options.startAfter?.getTime())).toEqual([
-      liveNow.getTime() + 120_000,
-      liveNow.getTime() + 600_000,
-    ]);
-    expect(await outbound(on)).toEqual([]);
-  });
-
-  it("leaves one's last try to the team as a task, sending nothing and calling no model", async () => {
-    const on = await liveAgency(test);
-    await on.inOrg((tx) => setAgent(tx, systemActor(on.organizationId), "one"));
-    clockAt(liveNow);
-    await handlerOf(on).handle(jobOf(on, on.message.id, 2));
-    expect(await outbound(on)).toEqual([]);
-    expect(await on.inOrg((tx) => tx.task.count({ where: { byAi: true } }))).toBe(1);
     expect(on.model.requests).toHaveLength(0);
   });
 

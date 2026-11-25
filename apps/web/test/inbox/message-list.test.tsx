@@ -260,6 +260,39 @@ describe("a voice note and a place", () => {
     expect(api.calls.length).toBeGreaterThan(0);
   });
 
+  it("shows a list's rows and the customer's pick", async () => {
+    answerApi({
+      "inbox.conversation": header,
+      "salesInbox.notes": notes,
+      "inbox.markRead": null,
+      "inbox.messages": {
+        items: [
+          aMessage({ id: id(2), body: "Manali", tapped: true }),
+          aMessage({
+            id: id(1),
+            direction: "out",
+            origin: "automation",
+            status: "sent",
+            body: "Pick a trip, we'll send its plan.",
+            list: {
+              button: "See trips",
+              rows: [
+                { id: "trips:1", title: "Manali", description: "2 trips · from ₹5,999" },
+                { id: "trips:2", title: "Spiti" },
+              ],
+            },
+          }),
+        ],
+        nextCursor: null,
+        people: {},
+        unread: { count: 0, firstMessageId: null },
+      },
+    });
+    renderWithApi(<MessageList conversationId={chatId} />, newQueryClient());
+    expect(await screen.findByText("List: Manali · Spiti")).toBeInTheDocument();
+    expect(screen.getByText("Tapped: Manali")).toBeInTheDocument();
+  });
+
   it("shows a tap with no words as a tap", async () => {
     answerApi({
       "inbox.conversation": header,

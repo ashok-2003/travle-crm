@@ -1,7 +1,7 @@
 // The one agent's turn (spec 3; rulings R5, R7, P7, P8) on the in-memory tool agent, with a scripted model, a fake IO and
 // a fake clock, no database: its requests, the words beside actions, the one extra call for words, the fallback,
 // the ends the port passes through, and the trace.
-import { oneHandOverArguments, oneToolSchemas, type NaturalToolName } from "@travel-crm/contracts/ai";
+import { oneHandOverArguments, oneToolSchemas } from "@travel-crm/contracts/ai";
 import { createMemoryAiModel, type MemoryAiModel } from "@travel-crm/integrations/ai";
 import { createMemoryToolAgent } from "@travel-crm/integrations/tool-agent";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -11,6 +11,7 @@ import { startNaturalTrace, type NaturalTraceBuilder } from "../../../src/ai/nat
 import type { QuoteFigures, StagedAction } from "../../../src/ai/natural/types.js";
 import type { OneContext } from "../../../src/ai/one/context.js";
 import { runOneLoop, type OneLoopIO, type OneSettings } from "../../../src/ai/one/loop.js";
+import type { OneActionName } from "../../../src/ai/one/tools.js";
 import { parseCalendarDate } from "../../../src/kernel/index.js";
 
 // Sat 14 Nov 2026, 11:43 pm in Kolkata; each model call takes 2 s on the fake clock.
@@ -48,7 +49,7 @@ const handOver: StagedAction = { tool: "hand_over", reason: "payment_check", sum
 const QUOTE_RESULT = "quote: Sat 19 Dec, 2 adults, total ₹18,998";
 
 /** What the fake stages for each action the tests call; one's booking has no name and no words. */
-const staging: Partial<Record<NaturalToolName, StagedAction>> = {
+const staging: Partial<Record<OneActionName, StagedAction>> = {
   update_lead: { tool: "update_lead", fields: { adults: 2 }, notes: [] },
   send_brochure: { tool: "send_brochure", packageId: "package-1", fileIds: ["file-1"] },
   offer_booking: {
@@ -232,6 +233,14 @@ describe("the one agent's loop", () => {
     model.answer({ text: words, toolCalls: [handOverCall("discount")] });
     expect(await loop()).toMatchObject({ end: "final", messages: [words], callsUsed: 1 });
     expect(model.requests).toHaveLength(1);
+  });
+
+  it("sends a reply's dashes as commas, in each of its two messages", async () => {
+    model.answer({ text: "Done — brochure bhej diya.\n---\nKab nikalna hai — Dec ya Jan?" });
+    expect(await loop()).toMatchObject({
+      end: "final",
+      messages: ["Done, brochure bhej diya.", "Kab nikalna hai, Dec ya Jan?"],
+    });
   });
 
   it("ends quiet after stay_quiet without asking the model again", async () => {

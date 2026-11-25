@@ -1,4 +1,4 @@
-// Finds words and phrases in a reply on word boundaries, case-insensitively, for the reply check.
+// Phrases as regular expressions on word boundaries, case-insensitively, and a text's sentences with where each starts.
 const WORD_EDGE_BEFORE = "(?<![\\p{L}\\p{M}\\p{N}])";
 const WORD_EDGE_AFTER = "(?![\\p{L}\\p{M}\\p{N}])";
 const AMOUNT =
@@ -36,35 +36,6 @@ export interface Found {
   end: number;
 }
 
-/** The first place in `text` where any phrase of the list appears. */
-export function findPhrase(text: string, phrases: readonly string[]): Found | null {
-  let best: Found | null = null;
-  for (const phrase of phrases) {
-    const match = phraseRegex(phrase).exec(text);
-    if (match && (!best || match.index < best.start)) best = { start: match.index, end: match.index + match[0].length };
-  }
-  return best;
-}
-
-/** Every place in `text` where any phrase of the list appears, earliest first (they may overlap). */
-export function findPhrases(text: string, phrases: readonly string[]): Found[] {
-  const found = phrases.flatMap((phrase) =>
-    [...text.matchAll(phraseRegex(phrase, "giu"))].map((m) => ({ start: m.index, end: m.index + m[0].length })),
-  );
-  return found.sort((a, b) => a.start - b.start || a.end - b.end);
-}
-
-export const hasPhrase = (text: string, phrases: readonly string[]): boolean => findPhrase(text, phrases) !== null;
-
-/** Every whole-word, case-insensitive appearance of a name (a multi-word place counts as a whole). */
-export function findWord(text: string, word: string): Found[] {
-  const pattern = new RegExp(
-    `${WORD_EDGE_BEFORE}${word.trim().split(/\s+/).map(escape).join("\\s+")}${WORD_EDGE_AFTER}`,
-    "giu",
-  );
-  return [...text.matchAll(pattern)].map((m) => ({ start: m.index, end: m.index + m[0].length }));
-}
-
 /** Sentences split on . ! ? newlines and the danda, with their positions; a dot inside "7.5k" or "Rs. 5" does not split. */
 export function sentencesOf(text: string): { text: string; start: number }[] {
   const sentences: { text: string; start: number }[] = [];
@@ -76,18 +47,3 @@ export function sentencesOf(text: string): { text: string; start: number }[] {
   if (start < text.length) sentences.push({ text: text.slice(start), start });
   return sentences.filter((s) => s.text.trim() !== "");
 }
-
-/** The parts of a sentence that hold one claim each: split on commas, semicolons, dashes, "and" and "but". */
-export function clausesOf(sentence: string): { text: string; start: number }[] {
-  const clauses: { text: string; start: number }[] = [];
-  let start = 0;
-  for (const m of sentence.matchAll(/[,;—–]|\s(?:and|but)\s/gi)) {
-    clauses.push({ text: sentence.slice(start, m.index), start });
-    start = m.index + m[0].length;
-  }
-  clauses.push({ text: sentence.slice(start), start });
-  return clauses.filter((c) => c.text.trim() !== "");
-}
-
-/** Whether words hold a letter of a script other than Latin ("मनाली"): the check can't match them to a package place. */
-export const inAnotherScript = (words: string): boolean => /(?=\p{L})\P{Script=Latin}/u.test(words);

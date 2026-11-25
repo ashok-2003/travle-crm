@@ -1,14 +1,10 @@
-// The trace sink against the real database and the memory storage: a row and a gzip file for each trace, the file
-// holding no message text, a lost file keeping the turn, and the runtime role unable to change or delete a row.
+// The trace sink against the real database: a row of ai_turn_trace for each one agent turn, its agent one, no file, and
+// due in 14 days (at once for a chat already erased); a lost row is a warning, never the turn's failure; the runtime role
+// can't change or delete a row.
 import { randomUUID } from "node:crypto";
-import { gunzipSync, gzipSync } from "node:zlib";
 import { createMemoryLogger } from "@travel-crm/integrations/logging";
-import { createMemoryStorage } from "@travel-crm/integrations/storage";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { startTrace } from "../../../src/ai/lite/turn-trace.js";
-import { TRACE_DAYS, readTraceFile, traceFileOf, traceKey } from "../../../src/ai/traces/trace-file.js";
-import { createTraceSink } from "../../../src/ai/traces/trace-sink.js";
-import { traceFileView } from "../../../src/platform/ai-trace-detail.js";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { createTraceSink, TRACE_DAYS } from "../../../src/ai/traces/trace-sink.js";
 import { aConnectedAgency, createTestInbox, type TestInbox } from "../../inbox/support.js";
 
 describe("the trace sink", () => {
@@ -18,7 +14,7 @@ describe("the trace sink", () => {
   });
   afterAll(() => test.close());
 
-  async function aTurn() {
+  async function aToolTurn() {
     const connection = await aConnectedAgency(test);
     const { organizationId } = connection;
     const conversation = await test.db.forOrg(organizationId, (tx) =>
@@ -26,128 +22,15 @@ describe("the trace sink", () => {
         data: { connectionId: connection.connectionId, phoneE164: `+9198${String(Math.floor(Math.random() * 1e8))}` },
       }),
     );
-    const trace = startTrace(
-      { organizationId, conversationId: conversation.id, kind: "reply", token: "t" },
-      null,
-      new Date("2026-10-23T23:30:00Z"),
-    );
-    Object.assign(trace, {
-      outcome: "replied",
-      reason: "ok",
-      move: "greet",
-      stage: "exploring",
-      model: "fake-model",
-      inputTokens: 300,
-      outputTokens: 40,
-      durationMs: 1234,
-      messageIds: ["m1", "m2"],
-      understand: { blocks: { "Package index": "x" }, raw: "{}" },
-      write: { blocks: { Moves: "y" }, raw: ["{}"] },
-    });
-    return { organizationId, trace };
-  }
-
-  it("a trace is a row and a gzip file", async () => {
-    const { organizationId, trace } = await aTurn();
-    const storage = createMemoryStorage();
-    await createTraceSink({ db: test.db, storage, logger: createMemoryLogger() }).record(trace);
-    const row = await test.db.forOrg(organizationId, (tx) =>
-      tx.aiTurnTrace.findFirstOrThrow({ where: { id: trace.id } }),
-    );
-    expect(row).toMatchObject({
-      outcome: "replied",
-      reason: "ok",
-      move: "greet",
-      saleStage: "exploring",
-      model: "fake-model",
-      inputTokens: 300,
-      outputTokens: 40,
-      durationMs: 1234,
-      kind: "reply",
-    });
-    expect(row.expiresAt.getTime()).toBe(trace.startedAt.getTime() + TRACE_DAYS * 86_400_000);
-    expect(row.fileKey).toBe(traceKey(organizationId, trace.startedAt, trace.id));
-    expect(row.fileKey?.startsWith(`organizations/${organizationId}/ai-traces/2026-10-23/`)).toBe(true);
-    const stored = await storage.get(row.fileKey ?? "");
-    const raw = JSON.parse(gunzipSync(stored ?? new Uint8Array()).toString("utf8")) as { trace: object };
-    expect(raw.trace).not.toHaveProperty("organizationId");
-    const file = await readTraceFile(storage, row.fileKey ?? "");
-    expect(file).toMatchObject({ version: 1, trace: { id: trace.id, outcome: "replied", durationMs: 1234 } });
-    expect(file?.trace.startedAt).toEqual(trace.startedAt);
-    expect(await readTraceFile(storage, "organizations/x/ai-traces/none.json.gz")).toBeNull();
-  });
-
-  it("a trace recorded for a chat already erased is due at once", async () => {
-    const { organizationId, trace } = await aTurn();
-    await test.db.forOrg(organizationId, (tx) =>
-      tx.whatsappConversation.update({ where: { id: trace.conversationId }, data: { state: "erased" } }),
-    );
-    await createTraceSink({ db: test.db, storage: createMemoryStorage(), logger: createMemoryLogger() }).record(trace);
-    const row = await test.db.forOrg(organizationId, (tx) =>
-      tx.aiTurnTrace.findFirstOrThrow({ where: { id: trace.id } }),
-    );
-    expect(row.expiresAt).toEqual(trace.startedAt);
-  });
-
-  it("an older file, written before `filled`, `suggest` and `asked` were kept, still opens", async () => {
-    const { trace } = await aTurn();
-    const file = JSON.parse(gunzipSync(traceFileOf(trace)).toString("utf8")) as {
-      trace: { sent: Record<string, unknown> } & Record<string, unknown>;
-    };
-    delete file.trace.suggest;
-    delete file.trace.asked;
-    delete file.trace.sent.filled;
-    const storage = createMemoryStorage();
-    const key = traceKey(trace.organizationId, trace.startedAt, trace.id);
-    await storage.put({ key, contentType: "application/gzip", body: gzipSync(JSON.stringify(file)) });
-    const read = await readTraceFile(storage, key);
-    expect(read?.trace).toMatchObject({ id: trace.id, suggest: null, asked: null, sent: { filled: [] } });
-    if (read === null) return;
-    expect(traceFileView(read, []).decision).toMatchObject({ suggest: null });
-    // A file whose fields are not a trace's is no file.
-    await storage.put({
-      key,
-      contentType: "application/gzip",
-      body: gzipSync(JSON.stringify({ version: 1, trace: { id: trace.id, startedAt: "x", sent: 3 } })),
-    });
-    expect(await readTraceFile(storage, key)).toBeNull();
-  });
-
-  it("a failed storage write keeps the turn", async () => {
-    const { organizationId, trace } = await aTurn();
-    const storage = createMemoryStorage();
-    const logger = createMemoryLogger();
-    const broken = { ...storage, put: () => Promise.reject(new TypeError("customer said hello")) };
-    await expect(createTraceSink({ db: test.db, storage: broken, logger }).record(trace)).resolves.toBeUndefined();
-    const rows = await test.db.forOrg(organizationId, (tx) => tx.aiTurnTrace.count({ where: { id: trace.id } }));
-    expect(rows).toBe(1);
-    const lines = logger.entries.filter((entry) => entry.event === "ai.trace-failed");
-    expect(lines).toHaveLength(1);
-    expect(lines[0]).toMatchObject({ level: "warn", traceId: trace.id });
-    expect(JSON.stringify(logger.entries)).not.toContain("hello");
-  });
-
-  it("a storage that never answers does not hold the turn open", async () => {
-    const { trace } = await aTurn();
-    const logger = createMemoryLogger();
-    const stuck = { ...createMemoryStorage(), put: () => new Promise<void>(() => undefined) };
-    const sink = createTraceSink({ db: test.db, storage: stuck, logger, timeoutMs: 100 });
-    await expect(sink.record(trace)).resolves.toBeUndefined();
-    expect(logger.entries.filter((entry) => entry.event === "ai.trace-failed")).toHaveLength(1);
-    expect(JSON.stringify(logger.entries)).toContain("TimeoutError");
-  });
-
-  async function aToolTurn() {
-    const { organizationId, trace } = await aTurn();
     return {
       organizationId,
       turn: {
-        id: trace.id,
+        id: randomUUID(),
         organizationId,
-        conversationId: trace.conversationId,
+        conversationId: conversation.id,
         leadId: null,
         kind: "reply" as const,
-        startedAt: trace.startedAt,
+        startedAt: new Date("2026-10-23T23:30:00Z"),
         durationMs: 700,
         outcome: "replied",
         reason: null,
@@ -160,26 +43,43 @@ describe("the trace sink", () => {
       },
     };
   }
+  const sink = () => createTraceSink({ db: test.db, logger: createMemoryLogger() });
 
-  it("keeps a one turn's row alone, its agent one and its refusals counted", async () => {
+  it("keeps a one turn's row alone, its agent one, its refusals counted, due in 14 days", async () => {
     const { organizationId, turn } = await aToolTurn();
-    const storage = createMemoryStorage();
-    const put = vi.spyOn(storage, "put");
-    await createTraceSink({ db: test.db, storage, logger: createMemoryLogger() }).recordToolTurn(turn);
+    await sink().recordToolTurn(turn);
     const row = await test.db.forOrg(organizationId, (tx) =>
       tx.aiTurnTrace.findFirstOrThrow({ where: { id: turn.id } }),
     );
     expect(row).toMatchObject({
       agent: "one",
+      kind: "reply",
+      outcome: "replied",
+      model: "m1",
       move: null,
       saleStage: null,
+      inputTokens: 120,
+      outputTokens: 12,
       cachedTokens: 60,
       failedChecks: 2,
+      durationMs: 700,
       promptVersions: { "real-agent": 4 },
+      // The row alone: Langfuse holds the turn's detail.
+      fileKey: null,
     });
-    // The row alone: Langfuse holds the turn's detail.
-    expect(row.fileKey).toBeNull();
-    expect(put).not.toHaveBeenCalled();
+    expect(row.expiresAt.getTime()).toBe(turn.startedAt.getTime() + TRACE_DAYS * 86_400_000);
+  });
+
+  it("a turn recorded for a chat already erased is due at once", async () => {
+    const { organizationId, turn } = await aToolTurn();
+    await test.db.forOrg(organizationId, (tx) =>
+      tx.whatsappConversation.update({ where: { id: turn.conversationId }, data: { state: "erased" } }),
+    );
+    await sink().recordToolTurn(turn);
+    const row = await test.db.forOrg(organizationId, (tx) =>
+      tx.aiTurnTrace.findFirstOrThrow({ where: { id: turn.id } }),
+    );
+    expect(row.expiresAt).toEqual(turn.startedAt);
   });
 
   it("loses a one turn's trace with a warning and never fails the turn", async () => {
@@ -187,23 +87,20 @@ describe("the trace sink", () => {
     const logger = createMemoryLogger();
     // A chat that doesn't exist: the row's insert fails.
     const lost = { ...turn, conversationId: randomUUID() };
-    const sink = createTraceSink({ db: test.db, storage: createMemoryStorage(), logger });
-    await expect(sink.recordToolTurn(lost)).resolves.toBeUndefined();
+    await expect(createTraceSink({ db: test.db, logger }).recordToolTurn(lost)).resolves.toBeUndefined();
     const lines = logger.entries.filter((entry) => entry.event === "ai.trace-failed");
     expect(lines).toHaveLength(1);
     expect(lines[0]).toMatchObject({ level: "warn", traceId: turn.id });
   });
 
   it("the runtime role can't change or delete a trace", async () => {
-    const { organizationId, trace } = await aTurn();
-    await createTraceSink({ db: test.db, storage: createMemoryStorage(), logger: createMemoryLogger() }).record(trace);
+    const { organizationId, turn } = await aToolTurn();
+    await sink().recordToolTurn(turn);
     await expect(
-      test.db.forOrg(organizationId, (tx) =>
-        tx.aiTurnTrace.update({ where: { id: trace.id }, data: { outcome: "x" } }),
-      ),
+      test.db.forOrg(organizationId, (tx) => tx.aiTurnTrace.update({ where: { id: turn.id }, data: { outcome: "x" } })),
     ).rejects.toThrow(/permission denied/);
     await expect(
-      test.db.forOrg(organizationId, (tx) => tx.aiTurnTrace.delete({ where: { id: trace.id } })),
+      test.db.forOrg(organizationId, (tx) => tx.aiTurnTrace.delete({ where: { id: turn.id } })),
     ).rejects.toThrow(/permission denied/);
   });
 });

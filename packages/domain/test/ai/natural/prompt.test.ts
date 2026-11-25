@@ -1,98 +1,49 @@
-// The natural agent's system prompt: Appendix A as written, its {{placeholders}} (Langfuse's, so code and Langfuse share
-// one template), its size, and where it comes from: Langfuse's prompt at label production, else the built-in text.
+// Filling a prompt's {{placeholders}} (Langfuse's, so code and Langfuse share one template) for one agency, and reading a
+// prompt from Langfuse at a label: what the one agent's prompt is built on.
 import { createMemoryPrompts, type AiPrompts } from "@travel-crm/integrations/prompts";
 import { describe, expect, it } from "vitest";
-import { estimateTokens, NATURAL_BUDGETS } from "../../../src/ai/natural/context/tokens.js";
-import {
-  BUILT_IN_NATURAL_PROMPT,
-  NATURAL_PROMPT_PLACEHOLDERS,
-  renderNaturalPrompt,
-} from "../../../src/ai/natural/prompt.js";
-import { NATURAL_PROMPT_NAME, naturalPromptAt, naturalPromptOf } from "../../../src/ai/natural/prompt-source.js";
-import { NATURAL_PROMPT_TEXT } from "../../../src/ai/natural/prompt-text.js";
+import { renderNaturalPrompt } from "../../../src/ai/natural/prompt.js";
+import { langfusePromptAt } from "../../../src/ai/natural/prompt-source.js";
 
+const NAME = "whatsapp-agent/real-agent";
 const voice = { agentName: "Riya", agencyName: "Sharma Holidays", tone: "friendly" } as const;
-const kept = (version: number, label: string, text: string) => ({ name: NATURAL_PROMPT_NAME, version, label, text });
+const kept = (version: number, label: string, text: string) => ({ name: NAME, version, label, text });
 const liveText = "# {{agent_name}} of {{agency_name}}, in a {{ tone }} voice. {{agency_name}} again.";
 
-describe("the natural agent's prompt", () => {
-  it("holds prompt v5 as written", () => {
-    expect(NATURAL_PROMPT_TEXT.startsWith("# {{agent_name}}, {{agency_name}} on WhatsApp")).toBe(true);
-    expect(NATURAL_PROMPT_TEXT).toContain("## Four things you never do");
-    expect(NATURAL_PROMPT_TEXT.trimEnd().endsWith("</example>")).toBe(true);
-  });
-  it("asks for the line the code splits two messages at, and for lists with blank-line spacing", () => {
-    expect(NATURAL_PROMPT_TEXT).toContain("Put a line with only --- between them. Never more than two.");
-    expect(NATURAL_PROMPT_TEXT).toContain("A blank line inside a message is only spacing.");
-    expect(NATURAL_PROMPT_TEXT).toContain("put each on its own line starting with •");
-    // Every example's two messages are split as the code splits them: no blank line between two of the agent's lines.
-    expect(NATURAL_PROMPT_TEXT).not.toContain("A blank line between two of your lines means two messages.");
-  });
-  it("writes its placeholders as Langfuse does, {{like_this}}, and only the ones code fills", () => {
-    expect(NATURAL_PROMPT_TEXT).not.toMatch(/(?<!\{)\{\s*[a-z_]+\s*\}(?!\})/);
-    const used = new Set([...NATURAL_PROMPT_TEXT.matchAll(/\{\{\s*([a-z_]+)\s*\}\}/g)].map((match) => match[1]));
-    expect([...used].sort()).toEqual([...NATURAL_PROMPT_PLACEHOLDERS].sort());
-  });
-  it("renders the agent's name, the agency's name and the tone, and leaves no placeholder", () => {
-    const text = renderNaturalPrompt(BUILT_IN_NATURAL_PROMPT, voice);
-    expect(text.split("\n")[0]).toBe("# Riya, Sharma Holidays on WhatsApp");
-    expect(text).toContain("The agency chose the friendly tone.");
-    expect(text).not.toMatch(/\{\{?\s*(agent_name|agency_name|tone)\s*\}\}?/);
-  });
-  it("renders an empty agent name as the agency's team", () => {
-    expect(renderNaturalPrompt(BUILT_IN_NATURAL_PROMPT, { ...voice, agentName: "", tone: "professional" })).toMatch(
-      /^# the Sharma Holidays team, Sharma Holidays on WhatsApp\n/,
-    );
-  });
-  it("fills a Langfuse text's placeholders, spaces inside the braces too", () => {
+describe("a prompt's placeholders", () => {
+  it("fills the agent's name, the agency's name and the tone, spaces inside the braces too", () => {
     expect(renderNaturalPrompt({ version: "langfuse:x@1", text: liveText }, voice)).toBe(
       "# Riya of Sharma Holidays, in a friendly voice. Sharma Holidays again.",
     );
   });
-  it("fits its budget of 6,500 tokens (prompt v5 is about 5,900)", () => {
-    expect(estimateTokens(NATURAL_PROMPT_TEXT)).toBeLessThanOrEqual(NATURAL_BUDGETS.prompt);
-  });
-  it("never says someone from the team will do it, except in its own 'Never' rule", () => {
-    const lines = NATURAL_PROMPT_TEXT.split("\n").filter((line) => /someone from the team will/i.test(line));
-    for (const line of lines) expect(line).toMatch(/Never "someone from the team will/);
-  });
-  it("names no bench fixture's trip or price", () => {
-    for (const word of ["Kedarkantha", "Brahmatal", "9,499", "10,499", "Majnu ka Tilla"])
-      expect(NATURAL_PROMPT_TEXT).not.toContain(word);
+
+  it("names the agency's team when there is no agent name", () => {
+    expect(renderNaturalPrompt({ version: "x", text: "# {{agent_name}}" }, { ...voice, agentName: " " })).toBe(
+      "# the Sharma Holidays team",
+    );
   });
 });
 
-describe("where the natural agent's prompt comes from", () => {
-  it("is Langfuse's prompt at label production when it has one, its version naming it", async () => {
-    const prompts = createMemoryPrompts([kept(4, "production", liveText)]);
-    expect(await naturalPromptOf(prompts)).toEqual({
-      version: "langfuse:whatsapp-agent/natural-system@4",
-      text: liveText,
-      source: { name: NATURAL_PROMPT_NAME, version: 4, label: "production" },
+describe("a prompt read from Langfuse", () => {
+  it("is the prompt at the label asked, its version naming it, or null when there is none", async () => {
+    const prompts = createMemoryPrompts([kept(7, "draft", "Draft words")]);
+    expect(await langfusePromptAt(prompts, NAME, "draft")).toEqual({
+      version: "langfuse:whatsapp-agent/real-agent@7",
+      text: "Draft words",
+      source: { name: NAME, version: 7, label: "draft" },
     });
-    expect(prompts.asked).toEqual([{ name: "whatsapp-agent/natural-system", label: "production", fresh: false }]);
+    expect(await langfusePromptAt(prompts, NAME, "staging")).toBeNull();
+    expect(await langfusePromptAt(undefined, NAME, "production")).toBeNull();
   });
 
-  it("is the built-in text when Langfuse has none, or fails", async () => {
-    expect(await naturalPromptOf(createMemoryPrompts())).toEqual(BUILT_IN_NATURAL_PROMPT);
-    expect(await naturalPromptOf(undefined)).toEqual(BUILT_IN_NATURAL_PROMPT);
-    expect(BUILT_IN_NATURAL_PROMPT.version).toBe("built-in-1");
+  it("is null when Langfuse fails or throws, so the agent runs on its built-in text", async () => {
     const failing: AiPrompts = { textPrompt: () => Promise.reject(new Error("down")) };
-    expect(await naturalPromptOf(failing)).toEqual(BUILT_IN_NATURAL_PROMPT);
+    expect(await langfusePromptAt(failing, NAME, "production")).toBeNull();
     const throwing: AiPrompts = {
       textPrompt: () => {
         throw new Error("down");
       },
     };
-    expect(await naturalPromptOf(throwing)).toEqual(BUILT_IN_NATURAL_PROMPT);
-  });
-
-  it("reads the prompt at any label, or none", async () => {
-    const prompts = createMemoryPrompts([kept(7, "draft", "Draft words")]);
-    expect(await naturalPromptAt(prompts, "draft")).toMatchObject({
-      version: "langfuse:whatsapp-agent/natural-system@7",
-      source: { label: "draft", version: 7 },
-    });
-    expect(await naturalPromptAt(prompts, "staging")).toBeNull();
+    expect(await langfusePromptAt(throwing, NAME, "production")).toBeNull();
   });
 });

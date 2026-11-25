@@ -143,9 +143,18 @@
     "send": "Send",
     "reset": "Start again",
     "thinking": "The AI agent is answering…",
+    "prompt": "Prompt",
+    "prompts": {
+      "live": "Live (production)",
+      "draft": "Draft"
+    },
+    "draftHint": "Draft tries the prompt being edited in Langfuse, or the live one when there is no draft. Only this test chat uses it.",
     "card": {
       "caption": "Then it would send this card:",
       "tapped": "Tapped: {title}"
+    },
+    "menu": {
+      "caption": "Then it would send this trip menu ({button}):"
     },
     "natural": {
       "payment": "Then code sends:",
@@ -195,6 +204,8 @@
       },
       "why": {
         "prompt": "Prompt version",
+        "draft": "Draft",
+        "noDraft": "The draft couldn't be read, so this turn ran the prompt above.",
         "outcome": "Outcome",
         "fallback": "Fallback reason",
         "restarted": "Started over",
@@ -217,42 +228,11 @@
     },
     "noAnswer": "It would send nothing.",
     "handoff": "It would hand the chat to your team: {reason}",
-    "noReason": "a person is needed",
-    "actions": {
-      "files": "It would send the package's brochure.",
-      "book": "It would send the payment details and take the booking.",
-      "note": "It would add a note to the lead.",
-      "task": "It would add a follow-up for your team."
-    },
-    "blocked": "Nothing would be sent: {reason}. Your team would be told.",
-    "blockedReasons": {
-      "unfit": "its answer couldn't be read",
-      "PAYMENT_DETAILS_MISSING": "your payment QR isn't added yet, so it can't take a booking",
-      "PACKAGE_NOT_SELLABLE": "this package isn't one the AI can sell right now",
-      "AI_ACTION_REFUSED": "the booking is missing its date, its party or its price",
-      "other": "a safety check stopped it"
-    },
     "why": {
       "open": "Why",
-      "readBy": "Read by",
-      "writtenBy": "Written by",
-      "intents": "Understood",
-      "move": "Move",
-      "reason": "Why this move",
-      "stage": "Sale stage",
-      "handOver": "Hand-over reason",
-      "dropped": "Details left out",
       "wouldDo": "What it would do",
       "nothingMore": "Nothing more",
-      "none": "Nothing",
-      "lookups": "Lookups",
-      "noLookups": "None ran.",
-      "asked": "Asked: {json}",
-      "got": "Got: {json}",
-      "writes": "Write",
-      "noWrites": "Not asked: code wrote the words, or none were needed.",
-      "tryPassed": "Try {number}: passed",
-      "tryRefused": "Try {number}: refused ({code})"
+      "none": "Nothing"
     }
   },
   "bookings": {

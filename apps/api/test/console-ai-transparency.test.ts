@@ -1,9 +1,9 @@
-// The console's AI prompts: super admins read the prompt library, support is refused.
-import type { AiPromptLibrary, AiTraceDetail, AiTracePage } from "@travel-crm/contracts/platform";
+// The console's AI turn traces: super admins list an agency's turns and open one, logged; support is refused.
+import { randomUUID } from "node:crypto";
+import type { AiTraceDetail, AiTracePage } from "@travel-crm/contracts/platform";
 import { createTestOrganization } from "@travel-crm/db/testing";
 import { createMemoryLogger } from "@travel-crm/integrations/logging";
-import { createMemoryStorage } from "@travel-crm/integrations/storage";
-import { createTraceSink, promptLibrary, startTrace } from "@travel-crm/domain/ai";
+import { createTraceSink } from "@travel-crm/domain/ai";
 import { listPlatformLog } from "@travel-crm/domain/platform";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
@@ -16,18 +16,15 @@ import {
 import { createTestServer, type TestServer } from "./support/test-server.js";
 import { dataOf, refusalOf } from "./support/trpc.js";
 
-describe("the console's AI prompt library", () => {
+describe("the console's AI turn traces", () => {
   let server: TestServer;
   let testConsole: TestConsole;
   let support: TestPlatformStaff;
   let superAdmin: TestPlatformStaff;
 
-  const storage = createMemoryStorage();
-
   beforeAll(async () => {
     server = createTestServer();
     testConsole = createTestConsole(server, {
-      storage,
       aiPrices: { inputPaisePerMillion: 2_500, outputPaisePerMillion: 10_000 },
     });
     support = await signedInPlatformStaff(server, "support");
@@ -37,26 +34,6 @@ describe("the console's AI prompt library", () => {
   afterAll(async () => {
     await testConsole.close();
     await server.close();
-  });
-
-  it("support is refused the prompts", async () => {
-    expect(await refusalOf(await consoleQuery(testConsole, "aiTransparency.prompts", support.jar))).toEqual({
-      status: 403,
-      reason: "SUPER_ADMIN_ONLY",
-    });
-  });
-
-  it("a super admin reads every piece and both calls", async () => {
-    const library = await dataOf<AiPromptLibrary>(
-      await consoleQuery(testConsole, "aiTransparency.prompts", superAdmin.jar),
-    );
-    expect(library.pieces.map((piece) => piece.name)).toEqual(promptLibrary().map((piece) => piece.name));
-    expect(library.calls.map((call) => call.name)).toEqual(["understand", "write"]);
-    expect(library.calls[0]?.blocks[0]).toEqual({
-      title: "Agency",
-      purpose: "Who the customer is writing to.",
-      budget: 200,
-    });
   });
 
   /** An agency with one chat and one kept turn of 1,000,000 tokens in and 500,000 out, through the real sink. */
@@ -75,16 +52,24 @@ describe("the console's AI prompt library", () => {
       const chat = await tx.whatsappConversation.create({ data: { connectionId: connection.id, phoneE164: phone } });
       return chat.id;
     });
-    const trace = startTrace({ organizationId, conversationId, kind: "reply", token: "t" }, null, new Date());
-    Object.assign(trace, {
+    const trace = {
+      id: randomUUID(),
+      organizationId,
+      conversationId,
+      leadId: null,
+      kind: "reply" as const,
+      startedAt: new Date(),
+      durationMs: 800,
       outcome: "replied",
+      reason: null,
       model: "fake-model",
       inputTokens: 1_000_000,
       outputTokens: 500_000,
-      durationMs: 800,
-      understand: { blocks: { Agency: "Hills Travel" }, raw: "{}" },
-    });
-    await createTraceSink({ db: testConsole.services.db, storage, logger: createMemoryLogger() }).record(trace);
+      cachedTokens: 0,
+      failedChecks: 0,
+      promptVersions: { "real-agent": 0 },
+    };
+    await createTraceSink({ db: testConsole.services.db, logger: createMemoryLogger() }).recordToolTurn(trace);
     return { organizationId, trace };
   }
 
@@ -119,8 +104,7 @@ describe("the console's AI prompt library", () => {
     const detail = await dataOf<AiTraceDetail>(
       await consoleQuery(testConsole, "aiTransparency.trace", superAdmin.jar, { organizationId, traceId: trace.id }),
     );
-    expect(detail.trace.id).toBe(trace.id);
-    expect(detail.file?.understand).not.toBeNull();
+    expect(detail).toMatchObject({ trace: { id: trace.id, costPaise: 7_500 }, priced: true });
     expect(await openings(organizationId)).toHaveLength(1);
   });
 });

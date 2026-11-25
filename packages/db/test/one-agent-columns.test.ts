@@ -1,5 +1,6 @@
-// The one agent's value: an agency's agent and a turn trace may be lite, natural or one; the checks refuse anything
-// else. Rows are written as the migrator so the checks alone are under test (a check fails before a foreign key).
+// The one agent's value: an agency's agent and a turn trace may be lite, natural or one (kept for a rollback; every
+// agency runs one, and a new one starts on it); the checks refuse anything else. Rows are written as the migrator so
+// the checks alone are under test (a check fails before a foreign key).
 import { randomUUID } from "node:crypto";
 import pg from "pg";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
@@ -38,5 +39,13 @@ describe("the one agent's value", () => {
     // Past the check, the row meets its foreign key to the organization.
     await expect(insertAutopilot("one")).rejects.toMatchObject({ code: "23503" });
     await expect(insertTrace("one")).rejects.toMatchObject({ code: "23503" });
+  });
+
+  it("starts an agency on one", async () => {
+    const { rows } = await client.query<{ column_default: string }>(
+      `SELECT column_default FROM information_schema.columns
+       WHERE table_name = 'ai_autopilot' AND column_name = 'agent'`,
+    );
+    expect(rows[0]?.column_default).toContain("'one'");
   });
 });
