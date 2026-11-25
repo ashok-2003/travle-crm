@@ -122,8 +122,8 @@ export async function createGroupPackage(
 }
 
 /**
- * Copies the cited knowledge piece's PDF onto the new package as a brochure, inside storage. It runs after the package's
- * transaction (a file copy opens transactions of its own), within the five brochures a package holds.
+ * Copies the cited knowledge piece's PDF onto the new package as a brochure, sharing its stored bytes. It runs after the
+ * package's transaction (a file copy opens a transaction of its own), within the five brochures a package holds.
  */
 export async function attachDraftBrochure(
   { db, files }: { db: Pick<Database, "forOrg">; files: Files },

@@ -1,6 +1,6 @@
 // Sending a trip's details to a chat (sales inbox, trip details): its words first, then each of its files as a message of
-// its own, through the ordinary outbox. A file is copied inside storage onto the message that sends it, so the trip keeps
-// its own. A member sends from the chat's Send details; the worker sends a trip by itself when a customer's message holds
+// its own, through the ordinary outbox. A file is copied onto the message that sends it (a file of the message's, sharing
+// the stored bytes), so the trip keeps its own. A member sends from the chat's Send details; the worker sends a trip by itself when a customer's message holds
 // one of its keywords, once a chat. Every piece has a token made from the send's, so a repeat (a double tap, a job run
 // twice) queues nothing twice and copies no file twice.
 import { TRIP_KIT_RECORD_TYPE, WHATSAPP_RECORD_TYPE } from "@travel-crm/contracts/files";
