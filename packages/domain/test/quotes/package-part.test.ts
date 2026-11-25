@@ -77,4 +77,13 @@ describe("saving one section of a trip", () => {
     expect(await reasonOf(savePart({ packageId: id, priceDisplay: "from" }))).toBeNull();
     expect((await world.inOrg((tx) => findPackage(tx, id))).slug).toBeNull();
   });
+
+  it("turns a group trip showing its worked-out From into a custom one on enquiry, until a price is typed", async () => {
+    const id = await aPackage("Kind switch");
+    expect(await reasonOf(savePart({ packageId: id, priceDisplay: "from" }))).toBeNull();
+    expect(await reasonOf(savePart({ packageId: id, kind: "custom" }))).toBeNull();
+    const row = await world.inOrg((tx) => findPackage(tx, id));
+    expect(row.kind).toBe("custom");
+    expect(row.priceDisplay).toBe("on_enquiry");
+  });
 });
