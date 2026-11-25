@@ -11,6 +11,7 @@ import { startNaturalTrace, type NaturalTraceBuilder } from "../../../src/ai/nat
 import type { QuoteFigures, StagedAction } from "../../../src/ai/natural/types.js";
 import type { OneContext } from "../../../src/ai/one/context.js";
 import { runOneLoop, type OneLoopIO, type OneSettings } from "../../../src/ai/one/loop.js";
+import { CODE_WORDS } from "../../../src/ai/one/reply-clean.js";
 import type { OneActionName } from "../../../src/ai/one/tools.js";
 import { parseCalendarDate } from "../../../src/kernel/index.js";
 
@@ -241,6 +242,20 @@ describe("the one agent's loop", () => {
       end: "final",
       messages: ["Done, brochure bhej diya.", "Kab nikalna hai, Dec ya Jan?"],
     });
+  });
+
+  it("sends a reply without trip IDs or tool calls written as words", async () => {
+    model.answer({ text: "`update_lead(adults: 2)`Manali (T6) mein hotel stay hai." });
+    expect(await loop()).toMatchObject({ end: "final", messages: ["Manali mein hotel stay hai."] });
+  });
+
+  it("asks once more when the reply was only code, then leaves it to the team", async () => {
+    model.answer({ text: '{"trip_id": "T3", "adults": 4}' }, "Kab ka plan hai?");
+    expect(await loop()).toMatchObject({ end: "final", messages: ["Kab ka plan hai?"], callsUsed: 2 });
+    expect(model.requests[1]?.messages.at(-1)?.content).toBe(`${APP_CHECK} ${CODE_WORDS}`);
+
+    model.answer({ text: "```json\n{}\n```" }, { text: '→ quote(trip: "T3")' });
+    expect(await loop()).toMatchObject({ end: "fallback", reason: "model" });
   });
 
   it("ends quiet after stay_quiet without asking the model again", async () => {

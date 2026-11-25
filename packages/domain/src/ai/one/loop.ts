@@ -12,6 +12,7 @@ import { answeredCall, failedCall, type NaturalTraceBuilder } from "../natural/t
 import type { StagedAction } from "../natural/types.js";
 import type { OneContext } from "./context.js";
 import { oneFallback, oneFinal } from "./ends.js";
+import { CODE_WORDS, cleanReply } from "./reply-clean.js";
 import { oneAgentTools, startOneRun, type OneRun, type OneToolIO } from "./tools.js";
 
 export interface OneLoopIO extends OneToolIO {
@@ -108,7 +109,9 @@ export async function runOneLoop(
     if (end.end === "superseded") return { end: "superseded" };
     if (end.end === "model_failed") return { end: "model_failed", reason: end.reason };
     if (end.end === "steps") return oneFallback("steps", run, ending);
-    const words = replyWords(end.text) || wordsBesideActions(end.transcript);
+    const written = replyWords(end.text) || wordsBesideActions(end.transcript);
+    // IDs and tool calls never reach the customer; a reply that was only code counts as no words.
+    const words = cleanReply(written);
     if (words !== "" || mayEndSilent(run)) {
       return oneFinal(run, words, { transcript: end.transcript, callsUsed, model: end.model }, trace);
     }
@@ -117,7 +120,7 @@ export async function runOneLoop(
     nudged = true;
     next = {
       ...input,
-      messages: [...end.transcript, appCheck(owesLine(run) ? HAND_OVER_WORDS : NO_WORDS)],
+      messages: [...end.transcript, appCheck(written !== "" ? CODE_WORDS : owesLine(run) ? HAND_OVER_WORDS : NO_WORDS)],
       // The model that wrote the transcript goes on with it (P7), unless Try it named its own.
       request: { model: end.model, ...input.request },
     };
