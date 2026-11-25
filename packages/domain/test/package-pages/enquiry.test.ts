@@ -203,11 +203,11 @@ describe("a public package page and its enquiry", () => {
       expect(await world.inOrg((tx) => publishedPackage(tx, "kedarnath-yatra", open()))).not.toBeNull();
     });
 
-    it("shows a group trip's worked-out From price whatever it chose to show, and none with no departure ahead", async () => {
+    it("shows a group trip's worked-out From price only while it shows one, and none with no departure ahead", async () => {
       await world.inOrg((tx) =>
         tx.quoteTemplate.update({
           where: { id: packageId },
-          data: { kind: "group", roomTypes: ["quad"], priceDisplay: "on_enquiry" },
+          data: { kind: "group", roomTypes: ["quad"], priceDisplay: "from" },
         }),
       );
       try {
@@ -224,6 +224,13 @@ describe("a public package page and its enquiry", () => {
         );
         const listed = await world.inOrg((tx) => publishedPackages(tx, open()));
         expect(listed.find((one) => one.id === packageId)?.fromPricePaise).toBe(549_900);
+        // "Price on enquiry" is honoured: the worked-out price is not shown.
+        await world.inOrg((tx) =>
+          tx.quoteTemplate.update({ where: { id: packageId }, data: { priceDisplay: "on_enquiry" } }),
+        );
+        expect((await world.inOrg((tx) => publishedPackage(tx, "kedarnath-yatra", open())))?.fromPricePaise).toBeNull();
+        const relisted = await world.inOrg((tx) => publishedPackages(tx, open()));
+        expect(relisted.find((one) => one.id === packageId)?.fromPricePaise).toBeNull();
       } finally {
         await world.inOrg((tx) =>
           tx.departure.updateMany({ where: { templateId: packageId }, data: { templateId: null } }),

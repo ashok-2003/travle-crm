@@ -234,6 +234,16 @@ export const savePackageSeasonInput = z
   });
 export type SavePackageSeasonInput = z.infer<typeof savePackageSeasonInput>;
 export const removePackageSeasonInput = z.strictObject({ seasonId: recordId });
+/** A price-table column removed whole: every season it is made of, in one transaction. */
+export const removeSeasonColumnInput = z.strictObject({
+  packageId: recordId,
+  seasonIds: z
+    .array(recordId)
+    .min(1)
+    .max(100)
+    .refine((ids) => new Set(ids).size === ids.length, "A season is named twice"),
+});
+export type RemoveSeasonColumnInput = z.infer<typeof removeSeasonColumnInput>;
 
 /** Special prices for some dates: the seasons around them are split to make room. */
 export const saveSpecialPricesInput = z

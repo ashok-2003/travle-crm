@@ -2,7 +2,7 @@
 // their prices everywhere, and a column needs a price among the rooms sold.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { RoomPrices } from "@travel-crm/contracts/quotes";
-import { savePackageSeason, savePriceTable, seasonsOf } from "../../src/quotes/index.js";
+import { removeSeasonColumn, savePackageSeason, savePriceTable, seasonsOf } from "../../src/quotes/index.js";
 import { openWorld, type World } from "../bookings/support.js";
 
 const prices = (overrides: Partial<RoomPrices> = {}): RoomPrices => ({
@@ -76,6 +76,23 @@ describe("savePriceTable", () => {
     );
     // Three pieces saved when made, two more by the table.
     expect(audit).toBe(5);
+  });
+
+  it("saves nothing, and leaves no audit entry, when nothing changed", async () => {
+    const trip = await aTrip();
+    const entries = () => world.inOrg((tx) => tx.auditEntry.count({ where: { entityId: trip.packageId } }));
+    const before = await entries();
+    await world.inOrg((tx) =>
+      savePriceTable(tx, world.manager, {
+        packageId: trip.packageId,
+        roomTypes: ["single", "double"],
+        columns: [
+          { seasonIds: [trip.regularA, trip.regularB], label: "Regular", prices: prices({ single: 6_000_000 }) },
+          { seasonIds: [trip.christmas], label: "Christmas", prices: prices({ double: 9_000_000 }) },
+        ],
+      }),
+    );
+    expect(await entries()).toBe(before);
   });
 
   it("refuses a season of another trip as not found", async () => {
@@ -175,5 +192,35 @@ describe("savePriceTable", () => {
         { seasonIds: [trip.christmas], label: "Y", prices: prices() },
       ]),
     ).toBe("PRICE_TABLE_REPEATED_SEASON");
+  });
+
+  it("removes a whole column, one audit entry per season", async () => {
+    const trip = await aTrip();
+    await world.inOrg((tx) =>
+      removeSeasonColumn(tx, world.manager, { packageId: trip.packageId, seasonIds: [trip.regularA, trip.regularB] }),
+    );
+    expect((await world.inOrg((tx) => seasonsOf(tx, trip.packageId))).map((season) => season.id)).toEqual([
+      trip.christmas,
+    ]);
+    const removed = await world.inOrg((tx) =>
+      tx.auditEntry.count({ where: { entityId: trip.packageId, action: "package.season-removed" } }),
+    );
+    expect(removed).toBe(2);
+  });
+
+  it("leaves every season when one of them is not the trip's", async () => {
+    const trip = await aTrip();
+    const another = await aTrip();
+    const reason = await reasonOf(
+      world.inOrg((tx) =>
+        removeSeasonColumn(tx, world.manager, {
+          packageId: trip.packageId,
+          seasonIds: [trip.regularA, another.regularA],
+        }),
+      ),
+    );
+    expect(reason).toBe("NOT_FOUND");
+    expect(await world.inOrg((tx) => seasonsOf(tx, trip.packageId))).toHaveLength(3);
+    expect(await world.inOrg((tx) => seasonsOf(tx, another.packageId))).toHaveLength(3);
   });
 });

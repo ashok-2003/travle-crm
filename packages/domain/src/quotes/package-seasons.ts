@@ -1,11 +1,11 @@
 // A group package's seasons: dates with per-person room prices. Seasons of one package never overlap (checked first for a
 // clear answer, and by the database's exclusion constraint when two people save together). Rows are deleted for real.
-import type { SavePackageSeasonInput } from "@travel-crm/contracts/quotes";
+import type { RemoveSeasonColumnInput, SavePackageSeasonInput } from "@travel-crm/contracts/quotes";
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError, parseCalendarDate } from "../kernel/index.js";
-import { findPackage } from "./package-row.js";
+import { findPackage, findPackageForChange } from "./package-row.js";
 import type { SeasonPrices } from "./room-prices.js";
 
 const asDate = (day: string) => new Date(`${day}T00:00:00Z`);
@@ -178,4 +178,19 @@ export async function removePackageSeason(tx: OrgTx, access: MemberAccess, seaso
     entityId: season.templateId,
     before: auditedOf(viewOf(season)),
   });
+}
+
+/**
+ * A price-table column removed whole: the trip's row is locked first, every season must be the trip's own, and each goes
+ * (one audit entry apiece) in this transaction, so a refusal leaves none removed.
+ */
+export async function removeSeasonColumn(
+  tx: OrgTx,
+  access: MemberAccess,
+  input: RemoveSeasonColumnInput,
+): Promise<void> {
+  await findPackageForChange(tx, input.packageId);
+  const own = new Set((await seasonsOf(tx, input.packageId)).map((season) => season.id));
+  if (input.seasonIds.some((id) => !own.has(id))) throw notFound();
+  for (const seasonId of input.seasonIds) await removePackageSeason(tx, access, seasonId);
 }

@@ -87,7 +87,7 @@ describe("a package's new destination", () => {
   });
 
   it("adds none when the save is refused", async () => {
-    await expect(saved({ newDestinationName: "Chopta", priceDisplay: "from" })).rejects.toMatchObject({
+    await expect(saved({ newDestinationName: "Chopta", kind: "custom", priceDisplay: "from" })).rejects.toMatchObject({
       reason: "FROM_PRICE_REQUIRED",
     });
     expect(await named("Chopta")).toEqual([]);

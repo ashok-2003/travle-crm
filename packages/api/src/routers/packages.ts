@@ -20,6 +20,7 @@ import {
   packagePhotoRefInput,
   requestPackagePhotoInput,
   removePackageSeasonInput,
+  removeSeasonColumnInput,
   savePackageSeasonInput,
   savePriceTableInput,
   saveSpecialPricesInput,
@@ -48,6 +49,7 @@ import {
   removePackagePhoto,
   requestPackageFileUpload,
   removePackageSeason,
+  removeSeasonColumn,
   removeTier,
   savePackageSeason,
   savePriceTable,
@@ -153,6 +155,13 @@ export const packagesRouter = router({
     .input(removePackageSeasonInput)
     .mutation(({ ctx, input }) =>
       ctx.db.forOrg(ctx.member.organizationId, (tx) => removePackageSeason(tx, ctx.member, input.seasonId)),
+    ),
+
+  /** A price-table column removed whole: all its seasons or none. */
+  removeSeasonColumn: editor
+    .input(removeSeasonColumnInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => removeSeasonColumn(tx, ctx.member, input)),
     ),
 
   /** "Calculate from the catalog": a suggestion for "From ₹X", never saved by itself. */

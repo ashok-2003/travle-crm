@@ -21,7 +21,7 @@ export interface PublicPackageRow {
 const highlightList = (value: unknown): string[] =>
   Array.isArray(value) ? value.filter((line): line is string => typeof line === "string") : [];
 
-/** A group trip's "From" is the one worked out from its departures (`groupFromPrices`), whatever `priceDisplay` says. */
+/** A group trip's "From" is the one worked out from its departures (`groupFromPrices`), shown unless it chose "Price on enquiry". */
 export function highlightsOf(
   row: {
     id: string;
@@ -57,7 +57,9 @@ export function highlightsOf(
     cancellationNotes: row.cancellationNotes,
     fromPricePaise:
       row.kind === "group"
-        ? groupFrom
+        ? row.priceDisplay === "from"
+          ? groupFrom
+          : null
         : row.priceDisplay === "from" && row.fromPricePaise !== null
           ? Number(row.fromPricePaise)
           : null,

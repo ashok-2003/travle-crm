@@ -153,7 +153,8 @@ export async function getPackage(
 export async function updatePackage(tx: OrgTx, access: MemberAccess, input: UpdatePackageInput): Promise<void> {
   const before = await findPackage(tx, input.packageId);
   const { packageId, newDestinationName, ...fields } = input;
-  if (fields.priceDisplay === "from" && fields.fromPricePaise === null) {
+  // A group trip's From is worked out from its departures, never typed.
+  if (fields.priceDisplay === "from" && fields.fromPricePaise === null && fields.kind !== "group") {
     throw new DomainError("VALIDATION", "FROM_PRICE_REQUIRED", "Enter the price to show, or choose 'Price on enquiry'");
   }
   if (before.published && fields.slug === null) {

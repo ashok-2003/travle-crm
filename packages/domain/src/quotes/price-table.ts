@@ -45,18 +45,23 @@ export async function savePriceTable(tx: OrgTx, access: MemberAccess, input: Sav
       "Changing the room types needs every season in the table",
     );
   }
-  await updatePackage(tx, access, mergePackagePart(before, { packageId: before.id, roomTypes: input.roomTypes }));
+  // What did not change is not saved, so it leaves no audit entry.
+  if (!sameRooms) {
+    await updatePackage(tx, access, mergePackagePart(before, { packageId: before.id, roomTypes: input.roomTypes }));
+  }
   for (const column of input.columns) {
+    const prices = soldOnly(column.prices, input.roomTypes);
     for (const seasonId of column.seasonIds) {
       const season = byId.get(seasonId);
       if (season === undefined) continue;
+      if (season.label === column.label && roomTypes.every((type) => season.prices[type] === prices[type])) continue;
       await savePackageSeason(tx, access, {
         packageId: before.id,
         seasonId,
         label: column.label,
         startsOn: season.startsOn,
         endsOn: season.endsOn,
-        prices: soldOnly(column.prices, input.roomTypes),
+        prices,
       });
     }
   }

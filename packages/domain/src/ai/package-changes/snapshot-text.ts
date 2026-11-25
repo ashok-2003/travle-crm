@@ -22,8 +22,15 @@ export function textOf(snapshot: Omit<TripSnapshot, "text">): string {
   const { trip } = snapshot;
   const sold = trip.roomTypes;
   const seasons = snapshot.columns.map((column) => {
+    // An open column that starts after other seasons does not cover "all other days": it runs from its start.
+    const first = column.ranges[0]?.startsOn;
+    const afterOthers =
+      first !== undefined &&
+      snapshot.columns.some((other) => other !== column && other.ranges.some((range) => range.startsOn < first));
     const when = column.open
-      ? "all other days"
+      ? afterOthers
+        ? `from ${dayText(first)} onwards`
+        : "all other days"
       : column.ranges.map((range) => `${dayText(range.startsOn)} to ${dayText(range.endsOn)}`).join("; ");
     return `${column.ref} ${column.label}, ${when}: ${pricesText(column.prices, sold)}`;
   });
