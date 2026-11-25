@@ -18,7 +18,7 @@ Each change has "kind", its fields, and "lines": the refs of the lines that say 
 - {"kind":"departure_seats","departure":"D1","seats":"30","lines":["L8"]}.
 - {"kind":"trip_field","field":"seatsPerDeparture","value":"35","lines":["L9"]}, where field is one of: "seatsPerDeparture" (the seats each new departure gets), "advancePerPersonPaise" (the advance per person exactly as printed: "2,000"), "weeklyDays" (the weekdays it repeats on: ["Friday","Saturday"], or [] to stop the repeats), "departureMonths" (the months it repeats in: ["Dec","Jan"], or [] for every month), "pickupPoints", "startCity", "inclusions", "exclusions", "cancellationNotes" (the field's whole new text, keeping what still holds).
 - {"kind":"note_add","line":"Carry ID proof","lines":["L10"]} and {"kind":"note_remove","note":"N2","lines":["L11"]}.
-- {"kind":"itinerary","days":[{"title":"Day 1: Delhi to Manali","description":"Overnight Volvo"}],"lines":["L12"]}: the whole new itinerary, every day in order (to change, reorder, add or remove days).
+- {"kind":"itinerary","days":[{"title":"Delhi to Manali","description":"Overnight Volvo"}],"lines":["L12"]}: the whole new itinerary, every day in order (to change, reorder, add or remove days), each title and description as the trip writes it unless that day changes.
 - {"kind":"ai_selling","on":false,"lines":["L13"]}: the AI starts or stops selling this trip.
 
 Rules:

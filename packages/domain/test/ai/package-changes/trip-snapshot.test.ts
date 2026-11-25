@@ -54,7 +54,7 @@ describe("the trip snapshot", () => {
         "  50% charged within 15 days",
         "N1 Carry warm clothes",
         "N2 No refunds after departure",
-        "Day 1: Delhi to the hills | Overnight Volvo",
+        "1. Delhi to the hills | Overnight Volvo",
         "AI selling it: off",
       ]),
     );

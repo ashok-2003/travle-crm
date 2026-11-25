@@ -132,12 +132,13 @@ function textOf(snapshot: Omit<TripSnapshot, "text">): string {
     block("Cancellation notes", trip.cancellationNotes),
     "Notes:",
     ...(snapshot.notes.length === 0 ? ["(none)"] : snapshot.notes.map((note) => `${note.ref} ${note.line}`)),
-    "Itinerary:",
+    // Numbered, not "Day 1:", since a day's own title often starts with that.
+    "Itinerary (title | description):",
     ...(trip.days.length === 0
       ? ["(none)"]
       : trip.days.map(
           (day, index) =>
-            `Day ${String(index + 1)}: ${day.title}${day.description.trim() === "" ? "" : ` | ${day.description.replace(/\s+/g, " ")}`}`,
+            `${String(index + 1)}. ${day.title}${day.description.trim() === "" ? "" : ` | ${day.description.replace(/\s+/g, " ")}`}`,
         )),
     `AI selling it: ${trip.aiSellable ? "on" : "off"}`,
   ].join("\n");
