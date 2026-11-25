@@ -4,6 +4,7 @@ import { z } from "zod";
 import { recordId } from "../identity/fields.js";
 import { calendarDate } from "../kernel/time.js";
 import { departureStatus } from "../departures/departures.js";
+import { aiInputImageTypes, MAX_AI_IMAGE_BYTES, MAX_AI_RATE_SHEET_BYTES } from "../files/attachments.js";
 import { MAX_SEATS } from "../departures/seat-limit.js";
 import { roomPrices, roomPricesOutput } from "../quotes/room-prices.js";
 import { packageFields, packageSeason, savePackageSeasonInput } from "../quotes/packages.js";
@@ -22,6 +23,12 @@ export const proposePackageChangesInput = z.strictObject({
     .default([]),
 });
 export type ProposePackageChangesInput = z.infer<typeof proposePackageChangesInput>;
+
+/** A photo or a PDF for the assistant, uploaded as the rate reader's files are (an Excel file is the rate reader's alone). */
+export const requestPackageChangesUploadInput = z.strictObject({
+  contentType: z.enum([...aiInputImageTypes, "application/pdf"]),
+  sizeBytes: z.int().min(1).max(Math.max(MAX_AI_RATE_SHEET_BYTES, MAX_AI_IMAGE_BYTES)),
+});
 
 /** Why a change starts unticked or carries a warning. */
 export const packageChangeFlags = [
