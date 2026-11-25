@@ -73,7 +73,8 @@ export function DeparturesMonth({
             {...props}
             className={cn(
               props.className,
-              "h-full items-start justify-start p-1.5 text-left text-inherit [&>span]:opacity-100",
+              // A square day box, also when selected: the registry's icon button is round, which squeezes the price.
+              "h-full items-start justify-start rounded-md p-1.5 text-left text-inherit [&>span]:opacity-100",
             )}
           >
             {props.children}
