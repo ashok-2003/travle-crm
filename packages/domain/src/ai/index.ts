@@ -43,6 +43,7 @@ export {
   aiReplyHandler,
   runAiNudges,
 } from "./agent-worker.js";
+export { AI_READ_FILE_QUEUE, aiFileStoredListener, aiReadFileHandler } from "./read-on-arrival.js";
 export { AI_HANDOFF_KIND, AI_TOKEN_PREFIX, agentAnswers, runAgentTurn, type AgentDependencies } from "./agent.js";
 export {
   AI_BOOKING_KIND,

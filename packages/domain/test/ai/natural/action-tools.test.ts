@@ -3,7 +3,7 @@
 import type { BookingTerms, LiveOffer, NaturalFacts } from "@travel-crm/contracts/ai";
 import { describe, expect, it } from "vitest";
 import { stageAction, withStaged, type ActionContext } from "../../../src/ai/natural/tools/action-tools.js";
-import type { NaturalChatLine, StagedSet } from "../../../src/ai/natural/types.js";
+import type { NaturalChatLine, OpenTaskView, StagedSet } from "../../../src/ai/natural/types.js";
 import { instantAt, parseCalendarDate, parseTimeOfDay } from "../../../src/kernel/index.js";
 import {
   brahmatal,
@@ -626,6 +626,63 @@ describe("stageAction", () => {
       staged: { tool: "add_note", text: "Prefers weekends" },
       result: "note added for the team",
     });
+  });
+
+  it("refuses a second open task the AI made for the same thing, and allows a different kind or question", async () => {
+    const callBack: OpenTaskView = { text: "Call about 26 Dec", aiKind: "call_back", createdAt: minutesAgo(10) };
+    const question: OpenTaskView = {
+      text: "Is oxygen provided on the trek?",
+      aiKind: "question",
+      createdAt: hoursAgo(2),
+    };
+    const withOpen = (...openTasks: OpenTaskView[]) => ctx({ lead: { ...lead, openTasks } });
+    const asked = (kind: string, text: string) => ({ kind, text });
+
+    expect(await stageAction(withOpen(callBack), "create_task", asked("call_back", "Call them back"), "")).toEqual({
+      refused:
+        "refused: the team already has an open call-back task for this customer (created Sat 14 Nov, 11:33 pm); " +
+        "don't create another, just tell them the team has it (a new time they asked for goes in add_note)",
+    });
+    // Once the call-back is done it is no longer open, and a new one goes; a person's own call-back stops nothing.
+    expect(await stageAction(ctx(), "create_task", asked("call_back", "Call them back"), "")).toMatchObject({
+      staged: { tool: "create_task", kind: "call_back" },
+    });
+    const persons = { ...callBack, aiKind: null };
+    expect(await stageAction(withOpen(persons), "create_task", asked("call_back", "Call them back"), "")).toMatchObject(
+      {
+        staged: { tool: "create_task", kind: "call_back" },
+      },
+    );
+    // A different kind goes.
+    expect(await stageAction(withOpen(callBack), "create_task", asked("question", "Jan batch?"), "")).toMatchObject({
+      staged: { tool: "create_task", kind: "question" },
+    });
+    expect(await stageAction(withOpen(question), "create_task", asked("call_back", "Call at 6"), "")).toMatchObject({
+      staged: { tool: "create_task", kind: "call_back" },
+    });
+
+    // The same question, give or take its case, marks and a word, even joined after another in the task's title.
+    const repeat = asked("question", "is oxygen provided on the trek");
+    const refusal = {
+      refused:
+        "refused: the team already has this question open for this customer (created Sat 14 Nov, 9:43 pm); " +
+        "don't create another, just tell them the team has it",
+    };
+    expect(await stageAction(withOpen(question), "create_task", repeat, "")).toEqual(refusal);
+    expect(
+      await stageAction(withOpen(question), "create_task", asked("question", "Is oxygen provided on this trek?"), ""),
+    ).toEqual(refusal);
+    const joined = { ...question, text: "Is there a Jan batch?\n— Is oxygen provided on the trek?" };
+    expect(await stageAction(withOpen(joined), "create_task", repeat, "")).toEqual(refusal);
+    // Another question goes (the act joins it to the open task).
+    expect(
+      await stageAction(
+        withOpen(question),
+        "create_task",
+        asked("question", "Is the pickup from Dehradun station?"),
+        "",
+      ),
+    ).toMatchObject({ staged: { tool: "create_task", kind: "question" } });
   });
 
   it("stages hand_over, suggest_close and stay_quiet always", async () => {

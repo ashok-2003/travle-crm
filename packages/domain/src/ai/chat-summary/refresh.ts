@@ -42,11 +42,11 @@ const speakers: Record<NaturalChatLine["from"], string> = {
 
 /** A line as the summary reads it: who, when, and everything it says, with what was heard or seen in a saved file. */
 function summaryLine(line: NaturalChatLine, clock: Clock): string {
+  const { aiText, ...bare } = line;
   const said =
-    line.aiText === undefined
-      ? ""
-      : ` ${line.aiText.kind === "transcript" ? "heard" : "seen"}: "${oneLine(line.aiText.text)}"`;
-  const words = lineWords(line, Number.POSITIVE_INFINITY, { earlierWhole: true });
+    aiText === undefined ? "" : ` ${aiText.kind === "transcript" ? "heard" : "seen"}: "${oneLine(aiText.text)}"`;
+  // The saved words once, here: the line's own words leave them out.
+  const words = lineWords(bare, Number.POSITIVE_INFINITY, { earlierWhole: true });
   const who = line.from === "team" && line.teamName !== undefined ? `Team (${line.teamName})` : speakers[line.from];
   return `${who}, ${stampOf(line.at, clock)}: ${words}${said}`;
 }

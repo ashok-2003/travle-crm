@@ -56,6 +56,14 @@ export const aiReplyJob = z.strictObject({
   attempt: z.int().min(0).max(2).default(0),
 });
 
+/** The ai.read-file job: a customer's photo or PDF, read once as it arrives (ids only). */
+export const aiReadFileJob = z.strictObject({
+  organizationId: recordId,
+  conversationId: recordId,
+  messageId: recordId,
+});
+export type AiReadFileJob = z.infer<typeof aiReadFileJob>;
+
 /** The AI's last day at a glance, for the AI screen's head. */
 export const aiOverview = z.object({
   chatsAnswered: z.int(),

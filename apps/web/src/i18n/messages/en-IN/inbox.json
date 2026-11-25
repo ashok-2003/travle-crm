@@ -310,7 +310,7 @@
       "heardHint": "The AI agent's transcript of this voice note. It may be wrong.",
       "seen": "Seen: {text}",
       "seenTerm": "Seen",
-      "seenHint": "The AI agent's description of this photo. It may be wrong."
+      "seenHint": "The AI agent's description of this photo or file. It may be wrong."
     },
     "place": {
       "title": "Location",

@@ -73,6 +73,12 @@ describe("natural's seams for reads and refusal", () => {
     expect(
       lineWords({ ...photo, ref: "m7", aiText: { kind: "description", text: "A UPI receipt of ₹6,000." } }, 1_000),
     ).toBe('[photo m7] kya rate hai? (seen: "A UPI receipt of ₹6,000.")');
+    // A PDF has no reference, but what it is was kept as it arrived.
+    const pdf: NaturalChatLine = { ...voice, kind: "document", fileName: "aadhaar.pdf" };
+    expect(lineWords(pdf, 1_000)).toBe("[file: aadhaar.pdf]");
+    expect(lineWords({ ...pdf, aiText: { kind: "description", text: "An Aadhaar card of Asha Verma." } }, 1_000)).toBe(
+      '[file: aadhaar.pdf] (seen: "An Aadhaar card of Asha Verma.")',
+    );
 
     // The stored words come with the line.
     const on = await liveAgency(test);

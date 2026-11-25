@@ -44,6 +44,11 @@ describe("media, statuses, echoes and health", () => {
     expect(stored.message).toMatchObject({ mediaState: "stored", mediaUrl: null });
     expect(stored.attachments).toHaveLength(1);
     expect(stored.attachments[0]).toMatchObject({ contentType: "image/png" });
+    // Stored once, said once: what reads a file as it arrives (the AI agent) hears of it by ids alone.
+    const events = await test.db.forOrg(connection.organizationId, (tx) =>
+      tx.outboxEvent.findMany({ where: { type: "whatsapp.media-stored" }, select: { payload: true } }),
+    );
+    expect(events).toEqual([{ payload: { conversationId: message.conversationId, messageId: message.id } }]);
   });
 
   it("calls a file past its 30 days expired, and one over the cap or of a wrong type failed", async () => {

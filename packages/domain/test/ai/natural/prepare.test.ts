@@ -450,7 +450,7 @@ describe("the natural turn's live reads", () => {
       supplierStateCode: "05",
       adPackageId: kedarkantha,
       cameFrom: { source: "Instagram ad", packageId: kedarkantha },
-      lead: { openTasks: ["Call about the pickup"] },
+      lead: { openTasks: [{ text: "Call about the pickup", aiKind: null, createdAt: expect.any(Date) as unknown }] },
       lastInboundAt: liveAt(-120),
       repliesToday: 0,
       monthFull: false,
@@ -461,6 +461,35 @@ describe("the natural turn's live reads", () => {
     // Meta's shortlink serves Instagram and Facebook ads alike: the turn names neither.
     await on.inOrg((tx) => tx.whatsappAd.updateMany({ data: { sourceUrl: "https://fb.me/2xYz" } }));
     expect((await preparedOf(on)).cameFrom).toEqual({ source: "an ad", packageId: kedarkantha });
+  });
+
+  it("reads the lead's open tasks with the kind of each the AI made, and none that is done", async () => {
+    const on = await liveAgency(test);
+    const due = liveAt(3600);
+    const task = (title: string, kind: string, extra: { byAi?: boolean; doneAt?: Date } = {}) => ({
+      kind,
+      title,
+      dueAt: due,
+      firstDueAt: due,
+      recordType: "lead",
+      recordId: on.leadId,
+      ...extra,
+    });
+    await on.inOrg(async (tx) => {
+      await tx.task.create({ data: task("Call at 4 pm", "follow-up", { byAi: true, doneAt: liveAt(-60) }) });
+      await tx.task.create({ data: task("Call at 6 pm", "follow-up", { byAi: true }) });
+      await tx.task.create({ data: task("Is oxygen provided?", "task", { byAi: true }) });
+      await tx.task.create({ data: task("Send the invoice", "task") });
+    });
+
+    const { lead } = await preparedOf(on);
+
+    expect(lead.openTasks).toEqual([
+      expect.objectContaining({ text: "Call at 6 pm", aiKind: "call_back" }),
+      expect.objectContaining({ text: "Is oxygen provided?", aiKind: "question" }),
+      expect.objectContaining({ text: "Send the invoice", aiKind: null }),
+    ]);
+    expect(lead.openTasks.every((open) => open.createdAt instanceof Date)).toBe(true);
   });
 
   it("reads a booking ahead on any of the customer's leads, the chat's own open one first", async () => {
