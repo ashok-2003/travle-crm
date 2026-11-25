@@ -18,7 +18,7 @@ describe("notificationFor", () => {
   it("shows the push's title and text, and keeps its path for the tap", () => {
     expect(notificationFor(JSON.stringify(opened))).toEqual({
       title: opened.title,
-      options: { body: opened.body, icon: "/icons/icon-192.png", data: { path: "/settings/documents" } },
+      options: { body: opened.body, icon: "/icons/icon-192-v2.png", data: { path: "/settings/documents" } },
     });
   });
 
@@ -40,7 +40,7 @@ describe("notificationFor", () => {
     for (const payload of [null, "not json", "42", JSON.stringify({ title: 7, body: ["x"] })]) {
       expect(notificationFor(payload), String(payload)).toEqual({
         title: words.push.fallbackTitle,
-        options: { body: words.push.fallbackBody, icon: "/icons/icon-192.png", data: { path: "/dashboard" } },
+        options: { body: words.push.fallbackBody, icon: "/icons/icon-192-v2.png", data: { path: "/dashboard" } },
       });
     }
   });

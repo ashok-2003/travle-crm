@@ -40,3 +40,20 @@ model WelcomeSeen {
   @@unique([organizationId, userId], map: "welcome_seen_one_per_user")
   @@map("welcome_seen")
 }
+
+/// A member opened the installed app (the home-screen app, not the browser) on one kind of phone, last at this time.
+/// It lets the browser on that kind of phone say "open the app from your home screen": Safari can't tell whether the app is installed.
+/// A time and the phone type only, at most one write a day per member and type.
+model MemberInstalledApp {
+  organizationId String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
+  id             String       @id @default(uuid(7)) @db.Uuid
+  userId         String       @map("user_id") @db.Uuid
+  /// "ios" (iPhone or iPad) or "android" (CHECK member_installed_app_platform).
+  platform       String
+  lastSeenAt     DateTime     @map("last_seen_at") @db.Timestamptz(6)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+
+  @@unique([organizationId, id])
+  @@unique([organizationId, userId, platform], map: "member_installed_app_one_per_type")
+  @@map("member_installed_app")
+}

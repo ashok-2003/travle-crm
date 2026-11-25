@@ -14,7 +14,7 @@ test.beforeEach(screenshotsOnly);
 const PDF = Buffer.from("%PDF-1.4\n% A scanned certificate, as far as storage can tell.\n");
 
 /** The app's own large icon stands in for the agency's logo: the journeys' 1x1 PNG shows nothing to judge. */
-const logoFile = path.resolve(import.meta.dirname, "../../../public/icons/icon-512.png");
+const logoFile = path.resolve(import.meta.dirname, "../../../public/icons/icon-512-v2.png");
 
 /**
  * Runs in the page before the app: notifications not yet asked for, and no subscription. A headless browser reports

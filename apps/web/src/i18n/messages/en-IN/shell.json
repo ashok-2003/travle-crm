@@ -53,5 +53,12 @@
     "impersonated": "You're signed in as {name} at {organization}. Everything you do is recorded in its audit log.",
     "stop": "Stop",
     "stopping": "Stopping"
+  },
+  "installBar": {
+    "installable": "{product} works best as an app",
+    "install": "Install",
+    "installed": "Works best in the app: open {product} from your home screen",
+    "ios": "Works best in the app: tap Share, then Add to Home Screen",
+    "hide": "Hide"
   }
 }

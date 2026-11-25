@@ -146,6 +146,7 @@ model Organization {
   pageVisits                  PageVisit[]
   welcome                     OrganizationWelcome?
   welcomesSeen                WelcomeSeen[]
+  memberInstalledApps         MemberInstalledApp[]
   whatsappBroadcastTags       WhatsappBroadcastTag[]
   whatsappBroadcastRecipients WhatsappBroadcastRecipient[]
 

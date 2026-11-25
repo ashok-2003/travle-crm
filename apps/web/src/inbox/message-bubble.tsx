@@ -132,7 +132,9 @@ export function MessageBubble({
         )}
       >
         {message.quoted !== null && <QuoteBlock quoted={message.quoted} senderName={quotedSender} />}
-        <div dir="auto" className={cn("break-words whitespace-pre-wrap script-leading", media && "px-1.5")}>
+        {/* wrap-anywhere, not break-words: a long link must also stop counting as one unbreakable word when the chat sizes
+            itself, or it widens the whole chat past a phone's screen (owner, 2026-11-25). */}
+        <div dir="auto" className={cn("wrap-anywhere whitespace-pre-wrap script-leading", media && "px-1.5")}>
           {/* Room for the corner's line, so the last line never runs under it: the body puts it on the words' last line. */}
           <MessageBody
             message={message}
