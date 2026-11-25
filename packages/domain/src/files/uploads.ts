@@ -1,24 +1,12 @@
-// Getting files into storage: a presigned upload the browser sends itself, the check that it arrived as promised,
-// and files the server makes (rendered PDFs).
-import {
-  attachmentFileName,
-  type AttachmentRefInput,
-  type AttachmentSummary,
-  type RequestUploadInput,
-} from "@travel-crm/contracts/files";
+// Getting files into storage: a presigned upload the browser sends itself, and the check that it arrived as promised.
+// Files the server makes are generated.ts's.
+import type { AttachmentRefInput, AttachmentSummary, RequestUploadInput } from "@travel-crm/contracts/files";
 import type { OrgTx } from "@travel-crm/db";
-import { isUniqueViolation, withDeleted } from "@travel-crm/db";
+import { withDeleted } from "@travel-crm/db";
 import type { PresignedUpload } from "@travel-crm/integrations/storage";
 import { DomainError, type Actor } from "../kernel/index.js";
-import {
-  attachmentFields,
-  type AttachmentRow,
-  findAttachment,
-  storageKeyOf,
-  summaryFor,
-  toSummary,
-} from "./attachment-row.js";
-import type { FilesDependencies, GeneratedFile } from "./dependencies.js";
+import { attachmentFields, findAttachment, storageKeyOf, summaryFor, toSummary } from "./attachment-row.js";
+import type { FilesDependencies } from "./dependencies.js";
 import { allowedContentTypes, isSystemOwnedRecordType, maxUploadBytes } from "./record-types.js";
 
 /**
@@ -153,94 +141,4 @@ export async function confirmUpload(
     });
     return summaryFor(actor, await findAttachment(tx, input));
   });
-}
-
-/**
- * Stores a file the server made, such as a rendered PDF, ready at once. The row is written first and marked ready
- * after the upload, so storage never holds a file no row accounts for; a failed upload leaves only a pending row,
- * which nobody can list or download.
- *
- * Safe to retry: with a caller-chosen `attachmentId`, a file already stored under it for the same record is returned
- * as it is, and a pending one is completed. The same id on another record is refused.
- */
-export async function storeGeneratedFile(
-  { db, storage }: FilesDependencies,
-  actor: Actor,
-  file: GeneratedFile,
-): Promise<AttachmentSummary> {
-  const name = attachmentFileName.safeParse(file.fileName);
-  if (!name.success) throw new DomainError("VALIDATION", "INVALID_FILE_NAME", "The file name can't be used");
-  assertTypeAllowed(file.recordType, file.contentType);
-  if (file.body.byteLength === 0) throw new DomainError("VALIDATION", "EMPTY_FILE", "The file is empty");
-  const inUse = () => new DomainError("CONFLICT", "ATTACHMENT_ID_IN_USE", "That file id is already used");
-  /** A row already stored under the chosen id: ours to continue if it is this record's and not deleted. */
-  const existingRow = (): Promise<AttachmentRow | null> =>
-    db.forOrg(actor.organizationId, async (tx) => {
-      const existing = await withDeleted(() =>
-        tx.attachment.findUnique({
-          where: { id: file.attachmentId },
-          select: { ...attachmentFields, deletedAt: true },
-        }),
-      );
-      if (!existing) return null;
-      if (existing.recordType !== file.recordType || existing.recordId !== file.recordId || existing.deletedAt) {
-        throw inUse();
-      }
-      return existing;
-    });
-  const create = () =>
-    db.forOrg(actor.organizationId, (tx) =>
-      tx.attachment.create({
-        data: {
-          ...(file.attachmentId === undefined ? {} : { id: file.attachmentId }),
-          recordType: file.recordType,
-          recordId: file.recordId,
-          fileName: name.data,
-          contentType: file.contentType,
-          sizeBytes: file.body.byteLength,
-          sensitive: file.sensitive ?? false,
-          createdBy: actor.userId,
-        },
-        select: attachmentFields,
-      }),
-    );
-
-  let row: AttachmentRow;
-  if (file.attachmentId === undefined) {
-    row = await create();
-  } else {
-    const existing = await existingRow();
-    if (existing) {
-      row = existing;
-    } else {
-      try {
-        row = await create();
-      } catch (error) {
-        if (!isUniqueViolation(error)) throw error;
-        // Another run created it first, or the id is another organization's (which this one can't see).
-        const raced = await existingRow();
-        if (!raced) throw inUse();
-        row = raced;
-      }
-    }
-  }
-  // Someone else's earlier run already finished it: show what that caller may see, not what the retry sent.
-  if (row.status === "ready") return summaryFor(actor, row);
-  await storage.put({ key: storageKeyOf(row), contentType: file.contentType, body: file.body });
-  return db.forOrg(actor.organizationId, async (tx) =>
-    summaryFor(
-      actor,
-      await tx.attachment.update({
-        where: { id: row.id },
-        // A retry may carry a different body than the failed first run left announced: keep the row true to storage.
-        data: {
-          status: "ready",
-          confirmedAt: new Date(),
-          sizeBytes: file.body.byteLength,
-          contentType: file.contentType,
-        },
-        select: attachmentFields,
-      }),
-    ),
-  );
 }

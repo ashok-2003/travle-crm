@@ -28,8 +28,10 @@ documents are marked sensitive (spec 5).
   - `remove(actor, { recordType, recordId, attachmentId })`: a soft delete; only members with
     `documents:view_sensitive` may remove a sensitive file (the system may not), and no one may remove a file of a
     system-owned record type: `issued_document`, `import_report` and `data_export` (`FORBIDDEN`/`SYSTEM_OWNED_FILE`);
-  - `storeGeneratedFile(actor, file)`: stores a file the server made (a rendered PDF) and returns it ready. With a
-    chosen `attachmentId` a retry stores it once (`CONFLICT`/`ATTACHMENT_ID_IN_USE` if the id belongs to another
+  - `storeGeneratedFile(actor, file)`: stores a file the server made or downloaded (a rendered PDF, a WhatsApp file) and
+    returns it ready. Bytes the organization already holds (same size and SHA-256 on a live file holding its own) are
+    not uploaded again: the file shares that one's object, as a copy does (short-lived files are always stored apart).
+    With a chosen `attachmentId` a retry stores it once (`CONFLICT`/`ATTACHMENT_ID_IN_USE` if the id belongs to another
     record, organization or a deleted file); a retry after a failed upload completes the pending row with its own
     size and type; the name must pass `attachmentFileName` (`VALIDATION`/`INVALID_FILE_NAME`), and the type must be one
     the record takes (`VALIDATION`/`CONTENT_TYPE_NOT_ALLOWED`);
@@ -86,7 +88,8 @@ None yet.
   that includes the organization), and every read uses that one's key (`bytesKeyOf`). Only a holder is ever named,
   never a copy. Each copy still behaves as if it had its own bytes: its own name, sensitivity, removal and erasure,
   and removing the holder leaves it readable. Uploads, generated files and the outbox use the row's own key
-  (`storageKeyOf`). The console's `dedupe-files` command turned the copies stored before into such files.
+  (`storageKeyOf`). A holder whose bytes the server had keeps their SHA-256 (`content_sha256`), which is how a
+  generated file finds them. The console's `dedupe-files` command turned the copies stored before into such files.
 - Pending files (uploads not yet confirmed) are never listed or downloadable.
 - Deleted files stay in storage, and count toward the limit, until the platform's purge.
 - An upload counts toward the limit from the moment it is asked for, and, if it never becomes ready (stopped, or

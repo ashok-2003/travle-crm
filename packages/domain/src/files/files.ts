@@ -9,7 +9,8 @@ import { listAttachments, listAttachmentsOfRecords, removeAttachment, storageUse
 import type { DownloadLink, FilesDependencies, GeneratedFile, StoredFile } from "./dependencies.js";
 import { downloadLink, systemDownloadLink, systemFile } from "./downloads.js";
 import { copyFile, copyFileIn } from "./copies.js";
-import { confirmUpload, requestUpload, storeGeneratedFile, type StoredBytesCheck } from "./uploads.js";
+import { storeGeneratedFile } from "./generated.js";
+import { confirmUpload, requestUpload, type StoredBytesCheck } from "./uploads.js";
 
 export interface Files {
   /**
@@ -38,7 +39,10 @@ export interface Files {
   ): Promise<Map<string, AttachmentSummary[]>>;
   /** Soft-deletes the file. Only members with documents:view_sensitive may remove a sensitive file. */
   remove(actor: Actor, input: AttachmentRefInput): Promise<void>;
-  /** Stores a file the server made and returns it ready; with a chosen attachmentId, a retry stores it once. */
+  /**
+   * Stores a file the server made or downloaded and returns it ready; with a chosen attachmentId, a retry stores it once.
+   * Bytes the organization already holds are shared, not uploaded again.
+   */
   storeGeneratedFile(actor: Actor, file: GeneratedFile): Promise<AttachmentSummary>;
   /**
    * A ready file attached to another record too (a trip's file sent as a WhatsApp message's): a file of its own there,

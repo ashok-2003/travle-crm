@@ -43,18 +43,38 @@ erasure, purge and exports. Sharing bytes is a storage detail inside the files m
 - **The organization export** copies each row's bytes (its holder's object) beside the export under the row's own id,
   so the export holds a standalone copy per row, as before.
 
+## Addendum (2026-11-25): generated and downloaded files are stored once too
+
+The owner's storage report for Arrow Trips: of 5.5 GB of WhatsApp files, 4.9 GB are files staff sent from their own
+phone (echoes the media job downloads one by one through `storeGeneratedFile`), 488 MB the AI's and automations' sends
+(copies) and 96 MB customers' media; 67 distinct files took 924 copies, one stored 101 times. Pointers on copy alone
+would fix only the 488 MB, so:
+
+- **`attachment.content_sha256`** (hex text, nullable, indexed with `organization_id`): the SHA-256 of a holder's bytes,
+  set only where the server had them (a generated or downloaded file, or a holder the clean-up read).
+- **`storeGeneratedFile` stores once** (`files/generated.ts`): it hashes the bytes it already has, and before uploading
+  looks for a live holder in the same organization with the same `size_bytes` and `content_sha256` (ready,
+  `stored_as_id IS NULL`, the oldest), read under a share lock. Found: the row becomes a pointer to it and nothing is
+  uploaded. Not found: it uploads as before and keeps the hash on the new holder. Pointers keep no hash. Same rules as
+  copies: they count nothing, reads use the holder's key, and a holder hands its bytes (and its hash) on at a hard
+  delete. The media job's idempotency holds: a retry under the message's id finds its row, ready or pending.
+- **The clean-up groups by `size_bytes` and `content_type`**, not by name (a phone sends a file under any name); equal
+  ETags stay the gate. Each set's holder gets `content_sha256` from its bytes, read once through the port when
+  applying, so files sent again later find it.
+
 ## One-off cleanup of copies already stored
 
 `dedupe-files [--apply] [--organization <uuid>]`, a console command of the api image (like `demo`), dry run by default.
 Per organization:
 
-1. Group the ready holders (`stored_as_id IS NULL`, removed ones included) by `file_name`, `size_bytes` and
-   `content_type`, leaving out the short-lived record types (an import's file and report, an export).
+1. Group the ready holders (`stored_as_id IS NULL`, removed ones included) by `size_bytes` and `content_type` (not by
+   name, per the addendum), leaving out the short-lived record types (an import's file and report, an export).
 2. Within a group, keep only rows whose stored objects are byte-identical: equal storage ETags (`ObjectStorage.head`
    now returns the ETag; CopyObject keeps it). A row whose object is missing, or has no ETag, is left alone.
 3. Choose the holder: a row whose record is not a `whatsapp_message`, else the oldest.
-4. Point the others at it (their own pointers re-pointed too, so no chains), and queue their own objects in the
-   deletions' outbox, which the console's job empties (the command also runs it at once for that organization).
+4. Point the others at it (their own pointers re-pointed too, so no chains), keep the bytes' SHA-256 on the holder (read
+   once), and queue the others' own objects in the deletions' outbox, due once links handed out for them have lapsed
+   (10 minutes), which the console's job empties.
 5. Print counts and bytes freed only, never a name.
 
 ## Rulings
@@ -78,3 +98,14 @@ Per organization:
   shared file — cost if wrong: none; they free themselves.
 - Ruling: the copy keeps `sensitive` from its source (unchanged), and every access check reads the row's own flags —
   sharing bytes changes no permission — cost if wrong: none.
+- Ruling: the clean-up's deletions are due 10 minutes after it runs, and a hand-over cancels a queued deletion of the
+  heir's own object — a WhatsApp send's 5-minute link may be fetched a moment after it is made, and an heir picked in
+  that window must keep the bytes it now holds — cost if wrong: the space frees 10 minutes later.
+- Ruling: the hash is hex text and lives on holders only; a generated file matches only a live holder (a removed file's
+  bytes are not reused) and only by size plus SHA-256, not by type or name — a removed file is on its way out, and the
+  same bytes are the same file whatever a phone calls it — cost if wrong: an extra stored copy after a removal.
+- Ruling: short-lived generated files (an import's report, an export) are stored apart with no hash — they go within
+  days, and keeping them apart keeps their sweeps free of hand-overs — cost if wrong: none.
+- Ruling: two generated stores of the same new bytes at the same moment may both upload, making two holders — no lock
+  is worth it for that; the next store matches the oldest, and the clean-up can join them — cost if wrong: one extra
+  copy.

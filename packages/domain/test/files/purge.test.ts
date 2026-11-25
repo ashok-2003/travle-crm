@@ -37,14 +37,14 @@ describe("permanent deletion of files", () => {
     await test.close();
   });
 
-  /** Stores a file on the record, the way the system stores generated files. */
+  /** Stores a file on the record, the way the system stores generated files; each its own bytes. */
   async function stored(organizationId: string, recordId: string, fileName: string) {
     return test.files.storeGeneratedFile(systemActor(organizationId), {
       recordType: "traveller",
       recordId,
       fileName,
       contentType: "application/pdf",
-      body: bytes("%PDF-1.3"),
+      body: bytes(`%PDF-1.3 ${fileName}`),
     });
   }
 

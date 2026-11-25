@@ -46,6 +46,27 @@ describe("media, statuses, echoes and health", () => {
     expect(stored.attachments[0]).toMatchObject({ contentType: "image/png" });
   });
 
+  it("stores the same file sent twice once: the second message's file shares the first one's bytes", async () => {
+    const connection = await aConnectedAgency(test);
+    const { organizationId } = connection;
+    for (const url of ["https://media.example/same-1", "https://media.example/same-2"]) {
+      test.provider.addFile(url, { bytes: tinyPng, contentType: "image/png" });
+      await deliver(
+        test,
+        fromCustomer(connection, { customerNumber: digits(freshPhone()), contentType: "image", url }),
+      );
+    }
+    const messages = await test.db.forOrg(organizationId, (tx) => tx.whatsappMessage.findMany());
+    for (const { id } of messages)
+      expect(await copyMedia(test.dependencies, organizationId, id, testNow)).toBe("stored");
+    const files = await test.db.forOrg(organizationId, (tx) =>
+      tx.attachment.findMany({ where: { recordType: WHATSAPP_RECORD_TYPE } }),
+    );
+    const holders = files.filter((file) => file.storedAsId === null);
+    expect(holders).toHaveLength(1);
+    expect(files.map((file) => file.storedAsId ?? file.id)).toEqual([holders[0]?.id, holders[0]?.id]);
+  });
+
   it("calls a file past its 30 days expired, and one over the cap or of a wrong type failed", async () => {
     const gone = await photo("https://media.example/gone");
     expect(await copyMedia(test.dependencies, gone.connection.organizationId, gone.message.id, testNow)).toBe(

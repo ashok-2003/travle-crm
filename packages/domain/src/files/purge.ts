@@ -126,8 +126,12 @@ async function handOverBytes(tx: OrgTx, storage: ObjectStorage, record: FileReco
   // The clean-up (dedupe.ts) may have queued the heir's own object, a second copy it stopped needing: now it holds the
   // bytes, so it stays.
   await tx.storedFileDeletion.deleteMany({ where: { targetOrganizationId: organizationId, attachmentId: heir } });
+  // It takes the holder's hash too, so the same bytes stored again still find them.
   await tx.$executeRaw`
-    UPDATE attachment SET stored_as_id = NULL WHERE organization_id = ${organizationId}::uuid AND id = ${heir}::uuid`;
+    UPDATE attachment SET stored_as_id = NULL, content_sha256 = (
+      SELECT content_sha256 FROM attachment WHERE organization_id = ${organizationId}::uuid AND id = ${holderId}::uuid
+    )
+    WHERE organization_id = ${organizationId}::uuid AND id = ${heir}::uuid`;
   await tx.$executeRaw`
     UPDATE attachment SET stored_as_id = ${heir}::uuid
     WHERE organization_id = ${organizationId}::uuid AND id = ANY(${staying.slice(1).map((row) => row.id)}::uuid[])`;
