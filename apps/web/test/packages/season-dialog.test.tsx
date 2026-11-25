@@ -98,13 +98,27 @@ describe("Add season", () => {
 });
 
 describe("Change dates", () => {
-  it("offers No end date on the open column, already on", async () => {
+  const onlyRegular = aPackage({
+    kind: "group",
+    roomTypes: ["double"],
+    seasons: [aSeason(regularA, "Regular", "2027-01-01", "2099-12-31", { double: 720_000 })],
+  });
+
+  it("is not offered for a column of several ranges", async () => {
     show();
+    await userEvent.click(screen.getByRole("button", { name: words.seasonMenu.replace("{season}", "Regular") }));
+    expect(screen.queryByRole("menuitem", { name: words.changeDates })).toBeNull();
+    expect(screen.getByRole("menuitem", { name: words.rename })).toBeTruthy();
+  });
+
+  it("offers No end date on a single open column, already on", async () => {
+    stubApi({});
+    renderScreen(<PricesCard detail={onlyRegular} />, { width: "wide" });
     const dialog = await menuOf("Regular", words.changeDates);
     expect(within(dialog).getByRole("switch", { name: season.noEnd })).toBeChecked();
   });
 
-  it("offers No end date on a closed last column, and sends the open end", async () => {
+  it("offers No end date on a closed single column, and sends the open end", async () => {
     show();
     const dialog = await menuOf("Christmas", words.changeDates);
     const noEnd = within(dialog).getByRole("switch", { name: season.noEnd });
@@ -122,6 +136,27 @@ describe("Change dates", () => {
       endsOn: "2099-12-31",
       prices: { ...noPrices, double: 900_000 },
     });
+  });
+
+  it("a split column that ends the trip's last season offers No end date as a menu item", async () => {
+    const regularEnds = aPackage({
+      kind: "group",
+      roomTypes: ["double"],
+      seasons: [
+        aSeason(regularA, "Regular", "2027-01-01", "2027-03-31", { double: 720_000 }),
+        aSeason(christmas, "Peak", "2027-04-01", "2027-04-30", { double: 900_000 }),
+        aSeason(regularB, "Regular", "2027-05-01", "2027-12-31", { double: 720_000 }),
+      ],
+    });
+    stubApi({ "packages.saveSeason": { data: null } });
+    renderScreen(<PricesCard detail={regularEnds} />, { width: "wide" });
+    await userEvent.click(screen.getByRole("button", { name: words.seasonMenu.replace("{season}", "Regular") }));
+    expect(screen.queryByRole("menuitem", { name: words.changeDates })).toBeNull();
+    await userEvent.click(await screen.findByRole("menuitem", { name: words.noEnd }));
+    await waitFor(() => {
+      expect(inputsTo("packages.saveSeason")).toHaveLength(1);
+    });
+    expect(inputsTo("packages.saveSeason")[0]).toMatchObject({ seasonId: regularB, endsOn: "2099-12-31" });
   });
 });
 

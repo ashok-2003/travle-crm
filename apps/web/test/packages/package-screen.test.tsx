@@ -142,11 +142,14 @@ describe("PackageScreen", () => {
     expect(within(target).getByRole("switch", { name: words.sell.label })).toBeTruthy();
   });
 
-  it("Page and AI starts with the sell card", async () => {
+  it("Page and AI starts with the sell card, under its heading", async () => {
     await showing(groupTrip);
-    const page = screen.getByRole("heading", { level: 2, name: titles.page });
-    const sell = screen.getByRole("heading", { level: 2, name: words.sell.title });
-    expect(sell.compareDocumentPosition(page) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const page = within(screen.getByRole("region", { name: titles.page }));
+    const sell = page.getByRole("region", { name: words.sell.title });
+    const summary = page.getByText(words.form.summary);
+    expect(sell.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const heading = screen.getByRole("heading", { level: 2, name: titles.page });
+    expect(heading.compareDocumentPosition(sell) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("saves the trip's details with only their fields", async () => {

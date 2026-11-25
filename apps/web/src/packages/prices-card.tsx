@@ -6,7 +6,7 @@
 import { roomTypes, seasonColumns, type PackageDetail } from "@travel-crm/contracts/quotes";
 import { PlusIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useMemo, useRef, useState } from "react";
+import { useCallback, useId, useMemo, useRef, useState } from "react";
 import { SectionCard } from "@/bookings/section-card";
 import { Details } from "@/components/details";
 import { rupees } from "@/components/forms/money-field";
@@ -27,6 +27,11 @@ export function PricesCard({ detail }: { detail: PackageDetail }) {
   const access = useWriteAccess("change");
   const hintId = `${useId()}-write`;
   const [adding, setAdding] = useState(false);
+  // Unsaved price changes in the table: a season change would read the trip again and drop them.
+  const [edited, setEdited] = useState(false);
+  const onEdited = useCallback((next: boolean) => {
+    setEdited(next);
+  }, []);
   const opener = useRef<HTMLElement | null>(null);
   const first = useMemo(() => seasonColumns(detail.seasons)[0], [detail.seasons]);
   // A trip that sells nothing yet offers every room type for its first season; the table then saves the ones priced.
@@ -41,8 +46,8 @@ export function PricesCard({ detail }: { detail: PackageDetail }) {
         <div>
           <Button
             variant="outline"
-            disabled={!access.allowed}
-            aria-describedby={access.allowed ? undefined : hintId}
+            disabled={!access.allowed || edited}
+            aria-describedby={access.allowed && !edited ? undefined : hintId}
             onClick={(event) => {
               opener.current = event.currentTarget;
               setAdding(true);
@@ -51,11 +56,11 @@ export function PricesCard({ detail }: { detail: PackageDetail }) {
             <PlusIcon aria-hidden="true" />
             {t("addSeason")}
           </Button>
-          <WriteHint id={hintId} hint={access.hint} />
+          <WriteHint id={hintId} hint={access.hint ?? (edited ? t("unsavedHint") : null)} />
         </div>
       )}
       {/* A new key when the trip is read again: the table starts from what was saved. */}
-      <PriceTable key={JSON.stringify([detail.roomTypes, detail.seasons])} detail={detail} />
+      <PriceTable key={JSON.stringify([detail.roomTypes, detail.seasons])} detail={detail} onEdited={onEdited} />
       <AddSeasonDialog
         packageId={detail.id}
         rooms={rooms}

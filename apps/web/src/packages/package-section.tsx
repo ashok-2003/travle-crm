@@ -3,8 +3,8 @@
 // One section of a trip's page (/packages/<id>): a card with the section's heading and a short read-only summary, and
 // Edit, which swaps the summary for the section's own form. Save sends that section's fields alone (packages.updatePart)
 // and Cancel puts the summary back. The cards that belong to the section (photos, brochures) follow the card inside the
-// same anchor, never inside it (DESIGN.md: no nested cards), so a link to the section lands on all of it; a card that
-// leads it (the AI switch) goes before.
+// same anchor, never inside it (DESIGN.md: no nested cards), so a link to the section lands on all of it; a part that
+// leads it (the AI switch) sits first inside the card.
 import type { UpdatePackagePartInput } from "@travel-crm/contracts/quotes";
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useRef, useState, type ReactNode, type SubmitEventHandler } from "react";
@@ -42,7 +42,7 @@ export function PackageSection({
   summary: ReactNode;
   /** The section's form, given what closes it: mounted only while editing, so each Edit starts from what is saved. */
   editor: (close: () => void) => ReactNode;
-  /** A card of the section that comes before its summary. */
+  /** A part of the section that comes first inside its card, under the heading (the AI switch). */
   lead?: ReactNode;
   /** The section's own cards, after its summary. */
   children?: ReactNode;
@@ -65,7 +65,6 @@ export function PackageSection({
   }, [mode]);
   return (
     <section id={sectionAnchors[section]} aria-labelledby={headingId} className="flex scroll-mt-6 flex-col gap-4">
-      {lead}
       <Card>
         <CardHeader>
           <CardTitle>
@@ -90,6 +89,7 @@ export function PackageSection({
           )}
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
+          {lead}
           {editing ? (
             <div ref={editorBox} tabIndex={-1} role="group" aria-labelledby={headingId}>
               {editor(() => {

@@ -32,7 +32,7 @@ export function PackageHeader({ detail }: { detail: PackageDetail }) {
   const facts = [
     detail.fromPricePaise === null ? null : t("fromPrice", { price: rupees(detail.fromPricePaise) }),
     group && next !== undefined ? t("nextDeparture", { day: formatCalendarDay(next.startDate) }) : null,
-    group && listed !== undefined ? t("datesAhead", { count: listed.departuresAhead }) : null,
+    group && listed !== undefined ? t("departuresAhead", { count: listed.departuresAhead }) : null,
   ].filter((fact) => fact !== null);
   return (
     <PageHeader

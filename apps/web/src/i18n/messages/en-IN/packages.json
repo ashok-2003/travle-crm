@@ -15,7 +15,7 @@
     "pageNotLive": "Page not live",
     "fromPrice": "From {price}",
     "nextDeparture": "Next departure {day}",
-    "datesAhead": "{count, plural, =0 {No departures ahead} one {# departure ahead} other {# departures ahead}}",
+    "departuresAhead": "{count, plural, =0 {No departures ahead} one {# departure ahead} other {# departures ahead}}",
     "aiDoesNotSellBecause": "AI doesn't sell it: {reason}"
   },
   "sections": {
@@ -426,14 +426,18 @@
     "removeDescription": "Bookings already made keep their price. New ones on these dates are no longer priced from it.",
     "removed": "Season removed",
     "problems": {
-      "noPrice": "Give each season a price for at least one room type.",
+      "noPrice": "Give {season} a price for at least one room type.",
       "invalid": "Check the amounts: rupees only.",
       "noRoom": "Keep at least one room type."
     },
     "custom": {
       "fromHint": "Set in Page and AI."
     },
-    "removeRoomColumn": "Remove a room type"
+    "removeRoomColumn": "Remove a room type",
+    "unsavedHint": "Save or undo your price changes first.",
+    "undo": "Undo changes",
+    "noEnd": "No end date",
+    "noEndSaved": "The season now has no end date"
   },
   "season": {
     "addTitle": "Add season",

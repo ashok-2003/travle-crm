@@ -127,7 +127,7 @@ export function PageSection({ detail }: { detail: PackageDetail }) {
   return (
     <PackageSection
       section="page"
-      lead={<SellCard detail={detail} />}
+      lead={<SellCard inline detail={detail} />}
       summary={<PageSummary detail={detail} />}
       editor={(close) => <PageEditor detail={detail} close={close} />}
     >

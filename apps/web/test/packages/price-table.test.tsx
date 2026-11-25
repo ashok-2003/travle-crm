@@ -130,12 +130,24 @@ describe("the price table", () => {
     expect(save()).toBeEnabled();
   });
 
-  it("asks for a price in every season before sending", async () => {
+  it("locks Add season and the season menus while edits are not saved, and Undo changes brings them back", async () => {
+    show();
+    await userEvent.type(cell("Double", "Regular"), "0");
+    expect(screen.getByRole("button", { name: words.addSeason })).toBeDisabled();
+    expect(screen.getByRole("button", { name: words.seasonMenu.replace("{season}", "Christmas") })).toBeDisabled();
+    expect(screen.getAllByText(words.unsavedHint).length).toBeGreaterThan(0);
+    await userEvent.click(screen.getByRole("button", { name: words.undo }));
+    expect(cell("Double", "Regular")).toHaveValue("6,000");
+    expect(screen.getByRole("button", { name: words.addSeason })).toBeEnabled();
+    expect(save()).toBeDisabled();
+  });
+
+  it("asks for a price in every season before sending, naming the season", async () => {
     show();
     await userEvent.clear(cell("Double", "Christmas"));
     await userEvent.clear(cell("Triple", "Christmas"));
     await userEvent.click(save());
-    expect(await screen.findByText(words.problems.noPrice)).toBeTruthy();
+    expect(await screen.findByText(words.problems.noPrice.replace("{season}", "Christmas"))).toBeTruthy();
     expect(inputsTo("packages.savePriceTable")).toEqual([]);
   });
 

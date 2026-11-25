@@ -1,26 +1,23 @@
 "use client";
 
-// A group trip's price table: a row per room type sold, a column per season (its colour, its dates, and its Change dates,
-// Rename and Remove), the price per person typed in each cell, one Save for the whole table. A blank cell is "Not sold"
-// for that season; a new row comes from the room types not shown yet, and removing a row clears it from every season.
-// Seasons that share a name and prices (Regular around Christmas) are one column. Without quotes:edit it is only to
-// read. The page gives it a new key when the trip is read again, so it starts from what was saved.
-import { paiseFromRupeesText } from "@travel-crm/contracts/kernel";
+// A group trip's price table: a row per room type sold, a column per season (its colour, its dates and its menu), the
+// price per person typed in each cell, one Save for the whole table. A blank cell is "Not sold" for that season; a new
+// row comes from the room types not shown yet, and removing a row clears it from every season. Seasons that share a name
+// and prices (Regular around Christmas) are one column, in `seasonColumns`' order (the calendar's colours follow it).
+// While the table has changes not saved, season changes are off (they read the trip again), and Undo changes goes back.
+// Without quotes:edit it is only to read. The page gives it a new key when the trip is read again.
 import {
   roomTypes,
-  savePriceTableInput,
   seasonColumns,
   type PackageDetail,
-  type RoomPrices,
   type RoomType,
   type SeasonColumn,
 } from "@travel-crm/contracts/quotes";
-import { EllipsisIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { PlusIcon, Trash2Icon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ConfirmDialog } from "@/components/confirm-dialog";
-import { groupedRupees, rupees, rupeesFieldText } from "@/components/forms/money-field";
+import { rupees } from "@/components/forms/money-field";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -30,60 +27,37 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { InputGroup, InputGroupAddon, InputGroupInput, InputGroupText } from "@/components/ui/input-group";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { useHolds } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
 import { WriteHint } from "@/subscription/write-hint";
-import { RenameSeasonDialog } from "./rename-season-dialog";
+import { PriceCell } from "./price-cell";
+import { cellKey, tableInput, tableStart, type TableProblem } from "./price-table-input";
 import { seasonTint } from "./season-colours";
-import { ChangeDatesDialog } from "./season-dialog";
+import { SeasonColumnDialogs } from "./season-column-dialogs";
+import { SeasonColumnMenu, type ColumnAction } from "./season-column-menu";
 import { useSeasonDates } from "./season-dates";
 import { usePackageChanges, usePackageColumnChanges } from "./use-packages";
 
-type Problem = "noPrice" | "invalid" | "noRoom";
-type ColumnAction = "dates" | "rename" | "remove";
-
-const cellKey = (column: SeasonColumn, room: RoomType) => `${column.key}|${room}`;
-
-/** A price in a cell, in rupees; the box says what empty means. */
-function PriceCell({
-  value,
-  label,
-  notSold,
-  onChange,
-}: {
-  value: string;
-  label: string;
-  notSold: string;
-  onChange: (text: string) => void;
-}) {
-  return (
-    <InputGroup>
-      <InputGroupAddon>
-        <InputGroupText aria-hidden="true">₹</InputGroupText>
-      </InputGroupAddon>
-      <InputGroupInput
-        aria-label={label}
-        value={value}
-        placeholder={notSold}
-        inputMode="decimal"
-        autoComplete="off"
-        className="numbers text-right"
-        onChange={(event) => {
-          onChange(event.target.value);
-        }}
-        onBlur={() => {
-          onChange(groupedRupees(value));
-        }}
-      />
-    </InputGroup>
-  );
+/** What a column's menu offers: its dates when it is one range; else "no end date" on the trip's last season, if it ends. */
+function actionsOf(column: SeasonColumn, tripEnd: string): ColumnAction[] {
+  const last = column.ranges.at(-1);
+  if (column.ranges.length === 1) return ["dates", "rename", "remove"];
+  return last !== undefined && !column.open && last.endsOn === tripEnd
+    ? ["noEnd", "rename", "remove"]
+    : ["rename", "remove"];
 }
 
-export function PriceTable({ detail }: { detail: PackageDetail }) {
+export function PriceTable({
+  detail,
+  onEdited,
+}: {
+  detail: PackageDetail;
+  /** Tells the page whether the table holds changes not saved. */
+  onEdited: (edited: boolean) => void;
+}) {
   const t = useTranslations("packages.prices");
   const tRooms = useTranslations("packages.form.roomTypeNames");
   const describeDates = useSeasonDates();
@@ -91,76 +65,53 @@ export function PriceTable({ detail }: { detail: PackageDetail }) {
   const access = useWriteAccess("change");
   const hintId = `${useId()}-write`;
   const { savePriceTable } = usePackageChanges();
-  const { removeSeasons } = usePackageColumnChanges();
+  const { saveSeasons } = usePackageColumnChanges();
   const columns = useMemo(() => seasonColumns(detail.seasons), [detail.seasons]);
-  const start = useMemo(() => {
-    const rows = roomTypes.filter(
-      (room) => detail.roomTypes.includes(room) || columns.some((c) => c.prices[room] !== null),
-    );
-    const cells: Record<string, string> = {};
-    for (const column of columns) {
-      for (const room of rows) {
-        const price = column.prices[room];
-        cells[cellKey(column, room)] = price === null ? "" : rupeesFieldText(price);
-      }
-    }
-    return { rows, cells };
-  }, [columns, detail.roomTypes]);
+  const tripEnd = detail.seasons.reduce((latest, season) => (season.endsOn > latest ? season.endsOn : latest), "");
+  const start = useMemo(() => tableStart(detail, columns), [detail, columns]);
   const [rows, setRows] = useState<RoomType[]>(start.rows);
   const [cells, setCells] = useState(start.cells);
-  const [problem, setProblem] = useState<Problem | null>(null);
+  const [problem, setProblem] = useState<TableProblem | null>(null);
+  const edited = JSON.stringify({ rows, cells }) !== JSON.stringify(start);
   // A room priced in a season but not yet sold (a first season of a new trip) is saved with the table too.
-  const changed =
-    JSON.stringify({ rows, cells }) !== JSON.stringify(start) || rows.some((room) => !detail.roomTypes.includes(room));
-  // The column a dialog is about stays after it closes, so the dialog can finish closing.
+  const canSave = edited || rows.some((room) => !detail.roomTypes.includes(room));
+  useEffect(() => {
+    onEdited(edited);
+  }, [edited, onEdited]);
   const [target, setTarget] = useState<SeasonColumn | null>(null);
   const [action, setAction] = useState<ColumnAction | null>(null);
   const opener = useRef<HTMLElement | null>(null);
   const remaining = roomTypes.filter((room) => !rows.includes(room));
 
   const save = () => {
-    const unreadable = rows.some((room) =>
-      columns.some((column) => {
-        const text = (cells[cellKey(column, room)] ?? "").trim();
-        return text !== "" && paiseFromRupeesText(text) === null;
-      }),
-    );
-    if (unreadable) {
-      setProblem("invalid");
-      return;
-    }
-    const priceOf = (column: SeasonColumn, room: RoomType) => {
-      const text = (cells[cellKey(column, room)] ?? "").trim();
-      return rows.includes(room) && text !== "" ? paiseFromRupeesText(text) : null;
-    };
-    const parsed = savePriceTableInput.safeParse({
-      packageId: detail.id,
-      roomTypes: rows,
-      columns: columns.map((column) => ({
-        seasonIds: column.seasonIds,
-        label: column.label,
-        prices: Object.fromEntries(roomTypes.map((room) => [room, priceOf(column, room)])) as RoomPrices,
-      })),
-    });
-    if (!parsed.success) {
-      setProblem(parsed.error.issues.some((issue) => issue.path[0] === "roomTypes") ? "noRoom" : "noPrice");
-      return;
-    }
-    setProblem(null);
-    savePriceTable.mutate(parsed.data, { onSuccess: () => toast.success(t("saved")) });
+    const made = tableInput(detail.id, columns, rows, cells);
+    setProblem(made.ok ? null : made.problem);
+    if (made.ok) savePriceTable.mutate(made.input, { onSuccess: () => toast.success(t("saved")) });
   };
-
   const choose = (column: SeasonColumn, next: ColumnAction) => {
+    const piece = column.seasonIds.at(-1);
+    const range = column.ranges.at(-1);
+    if (next === "noEnd" && piece !== undefined && range !== undefined) {
+      saveSeasons.mutate(
+        [
+          {
+            packageId: detail.id,
+            seasonId: piece,
+            label: column.label,
+            ...range,
+            endsOn: "2099-12-31",
+            prices: column.prices,
+          },
+        ],
+        { onSuccess: () => toast.success(t("noEndSaved")) },
+      );
+      return;
+    }
     setTarget(column);
     setAction(next);
   };
-  const close = (open: boolean) => {
-    if (!open) setAction(null);
-  };
 
-  if (columns.length === 0) {
-    return <p className="text-muted-foreground">{t("noSeasons")}</p>;
-  }
+  if (columns.length === 0) return <p className="text-muted-foreground">{t("noSeasons")}</p>;
   return (
     <div className="flex flex-col gap-4">
       <Table>
@@ -177,47 +128,18 @@ export function PriceTable({ detail }: { detail: PackageDetail }) {
                       <p className="text-caption font-normal">{describeDates(column, columns.length)}</p>
                     </div>
                     {mayEdit && (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            aria-label={t("seasonMenu", { season: column.label })}
-                            onClick={(event) => {
-                              opener.current = event.currentTarget;
-                            }}
-                          >
-                            <EllipsisIcon aria-hidden="true" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            disabled={!access.allowed}
-                            onSelect={() => {
-                              choose(column, "dates");
-                            }}
-                          >
-                            {t("changeDates")}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            disabled={!access.allowed}
-                            onSelect={() => {
-                              choose(column, "rename");
-                            }}
-                          >
-                            {t("rename")}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            variant="destructive"
-                            disabled={!access.allowed}
-                            onSelect={() => {
-                              choose(column, "remove");
-                            }}
-                          >
-                            {t("remove")}
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <SeasonColumnMenu
+                        season={column.label}
+                        actions={actionsOf(column, tripEnd)}
+                        disabled={edited || !access.allowed}
+                        describedBy={edited ? hintId : undefined}
+                        onOpen={(button) => {
+                          opener.current = button;
+                        }}
+                        onChoose={(next) => {
+                          choose(column, next);
+                        }}
+                      />
                     )}
                   </div>
                 </TableHead>
@@ -237,13 +159,12 @@ export function PriceTable({ detail }: { detail: PackageDetail }) {
                 {tRooms(room)}
               </TableHead>
               {columns.map((column) => {
-                const text = cells[cellKey(column, room)] ?? "";
                 const price = column.prices[room];
                 return (
                   <TableCell key={column.key} className="numbers">
                     {mayEdit ? (
                       <PriceCell
-                        value={text}
+                        value={cells[cellKey(column, room)] ?? ""}
                         label={t("cell", { room: tRooms(room), season: column.label })}
                         notSold={t("notSold")}
                         onChange={(next) => {
@@ -278,10 +199,15 @@ export function PriceTable({ detail }: { detail: PackageDetail }) {
       </Table>
       {problem !== null && (
         <Alert variant="destructive">
-          <AlertDescription>{t(`problems.${problem}`)}</AlertDescription>
+          <AlertDescription>
+            {problem.kind === "noPrice"
+              ? t("problems.noPrice", { season: problem.season })
+              : t(`problems.${problem.kind}`)}
+          </AlertDescription>
         </Alert>
       )}
       <RefusalAlert error={savePriceTable.error} />
+      <RefusalAlert error={saveSeasons.error} />
       {mayEdit && (
         <div>
           <div className="flex flex-wrap gap-3">
@@ -306,49 +232,40 @@ export function PriceTable({ detail }: { detail: PackageDetail }) {
               </DropdownMenuContent>
             </DropdownMenu>
             <Button
-              disabled={!changed || savePriceTable.isPending || !access.allowed}
+              disabled={!canSave || savePriceTable.isPending || !access.allowed}
               aria-describedby={access.allowed ? undefined : hintId}
               onClick={save}
             >
               {savePriceTable.isPending && <Spinner aria-hidden="true" />}
               {savePriceTable.isPending ? t("saving") : t("save")}
             </Button>
+            {edited && (
+              <Button
+                variant="outline"
+                disabled={savePriceTable.isPending}
+                onClick={() => {
+                  setRows(start.rows);
+                  setCells(start.cells);
+                  setProblem(null);
+                }}
+              >
+                {t("undo")}
+              </Button>
+            )}
           </div>
-          <WriteHint id={hintId} hint={access.hint} />
+          <WriteHint id={hintId} hint={access.hint ?? (edited ? t("unsavedHint") : null)} />
         </div>
       )}
       {target !== null && (
-        <>
-          <ChangeDatesDialog
-            packageId={detail.id}
-            column={target}
-            held={{ open: action === "dates", setOpen: close }}
-            returnFocusTo={opener}
-          />
-          <RenameSeasonDialog
-            packageId={detail.id}
-            column={target}
-            held={{ open: action === "rename", setOpen: close }}
-            returnFocusTo={opener}
-          />
-          <ConfirmDialog
-            open={action === "remove"}
-            onOpenChange={close}
-            title={t("removeTitle", { season: target.label })}
-            description={t("removeDescription")}
-            action={t("remove")}
-            request={removeSeasons}
-            returnFocusTo={opener}
-            onConfirm={() => {
-              removeSeasons.mutate(target.seasonIds, {
-                onSuccess: () => {
-                  toast.success(t("removed"));
-                  setAction(null);
-                },
-              });
-            }}
-          />
-        </>
+        <SeasonColumnDialogs
+          packageId={detail.id}
+          column={target}
+          action={action}
+          onClose={() => {
+            setAction(null);
+          }}
+          returnFocusTo={opener}
+        />
       )}
     </div>
   );
