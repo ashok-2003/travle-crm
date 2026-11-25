@@ -66,8 +66,11 @@ export interface GenerationStart {
 export interface GenerationEnd {
   output?: unknown;
   model?: string;
-  /** `input` is the uncached part; cached input goes apart under the key Langfuse prices at a tenth. */
-  usage?: { input: number; output: number; input_cached_tokens?: number };
+  /**
+   * `input` is the uncached part, cached input apart under the key Langfuse prices at a tenth; `output` is the words,
+   * reasoning apart under Langfuse's key for it. Each token is counted once.
+   */
+  usage?: { input: number; output: number; input_cached_tokens?: number; output_reasoning_tokens?: number };
   level?: TraceLevel;
   statusMessage?: string;
 }

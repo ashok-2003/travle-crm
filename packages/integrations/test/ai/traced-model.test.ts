@@ -75,6 +75,58 @@ describe("the traced AI model", () => {
     ]);
   });
 
+  it("shows the model's reasoning summary as its thinking, and counts its reasoning tokens apart from the words", async () => {
+    const tracing = createMemoryTracing();
+    const call = { id: "call_1", name: "quote", arguments: '{"trip_id":"T1"}' };
+    const answers = [
+      {
+        ok: true as const,
+        text: "₹12,500 per person.",
+        model: "m",
+        inputTokens: 100,
+        outputTokens: 700,
+        reasoningTokens: 640,
+        reasoningSummary: "**Pricing**\n\nThe quote tool gave the price.",
+      },
+      {
+        ok: true as const,
+        text: "",
+        model: "m",
+        inputTokens: 10,
+        outputTokens: 5,
+        toolCalls: [call],
+        reasoningSummary: "**Look it up**",
+      },
+    ];
+    const none = { ok: false as const, reason: "unavailable" as const };
+    const inner: AiModel = { configured: true, complete: () => Promise.resolve(answers.shift() ?? none) };
+    const traced = withTracing(inner, tracing);
+    await traced.complete(request);
+    await traced.complete(request);
+    expect(tracing.generations.map((generation) => generation.end)).toEqual([
+      {
+        output: {
+          role: "assistant",
+          content: "₹12,500 per person.",
+          thinking: [{ type: "thinking", content: "**Pricing**\n\nThe quote tool gave the price." }],
+        },
+        model: "m",
+        // Output apart from reasoning, as Langfuse prices them (output_reasoning_tokens): each token counted once.
+        usage: { input: 100, output: 60, output_reasoning_tokens: 640 },
+      },
+      {
+        output: {
+          role: "assistant",
+          content: "",
+          thinking: [{ type: "thinking", content: "**Look it up**" }],
+          tool_calls: [{ id: "call_1", type: "function", function: { name: "quote", arguments: '{"trip_id":"T1"}' } }],
+        },
+        model: "m",
+        usage: { input: 10, output: 5 },
+      },
+    ]);
+  });
+
   it("names a call by its answer's schema too", async () => {
     const tracing = createMemoryTracing();
     const inner = createMemoryAiModel();
