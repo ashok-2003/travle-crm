@@ -1,6 +1,6 @@
 // A group trip for the AI change assistant's tests: "Hill town 4N/5D", sold in double and triple rooms, a regular price
 // with no end split around a Christmas season, Friday departures (one cancelled), notes, details and an itinerary.
-import { OPEN_SEASON_END, type RoomPrices } from "@travel-crm/contracts/quotes";
+import { noRoomPrices, OPEN_SEASON_END, type RoomPrices } from "@travel-crm/contracts/quotes";
 import type { OrgTx } from "@travel-crm/db";
 import { createMemoryAiModel } from "@travel-crm/integrations/ai";
 import { createMemoryStorage } from "@travel-crm/integrations/storage";
@@ -14,14 +14,7 @@ import type { World } from "../../bookings/support.js";
 
 export const NOW = new Date("2026-11-25T06:30:00Z");
 export const TODAY = parseCalendarDate("2026-11-25");
-export const none: RoomPrices = {
-  single: null,
-  double: null,
-  triple: null,
-  quad: null,
-  child_bed: null,
-  child_no_bed: null,
-};
+export const none = noRoomPrices;
 export const regularPrices: RoomPrices = { ...none, double: 699_900, triple: 599_900 };
 
 export const reasonOf = (promise: Promise<unknown>) =>

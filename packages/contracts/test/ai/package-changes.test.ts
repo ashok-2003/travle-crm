@@ -8,7 +8,7 @@ import {
 } from "../../src/ai/package-changes.js";
 
 const id = "0192f3a0-0000-7000-8000-000000000001";
-const common = { id: "c1", evidence: [{ ref: "L1", text: "Double 6,999" }], flags: [] };
+const common = { id: "c1", evidence: [{ ref: "L1", text: "Double 6,999", kind: "message" }], flags: [] };
 const none = { single: null, double: null, triple: null, quad: null, child_bed: null, child_no_bed: null };
 const prices = { ...none, double: 699900 };
 const departure = { departureId: id, startDate: "2027-01-05" };

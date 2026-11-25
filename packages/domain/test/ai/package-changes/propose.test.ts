@@ -4,6 +4,7 @@
 import { MONTHLY_AI_LIMIT } from "../../../src/ai/usage.js";
 import { createMemoryAiModel, type AiModel } from "@travel-crm/integrations/ai";
 import { createMemoryPrompts } from "@travel-crm/integrations/prompts";
+import { createMemoryTracing } from "@travel-crm/integrations/tracing";
 import { createMemoryStorage } from "@travel-crm/integrations/storage";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { confirmAiInput, requestRateSheetUpload, saveAiSettings } from "../../../src/ai/index.js";
@@ -64,7 +65,12 @@ describe("proposing changes to a trip", () => {
     return { model, wrapped };
   }
 
-  async function setUp(options: { prompts?: ReturnType<typeof createMemoryPrompts> } = {}) {
+  async function setUp(
+    options: {
+      prompts?: ReturnType<typeof createMemoryPrompts>;
+      tracing?: ReturnType<typeof createMemoryTracing>;
+    } = {},
+  ) {
     const trip = await aTrip(world);
     const { model, wrapped } = counted();
     const propose = (
@@ -72,7 +78,7 @@ describe("proposing changes to a trip", () => {
       member: MemberAccess = world.manager,
     ) =>
       proposePackageChanges(
-        { db: world.db, model: wrapped, files: files(), prompts: options.prompts },
+        { db: world.db, model: wrapped, files: files(), prompts: options.prompts, tracing: options.tracing },
         member,
         {
           packageId: trip.packageId,
@@ -107,7 +113,7 @@ describe("proposing changes to a trip", () => {
       startsOn: "2027-03-01",
       endsOn: "2027-03-10",
       prices: { double: 749_900, triple: null },
-      evidence: [{ ref: "L1", text: "Holi 1 Mar to 10 Mar double 7499" }],
+      evidence: [{ ref: "L1", text: "Holi 1 Mar to 10 Mar double 7499", kind: "message" }],
     });
     expect(proposal.changes[1]).toMatchObject({ dates: ["2027-01-08", "2027-01-15"] });
     expect(proposal.ignored).toEqual(["Spiti 6N/7D prices"]);
@@ -183,35 +189,71 @@ describe("proposing changes to a trip", () => {
     }
   });
 
-  it("brings the AI's questions back, stores nothing as applied, and sends the answers on the next run", async () => {
+  it("brings the AI's questions back, then sends each answer with its question apart, grounding on the answer alone", async () => {
     const { trip, model, propose } = await setUp();
     model.answer(
       JSON.stringify({
         changes: [],
-        questions: [{ text: "Until when do the Holi prices run?", choices: ["10 Mar", "Until changed"] }],
+        questions: [{ text: "Until 10 Mar, or until changed?", choices: ["10 Mar", "Until changed"] }],
       }),
     );
     const asked = await propose();
     expect(asked.changes).toEqual([]);
     expect(asked.questions).toEqual([
-      { id: "q1", text: "Until when do the Holi prices run?", choices: ["10 Mar", "Until changed"] },
+      { id: "q1", text: "Until 10 Mar, or until changed?", choices: ["10 Mar", "Until changed"] },
     ]);
     const [run] = await runsOf(trip.packageId);
     expect(run).toMatchObject({ status: "proposed", appliedAt: null });
 
-    model.answer(canned);
-    await propose({ answers: [{ questionId: "q1", answer: "10 Mar" }] });
-    expect(model.requests[1]?.messages[1]?.content).toContain("A1 (Until when do the Holi prices run?) 10 Mar");
+    const holi = (answer: string) => {
+      model.answer(
+        JSON.stringify({
+          changes: [
+            {
+              kind: "season_add",
+              label: "Holi",
+              from: "1 Mar",
+              to: "10 Mar",
+              prices: [{ room: "double", printed: "7,499" }],
+              lines: ["L1", "A1"],
+            },
+          ],
+        }),
+      );
+      return propose({ text: "Holi from 1 Mar double 7499", answers: [{ questionId: "q1", answer }] });
+    };
+    // "yes" prints no date: the question's "10 Mar" is never evidence.
+    const yes = await holi("yes");
+    const user = model.requests[1]?.messages[1]?.content ?? "";
+    expect(user).toContain("by the answer that replies:\n<data>A1 Until 10 Mar, or until changed?</data>");
+    expect(user).toContain("answers to your questions:\n<data>A1 yes</data>");
+    expect(yes.changes[0]).toMatchObject({
+      endsOn: "2027-03-10",
+      flags: ["not_in_message"],
+      evidence: [expect.objectContaining({ ref: "L1" }), { ref: "A1", text: "yes", kind: "answer" }],
+    });
   });
 
-  it("runs on the Langfuse prompt when there is one", async () => {
+  it("runs on the Langfuse prompt when there is one, and links its version to the traced call", async () => {
     const prompts = createMemoryPrompts([
       { name: "package-changes/system", version: 3, label: "production", text: "The prompt kept in Langfuse." },
     ]);
-    const { model, propose } = await setUp({ prompts });
+    const tracing = createMemoryTracing();
+    const { model, propose } = await setUp({ prompts, tracing });
     model.answer(canned);
     await propose();
     expect(model.requests[0]?.messages[0]?.content).toBe("The prompt kept in Langfuse.");
+    expect(tracing.turns[0]?.start).toMatchObject({
+      name: "package-changes.propose",
+      prompt: { name: "package-changes/system", version: 3 },
+      metadata: { promptVersion: "langfuse:package-changes/system@3" },
+    });
+
+    // The built-in text is none of Langfuse's: no prompt is linked.
+    const builtIn = await setUp({ tracing });
+    builtIn.model.answer(canned);
+    await builtIn.propose();
+    expect(tracing.turns[1]?.start.prompt).toBeUndefined();
   });
 
   it("reads a PDF's lines, sends photos as pictures, and cites a photo's line as the AI read it", async () => {
@@ -239,7 +281,10 @@ describe("proposing changes to a trip", () => {
     );
     const proposal = await propose({ text: "", attachmentIds: [photo] });
     expect(model.requests[1]?.messages[1]?.attachments).toHaveLength(1);
-    expect(proposal.changes[0]).toMatchObject({ evidence: [{ ref: "P1.L2", text: "8 Jan new batch" }], flags: [] });
+    expect(proposal.changes[0]).toMatchObject({
+      evidence: [{ ref: "P1.L2", text: "8 Jan new batch", kind: "photo" }],
+      flags: [],
+    });
 
     // Another member's upload, or a PDF beside a photo, is refused.
     expect(await reasonOf(propose({ attachmentIds: [photo] }, { ...world.manager, userId: world.seller.userId }))).toBe(

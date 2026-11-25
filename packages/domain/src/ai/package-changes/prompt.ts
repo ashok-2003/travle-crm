@@ -1,7 +1,9 @@
 // What the AI change assistant asks the model: the prompt from Langfuse (package-changes/system, label production) or
-// the built-in text, then the trip as it is and what the agency gave, each fenced as data.
-import type { AiMessage, AiPart } from "@travel-crm/integrations/ai";
+// the built-in text, then the trip as it is and what the agency gave, each fenced as data; and the call itself, traced
+// as one turn linked to the Langfuse prompt it ran.
+import type { AiMessage, AiModel, AiPart, AiResult } from "@travel-crm/integrations/ai";
 import type { AiPrompts } from "@travel-crm/integrations/prompts";
+import type { AiTracing } from "@travel-crm/integrations/tracing";
 import { formatShortDay, type CalendarDate } from "../../kernel/index.js";
 import { fenced } from "../fenced.js";
 import { langfusePromptAt } from "../natural/prompt-source.js";
@@ -29,6 +31,8 @@ export interface ChangesRequest {
   message: readonly [string, string][];
   pdf: readonly [string, string][];
   answers: readonly [string, string][];
+  /** The questions the answers reply to, by the answer's ref. */
+  asked: readonly [string, string][];
   photos: readonly AiPart[];
 }
 
@@ -47,6 +51,11 @@ export function changesMessages(request: ChangesRequest): AiMessage[] {
       : [
           `${String(request.photos.length)} photo(s) attached, in order: P1${request.photos.length > 1 ? ` to P${String(request.photos.length)}` : ""}.`,
         ]),
+    ...(request.asked.length === 0
+      ? []
+      : [
+          `The questions you asked before, by the answer that replies:\n<data>${fenced(numbered(request.asked))}</data>`,
+        ]),
     ...(request.answers.length === 0
       ? []
       : [`The agency's answers to your questions:\n<data>${fenced(numbered(request.answers))}</data>`]),
@@ -60,4 +69,49 @@ export function changesMessages(request: ChangesRequest): AiMessage[] {
       ...(request.photos.length === 0 ? {} : { attachments: request.photos }),
     },
   ];
+}
+
+/** Who asks, about which trip, and what was attached: the trace's ids and counts. */
+export interface AskContext {
+  organizationId: string;
+  userId: string;
+  packageId: string;
+  photos: number;
+  pdfLines: number;
+}
+
+/**
+ * The one model call. Traced (when tracing is on) as a turn of its own, linked to the Langfuse prompt it ran so the
+ * generation shows that prompt's version; the built-in text is none of Langfuse's.
+ */
+export function askForChanges(
+  model: AiModel,
+  tracing: AiTracing | undefined,
+  prompt: NaturalPrompt,
+  messages: readonly AiMessage[],
+  context: AskContext,
+): Promise<AiResult> {
+  // Opaque: the agency's id, never a person's.
+  const call = () =>
+    model.complete({ feature: "change_package", messages, json: true, maxTokens: 6000, user: context.organizationId });
+  if (tracing === undefined) return call();
+  const { source } = prompt;
+  return tracing.turn(
+    {
+      name: "package-changes.propose",
+      sessionId: `package-changes:${context.packageId}`,
+      organizationId: context.organizationId,
+      userId: context.userId,
+      tags: ["package-changes"],
+      ...(source === undefined ? {} : { prompt: { name: source.name, version: source.version } }),
+      metadata: {
+        packageId: context.packageId,
+        photos: context.photos,
+        pdfLines: context.pdfLines,
+        promptVersion: prompt.version,
+        promptLabel: source?.label ?? null,
+      },
+    },
+    call,
+  );
 }

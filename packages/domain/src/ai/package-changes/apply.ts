@@ -1,11 +1,12 @@
 // Apply (the AI change assistant): the ticked changes of the member's own proposed run, in one transaction under the trip's
 // lock. Everything is checked again first: the run is unused, every id is the run's, no change is one the member's role
-// may not make, and the trip is exactly as it was shown (its stamp). Then the trip's own operations run, the schedule's
-// departures follow a changed schedule, and the run keeps what was replaced for Undo all, with one audit entry.
-import type { ApplyPackageChangesInput } from "@travel-crm/contracts/ai";
+// may not make, the trip is exactly as it was shown (its stamp), and a departure to cancel took no booking since. Then the
+// trip's own operations run, the schedule's departures follow a changed schedule, and the run keeps what changed and what
+// it replaced for Undo all, with one audit entry.
+import type { ApplyPackageChangesInput, PackageChange } from "@travel-crm/contracts/ai";
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../../audit/index.js";
-import { generatePackageDepartures, reconcilePackageDepartures } from "../../departures/index.js";
+import { generatePackageDepartures, reconcilePackageDepartures, seatsSoldAndHeld } from "../../departures/index.js";
 import type { MemberAccess } from "../../identity/index.js";
 import { DomainError, type CalendarDate } from "../../kernel/index.js";
 import { findPackageForChange, seasonsOf } from "../../quotes/index.js";
@@ -13,8 +14,7 @@ import { refuse } from "../refusals.js";
 import { applyDepartures, applySeasons, applySelling, applyTripFields } from "./apply-steps.js";
 import { departureStates, departuresTouched } from "./departure-states.js";
 import { changeRights, rightNeeded, type ChangeRights } from "./ground.js";
-import { jsonOf } from "./json.js";
-import { assertUnchanged, proposalOf, stampNow } from "./runs.js";
+import { assertUnchanged, jsonOf, notFound, proposalOf, stampNow, tripChangedSince } from "./runs.js";
 
 export interface ApplyContext {
   today: CalendarDate;
@@ -24,8 +24,6 @@ export interface ApplyContext {
   /** Who hears of a departure a schedule change left alone, when its leads have no owner. */
   managerUserIds: readonly string[];
 }
-
-const notFound = () => new DomainError("NOT_FOUND", "NOT_FOUND", "Not found");
 
 /** Refuses a change flagged not allowed when proposed, or one the member's role no longer allows. */
 function assertAllowed(
@@ -37,6 +35,16 @@ function assertAllowed(
     return change.flags.includes("not_allowed") || (right !== null && !rights[right]);
   });
   if (refused) throw new DomainError("FORBIDDEN", "MISSING_PERMISSION", "Your role doesn't allow one of these changes");
+}
+
+/** A departure to cancel that had no bookings when shown must still have none: one taken since changes the trip. */
+async function assertNoSalesSince(tx: OrgTx, chosen: readonly PackageChange[], now: Date): Promise<void> {
+  const ids = chosen.flatMap((change) =>
+    change.kind === "departure_cancel" && !change.flags.includes("has_bookings") ? [change.departureId] : [],
+  );
+  if (ids.length === 0) return;
+  const sales = await seatsSoldAndHeld(tx, ids, now);
+  if ([...sales.values()].some((one) => one.sold + one.held > 0)) throw tripChangedSince();
 }
 
 export async function applyPackageChanges(
@@ -66,6 +74,7 @@ export async function applyPackageChanges(
   const rights = changeRights(access, context.departuresOnPlan);
   assertAllowed(chosen, rights);
   await assertUnchanged(tx, trip.id, proposal.from, run.tripStamp, context.now);
+  await assertNoSalesSince(tx, chosen, context.now);
 
   const seasons = await seasonsOf(tx, trip.id);
   const departuresBefore = await departureStates(tx, trip.id);
@@ -76,11 +85,12 @@ export async function applyPackageChanges(
     await reconcilePackageDepartures(tx, access, trip.id, context.today, context.managerUserIds);
     await generatePackageDepartures(tx, access, trip.id, context.today);
   }
-  await applyDepartures(tx, access, trip.id, chosen, context);
+  const unchanged = await applyDepartures(tx, access, trip.id, chosen, context);
   const selling = await applySelling(tx, access, trip, chosen, context.today);
   const touched = departuresTouched(departuresBefore, await departureStates(tx, trip.id));
 
-  const applied = chosen.map((change) => change.id);
+  // Only what changed counts: days to add that someone added meanwhile (past the days the stamp reads) don't.
+  const applied = chosen.flatMap((change) => (unchanged.has(change.id) ? [] : [change.id]));
   await tx.packageChangeRun.update({
     where: { id: input.runId },
     data: {

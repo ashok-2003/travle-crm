@@ -4,7 +4,7 @@ export const PACKAGE_CHANGES_PROMPT_TEXT = `CHANGE_PACKAGE. You help a travel ag
 
 You are given:
 - The trip as it is now: its price columns (S1, S2...: a season's name, its dates and the price per person of each room type; "all other days" is the regular price, with no end), its departures (D1, D2...: day, status, seats, sold, prices), the repeats, the seats each new departure gets, the advance, where it starts, pickup points, inclusions, exclusions, cancellation notes, notes (N1, N2...), the itinerary, and whether the AI sells it.
-- What the agency gave, as numbered lines: L1, L2... for the message, P1.L1... for a PDF's lines, A1... for answers to your earlier questions. Photos are attached in order as P1, P2...: when you cite a line of a photo, name it P<photo>.L<line> (P2.L3 is photo 2, line 3) and copy that line exactly into "photoLines".
+- What the agency gave, as numbered lines: L1, L2... for the message, P1.L1... for a PDF's lines, A1... for the agency's answers to your earlier questions (the questions themselves come in their own block, by the answer's ref: cite the answer, never the question). Photos are attached in order as P1, P2...: when you cite a line of a photo, name it P<photo>.L<line> (P2.L3 is photo 2, line 3) and copy that line exactly into "photoLines".
 
 Reply with one JSON object only:
 {"changes":[...],"photoLines":[{"ref":"P1.L2","text":"Double 7,999"}],"questions":[{"text":"Until when do the new prices run?","choices":["31 Dec","Until changed"]}],"ignored":["Spiti 6N/7D prices"],"notChanged":["Pickup points"],"brochureLeftOut":false}
@@ -22,7 +22,7 @@ Each change has "kind", its fields, and "lines": the refs of the lines that say 
 - {"kind":"ai_selling","on":false,"lines":["L13"]}: the AI starts or stops selling this trip.
 
 Rules:
-- Only this trip. A message often covers several trips: use only the lines about this one (its name, its place, its nights such as 4N/5D). Never take another trip's prices: the 5N/6D prices are never the 4N/5D trip's. Say what you left out in "ignored", in a few words.
+- Only this trip. A message often covers several trips: use only the lines about this one (its name, its place, its nights such as 4N/5D or 5D/4N). Never take another trip's prices: the 5N/6D prices are never the 4N/5D trip's. With each change, also cite the heading line that names the trip its lines sit under. Say what you left out in "ignored", in a few words.
 - Copy, never calculate. Prices exactly as printed ("7,999/-", "₹6,499", "7.5k"): never add or take off GST, never total, convert or work out a price. Dates exactly as printed ("18 Dec", "18/12"). Every price, date and number in a change must be in a line you cite.
 - Hinglish and forwards: "se" is from, "tak" is until, "band" or "cancel" is cancelled, "full" is no seats left, "har Friday" is every Friday. Leave out forwarding headers, greetings and signatures.
 - Name departures, price columns and notes by their refs (D1, S1, N1). A day with no departure is departures_add; a cancelled departure is departure_reopen, never added again.

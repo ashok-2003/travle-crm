@@ -1,5 +1,5 @@
-// What grounding shares: a change being built (its fields and its flags), and the checks that a price, a number or another
-// trip's nights are printed in the lines the AI cites.
+// What grounding shares: a change being built (its fields and its flags), and the checks that a price, a number or a
+// room are printed in the lines the AI cites.
 import type { PackageChange, packageChangeFlags } from "@travel-crm/contracts/ai";
 import { MAX_QUOTE_PAISE, type RoomPrices, type RoomType } from "@travel-crm/contracts/quotes";
 import type { CalendarDate } from "../../kernel/index.js";
@@ -21,18 +21,25 @@ export interface Grounding {
   texts: readonly string[];
 }
 
-export const noPrices: RoomPrices = {
-  single: null,
-  double: null,
-  triple: null,
-  quad: null,
-  child_bed: null,
-  child_no_bed: null,
+export const flagged = (grounded: boolean): ChangeFlag[] => (grounded ? [] : ["not_in_message"]);
+
+/** How a message names each room type. */
+const ROOM_WORDS: Record<RoomType, RegExp> = {
+  single: /\b(?:single|sgl)\b/i,
+  double: /\b(?:double|dbl|twin)\b/i,
+  triple: /\b(?:triple|tpl)\b/i,
+  quad: /\bquad(?:ruple)?\b/i,
+  child_bed: /\bchild(?:ren)?\s+(?:with\s+)?(?:extra\s+)?bed\b|\bcwb\b/i,
+  child_no_bed: /\bchild(?:ren)?\s+(?:without|no|w\/o)\s+bed\b|\bcnb\b/i,
 };
+
+/** Whether a cited line names this room type. */
+const roomNamed = (room: RoomType, texts: readonly string[]) => texts.some((text) => ROOM_WORDS[room].test(text));
 
 /**
  * Room prices over `base`: each printed price as paise, null where the AI says a room isn't sold, rooms the trip doesn't
- * sell left out. Grounded only when every price is one amount printed in a cited line.
+ * sell left out. Grounded only when every price is one amount printed in a cited line, and every room taken away is one
+ * a cited line names.
  */
 export function pricesFrom(
   printed: readonly { room: RoomType; printed: string | null }[],
@@ -45,6 +52,7 @@ export function pricesFrom(
   for (const one of printed) {
     if (sold.length > 0 && !sold.includes(one.room)) continue;
     if (one.printed === null) {
+      if (base[one.room] !== null && !roomNamed(one.room, texts)) grounded = false;
       prices[one.room] = null;
       continue;
     }
@@ -72,15 +80,6 @@ export const numberInTexts = (number: number, texts: readonly string[]) =>
 export function numbersBacked(value: string, before: string, texts: readonly string[]): boolean {
   const had = numbersIn(before);
   return [...numbersIn(value)].every((number) => had.has(number) || texts.some((text) => numbersIn(text).has(number)));
-}
-
-/** "4N/5D", "4N5D", "4 nights 5 days": the nights a text names. */
-const NIGHTS_AND_DAYS = /(\d{1,2})\s*(?:n|nights?)\s*[/&,-]?\s*(\d{1,2})\s*(?:d|days?)\b/gi;
-
-/** Whether a cited line names a trip of other nights (the 5N/6D prices are never the 4N/5D trip's). */
-export function namesOtherTrip(texts: readonly string[], nights: number | null): boolean {
-  if (nights === null) return false;
-  return texts.some((text) => [...text.matchAll(NIGHTS_AND_DAYS)].some((match) => Number(match[1]) !== nights));
 }
 
 /** A label as a season takes one: trimmed, at most 60 characters. */

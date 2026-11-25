@@ -1,14 +1,22 @@
 // Turning the AI's answer into the changes a member ticks: each built by code from the lines it cites (ground-trip.ts,
-// ground-departures.ts), with the cited lines as evidence and the flags that start it unticked: a value not printed in
-// them, a line about another trip's nights, a change the member's role may not make. A change naming nothing real, or
-// changing nothing, is dropped.
-import { packageChange, packageChangeFlags, type PackageChange } from "@travel-crm/contracts/ai";
+// ground-departures.ts), with the cited lines as evidence (and where each is from) and the flags that start it unticked:
+// a value not printed in them, lines under another trip's nights, a change the member's role may not make. A change
+// naming nothing real, or changing nothing, is dropped; of several for the itinerary, the AI switch or one field, the
+// last is kept; at most MAX_PACKAGE_CHANGES.
+import {
+  MAX_PACKAGE_CHANGES,
+  packageChange,
+  packageChangeFlags,
+  type evidenceKinds,
+  type PackageChange,
+} from "@travel-crm/contracts/ai";
 import type { MemberAccess } from "../../identity/index.js";
 import type { CalendarDate } from "../../kernel/index.js";
 import type { AnsweredChange, ChangesAnswer } from "./answer.js";
 import { groundDeparture } from "./ground-departures.js";
 import { groundTrip, type TripChange } from "./ground-trip.js";
-import { namesOtherTrip, type ChangeFlag } from "./ground-values.js";
+import type { ChangeFlag } from "./ground-values.js";
+import { aboutOtherTrip } from "./other-trip.js";
 import type { TripSnapshot } from "./trip-snapshot.js";
 
 /** What the member's role (and plan) lets the changes do beyond editing the trip. */
@@ -43,19 +51,40 @@ export interface GroundContext {
   rights: ChangeRights;
 }
 
-const PHOTO_LINE = /^P(\d+)\.L\d+$/;
+interface Evidence {
+  ref: string;
+  text: string;
+  kind: (typeof evidenceKinds)[number];
+}
 
-/** The cited lines as evidence, in the order cited, once each: code's own text, or the AI's reading of a photo. */
-function evidenceOf(cited: readonly string[], context: GroundContext, photoLines: ReadonlyMap<string, string>) {
-  const seen = new Set<string>();
-  return cited.flatMap((ref) => {
+const PHOTO_LINE = /^P([1-9]\d*)\.L[1-9]\d*$/;
+
+/** Where a line code numbered is from: L is the message, A an answer, and P (when code has it) the PDF. */
+const codeKind = (ref: string): Evidence["kind"] =>
+  ref.startsWith("L") ? "message" : ref.startsWith("A") ? "answer" : "pdf";
+
+/** Reads any line by its ref: code's own text, else the AI's reading of a real photo's line. */
+function lineReader(context: GroundContext, photoLines: ReadonlyMap<string, string>) {
+  return (ref: string): Evidence | undefined => {
+    const code = context.lines.get(ref);
+    if (code !== undefined) return { ref, text: code, kind: codeKind(ref) };
     const photo = PHOTO_LINE.exec(ref);
-    const text =
-      context.lines.get(ref) ??
-      (photo !== null && Number(photo[1]) <= context.photoCount ? photoLines.get(ref) : undefined);
-    if (text === undefined || seen.has(ref)) return [];
-    seen.add(ref);
-    return [{ ref, text }];
+    const read = photo !== null && Number(photo[1]) <= context.photoCount ? photoLines.get(ref) : undefined;
+    return read === undefined ? undefined : { ref, text: read, kind: "photo" };
+  };
+}
+
+/** One change per itinerary, AI switch and field: the last the AI gave, since applying several would keep only one. */
+function lastOfEach(changes: readonly AnsweredChange[]): AnsweredChange[] {
+  const keyOf = (change: AnsweredChange) =>
+    change.kind === "trip_field"
+      ? `field:${change.field}`
+      : change.kind === "itinerary" || change.kind === "ai_selling"
+        ? change.kind
+        : null;
+  return changes.filter((change, index) => {
+    const key = keyOf(change);
+    return key === null || !changes.slice(index + 1).some((later) => keyOf(later) === key);
   });
 }
 
@@ -69,29 +98,36 @@ const departureKinds = new Set<AnsweredChange["kind"]>([
 const groupOnly = new Set<AnsweredChange["kind"]>([...departureKinds, "season_add", "season_change"]);
 
 export function groundChanges(answer: ChangesAnswer, context: GroundContext): PackageChange[] {
-  const photoLines = new Map(answer.photoLines.map((line) => [line.ref.trim(), line.text.trim()]));
+  const read = lineReader(context, new Map(answer.photoLines.map((line) => [line.ref.trim(), line.text.trim()])));
   const { snapshot, today } = context;
   const changes: PackageChange[] = [];
-  for (const change of answer.changes) {
+  for (const change of lastOfEach(answer.changes)) {
     if (snapshot.trip.kind !== "group" && groupOnly.has(change.kind)) continue;
-    const evidence = evidenceOf(change.lines, context, photoLines);
+    const seen = new Set<string>();
+    const evidence = change.lines.flatMap((ref) => {
+      const line = seen.has(ref) ? undefined : read(ref);
+      seen.add(ref);
+      return line === undefined ? [] : [line];
+    });
     const grounding = { snapshot, today, texts: evidence.map((one) => one.text) };
     const built = departureKinds.has(change.kind)
       ? groundDeparture(change as Parameters<typeof groundDeparture>[0], grounding)
-      : groundTrip(change as TripChange, grounding);
-    if (built === null) continue;
-    const flags = new Set<ChangeFlag>(built.flags);
-    if (evidence.length === 0) flags.add("not_in_message");
-    if (namesOtherTrip(grounding.texts, snapshot.trip.nights)) flags.add("other_trip");
-    const right = rightNeeded(built.body.kind);
-    if (right !== null && !context.rights[right]) flags.add("not_allowed");
-    const parsed = packageChange.safeParse({
-      ...built.body,
-      id: `c${String(changes.length + 1)}`,
-      evidence,
-      flags: packageChangeFlags.filter((flag) => flags.has(flag)),
-    });
-    if (parsed.success) changes.push(parsed.data);
+      : [groundTrip(change as TripChange, grounding)].flatMap((one) => (one === null ? [] : [one]));
+    for (const one of built) {
+      const flags = new Set<ChangeFlag>(one.flags);
+      if (evidence.length === 0) flags.add("not_in_message");
+      const refs = evidence.map((line) => line.ref);
+      if (aboutOtherTrip(refs, (ref) => read(ref)?.text, snapshot.trip.nights)) flags.add("other_trip");
+      const right = rightNeeded(one.body.kind);
+      if (right !== null && !context.rights[right]) flags.add("not_allowed");
+      const parsed = packageChange.safeParse({
+        ...one.body,
+        id: `c${String(changes.length + 1)}`,
+        evidence,
+        flags: packageChangeFlags.filter((flag) => flags.has(flag)),
+      });
+      if (parsed.success && changes.length < MAX_PACKAGE_CHANGES) changes.push(parsed.data);
+    }
   }
   return changes;
 }

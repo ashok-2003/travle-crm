@@ -2,14 +2,11 @@
 // is, and proposes changes that code grounds in the cited lines. Short transactions around the model, as the rate reader
 // has: the checks and the trip's snapshot, one monthly credit, the model, then the run row (or the credit given back when
 // the AI didn't answer or gave nothing usable). It proposes and never changes the trip: Apply does, from the stored run.
-import {
-  storedPackageChangeProposal,
-  type PackageChangeProposal,
-  type ProposePackageChangesInput,
-} from "@travel-crm/contracts/ai";
-import type { Database, OrgTx } from "@travel-crm/db";
+import type { PackageChangeProposal, ProposePackageChangesInput } from "@travel-crm/contracts/ai";
+import type { Database } from "@travel-crm/db";
 import type { AiModel } from "@travel-crm/integrations/ai";
 import type { AiPrompts } from "@travel-crm/integrations/prompts";
+import type { AiTracing } from "@travel-crm/integrations/tracing";
 import type { Files } from "../../files/index.js";
 import { organizationTimeZone, type MemberAccess } from "../../identity/index.js";
 import { calendarDateIn } from "../../kernel/index.js";
@@ -19,9 +16,9 @@ import { aiEnabled } from "../settings.js";
 import { recordTokens, releaseAiCall, reserveAiCall } from "../usage.js";
 import { parseChangesAnswer } from "./answer.js";
 import { changeRights, groundChanges } from "./ground.js";
-import { answerLines, checkedInputs, loadInputs, messageLines } from "./inputs.js";
-import { jsonOf } from "./json.js";
-import { changesMessages, packageChangesPromptOf } from "./prompt.js";
+import { answerLines, askedLines, checkedInputs, loadInputs, messageLines } from "./inputs.js";
+import { askForChanges, changesMessages, packageChangesPromptOf } from "./prompt.js";
+import { jsonOf, questionsAsked } from "./runs.js";
 import { tripSnapshot, tripStamp } from "./trip-snapshot.js";
 
 export interface ProposeDependencies {
@@ -29,23 +26,14 @@ export interface ProposeDependencies {
   model: AiModel;
   files: Files;
   prompts: AiPrompts | undefined;
-}
-
-/** The questions the member's last run for this trip asked, by id, so an answer reaches the model with its question. */
-async function askedBefore(tx: OrgTx, access: MemberAccess, packageId: string): Promise<Map<string, string>> {
-  const run = await tx.packageChangeRun.findFirst({
-    where: { templateId: packageId, requestedBy: access.userId, status: "proposed" },
-    orderBy: { createdAt: "desc" },
-    select: { proposal: true },
-  });
-  const stored = storedPackageChangeProposal.safeParse(run?.proposal);
-  return new Map(stored.success ? stored.data.questions.map((question) => [question.id, question.text]) : []);
+  /** Where the call is traced (Langfuse); absent, nowhere. */
+  tracing?: AiTracing | undefined;
 }
 
 const cleaned = (texts: readonly string[]) => texts.map((text) => text.trim()).filter((text) => text !== "");
 
 export async function proposePackageChanges(
-  { db, model, files, prompts }: ProposeDependencies,
+  { db, model, files, prompts, tracing }: ProposeDependencies,
   access: MemberAccess,
   input: ProposePackageChangesInput,
   now: Date,
@@ -69,19 +57,22 @@ export async function proposePackageChanges(
       today,
       snapshot: await tripSnapshot(tx, input.packageId, today, now),
       stored: await checkedInputs(tx, access, input.attachmentIds),
-      questions: await askedBefore(tx, access, input.packageId),
+      questions: await questionsAsked(tx, access, input.packageId),
     };
   });
   const { timeZone, today, snapshot } = checked;
   const loaded = await loadInputs(files, organizationId, checked.stored);
-  const answers = answerLines(input.answers, checked.questions);
+  // An answer is what a change may cite; the question it replies to goes to the model apart, never as evidence.
+  const answers = answerLines(input.answers);
+  const prompt = await packageChangesPromptOf(prompts);
   const messages = changesMessages({
-    prompt: await packageChangesPromptOf(prompts),
+    prompt,
     today,
     tripText: snapshot.text,
     message,
     pdf: loaded.pdfLines,
     answers,
+    asked: askedLines(input.answers, checked.questions),
     photos: loaded.photos,
   });
 
@@ -91,13 +82,12 @@ export async function proposePackageChanges(
   const giveBack = () => db.forOrg(organizationId, (tx) => releaseAiCall(tx, now, timeZone));
   let result;
   try {
-    // Opaque: the agency's id, never a person's.
-    result = await model.complete({
-      feature: "change_package",
-      messages,
-      json: true,
-      maxTokens: 6000,
-      user: organizationId,
+    result = await askForChanges(model, tracing, prompt, messages, {
+      organizationId,
+      userId: access.userId,
+      packageId: snapshot.trip.id,
+      photos: loaded.photos.length,
+      pdfLines: loaded.pdfLines.length,
     });
   } catch (error) {
     await giveBack();

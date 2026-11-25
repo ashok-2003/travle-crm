@@ -40,7 +40,15 @@ export const packageChangeFlags = [
   "past_date",
 ] as const;
 
-const evidence = z.array(z.object({ ref: z.string(), text: z.string() }));
+/** The most changes one run proposes, and one Apply takes. */
+export const MAX_PACKAGE_CHANGES = 60;
+
+/**
+ * Where a cited line is from: the pasted message (L1), a PDF's text (P1.L1), an answer to a question (A1), or a photo
+ * (P2.L3: photo 2, line 3), whose words are the AI's reading of it, not code's.
+ */
+export const evidenceKinds = ["message", "pdf", "photo", "answer"] as const;
+const evidence = z.array(z.object({ ref: z.string(), text: z.string(), kind: z.enum(evidenceKinds) }));
 const base = { id: z.string(), evidence, flags: z.array(z.enum(packageChangeFlags)) };
 
 const seasonLabel = savePackageSeasonInput.shape.label;
@@ -148,7 +156,7 @@ export type PackageChange = z.infer<typeof packageChange>;
 
 export const packageChangeProposal = z.object({
   runId: recordId,
-  changes: z.array(packageChange),
+  changes: z.array(packageChange).max(MAX_PACKAGE_CHANGES),
   questions: z.array(z.object({ id: z.string(), text: z.string(), choices: z.array(z.string()) })),
   ignored: z.array(z.string()),
   notChanged: z.array(z.string()),
@@ -181,18 +189,20 @@ export type PackageChangeRunBefore = z.infer<typeof packageChangeRunBefore>;
 
 export const applyPackageChangesInput = z.strictObject({
   runId: recordId,
-  changeIds: z.array(z.string()).min(1).max(60),
+  changeIds: z.array(z.string()).min(1).max(MAX_PACKAGE_CHANGES),
 });
 export type ApplyPackageChangesInput = z.infer<typeof applyPackageChangesInput>;
 export const applyPackageChangesOutput = z.object({ applied: z.number().int() });
 
 export const undoPackageChangesInput = z.strictObject({ runId: recordId });
 export type UndoPackageChangesInput = z.infer<typeof undoPackageChangesInput>;
+/** Why Undo all left a departure as it is: it took a booking or a hold since, or its day (to open it again) has passed. */
+export const undoKeptReasons = ["has_bookings", "has_holds", "past_date"] as const;
 export const undoPackageChangesOutput = z.object({
   undone: z.number().int(),
-  kept: z.array(
-    z.object({ departureId: recordId, startDate: calendarDate, reason: z.enum(["has_bookings", "has_holds"]) }),
-  ),
+  kept: z.array(z.object({ departureId: recordId, startDate: calendarDate, reason: z.enum(undoKeptReasons) })),
+  /** The AI switch the run turned off could not be turned back on: the trip lacks something it needs to sell. */
+  sellingNotRestored: z.boolean(),
 });
 export type UndoPackageChangesResult = z.infer<typeof undoPackageChangesOutput>;
 
