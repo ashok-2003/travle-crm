@@ -3,9 +3,10 @@
 import { parseArgs } from "node:util";
 import { emailAddress, personName } from "@travel-crm/contracts/identity";
 import { starterRoles } from "@travel-crm/domain/identity";
-import { DomainError } from "@travel-crm/domain/kernel";
+import { DomainError, isUuid } from "@travel-crm/domain/kernel";
 import {
   addFirstSuperAdmin,
+  dedupeStoredFiles,
   demoStaff,
   resetDemoOrganization,
   type DemoSettings,
@@ -76,6 +77,56 @@ export async function demoCommand(
   );
   output.stdout(`  ${demoStaff.map((staff) => `${staff.username} (${roleName(staff.roleKey)})`).join(", ")}`);
   return 0;
+}
+
+const DEDUPE_USAGE = "Usage: dedupe-files -- [--apply] [--organization <id>]";
+
+/**
+ * `dedupe-files [--apply] [--organization <id>]`: the one-off clean-up of files stored more than once before a copy
+ * shared its holder's bytes (2026-11-25). A dry run by default, which only counts; `--apply` makes the identical files
+ * share one object and queues the others' objects, which the console's job deletes once their links have lapsed. It
+ * prints organization ids, file counts and bytes, never a file's name. Returns the exit code.
+ */
+export async function dedupeFilesCommand(
+  platform: PlatformServices,
+  args: readonly string[],
+  output: CommandOutput,
+): Promise<number> {
+  const options = dedupeArguments(args);
+  if (options === null) {
+    output.stderr(DEDUPE_USAGE);
+    return 1;
+  }
+  const counts = await dedupeStoredFiles(platform, options);
+  const megabytes = (bytes: number) => `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  const filesWord = (files: number) => (files === 1 ? "1 file" : `${String(files)} files`);
+  for (const { organizationId, files, bytes } of counts.filter((count) => count.files > 0)) {
+    output.stdout(`${organizationId}: ${filesWord(files)}, ${megabytes(bytes)}`);
+  }
+  const files = filesWord(counts.reduce((sum, count) => sum + count.files, 0));
+  const bytes = megabytes(counts.reduce((sum, count) => sum + count.bytes, 0));
+  output.stdout(
+    options.apply
+      ? `Shared another's stored bytes: ${files}. The console's job deletes the ${bytes} of their own copies.`
+      : `Dry run: ${files} can share another's stored bytes, freeing ${bytes}. Add --apply to do it.`,
+  );
+  return 0;
+}
+
+/** `--apply` and an organization's id, or null for anything else. */
+function dedupeArguments(args: readonly string[]): { apply: boolean; organizationId?: string } | null {
+  let values: { apply?: boolean | undefined; organization?: string | undefined };
+  try {
+    ({ values } = parseArgs({
+      args: args.filter((arg) => arg !== "--"),
+      options: { apply: { type: "boolean" }, organization: { type: "string" } },
+    }));
+  } catch {
+    return null;
+  }
+  const apply = values.apply === true;
+  if (values.organization === undefined) return { apply };
+  return isUuid(values.organization) ? { apply, organizationId: values.organization } : null;
 }
 
 /** A refusal in our own words goes to stderr, with exit code 1; anything else is the command failing. */

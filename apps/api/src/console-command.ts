@@ -1,9 +1,10 @@
 // Runs one of the console's one-off commands once, with the console's environment, then exits with its code:
-// `pnpm --filter @travel-crm/api-server run first-super-admin -- --email <address> --name <name>` or `run demo`. It
+// `pnpm --filter @travel-crm/api-server run first-super-admin -- --email <address> --name <name>`, `run demo` or
+// `run dedupe-files -- [--apply]`. It
 // starts as the console does (the same variables and checks, the same "console start-up failed" message), but serves
 // nothing and runs no jobs. Never over HTTP: only whoever can run the console's image with its environment can run it.
 import { createPinoLogger, errorFields } from "@travel-crm/integrations/logging";
-import { demoCommand, firstSuperAdminCommand, type CommandOutput } from "./console-commands.js";
+import { dedupeFilesCommand, demoCommand, firstSuperAdminCommand, type CommandOutput } from "./console-commands.js";
 import { forgetServiceAccounts } from "./console-environment.js";
 import { startConsolePlatform, type ConsolePlatform } from "./console-platform.js";
 import type { Services } from "./services.js";
@@ -19,6 +20,7 @@ type Command = (
 const commands: Readonly<Record<string, Command>> = {
   "first-super-admin": ({ platform }, args, output) => firstSuperAdminCommand(platform, args, output),
   demo: ({ platform, settings }, args, output) => demoCommand(platform, settings.demo, args, output),
+  "dedupe-files": ({ platform }, args, output) => dedupeFilesCommand(platform, args, output),
 };
 
 const output: CommandOutput = {

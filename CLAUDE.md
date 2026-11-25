@@ -378,7 +378,7 @@ Each component without a path is in `components/`, in the file of its name (`Emp
 ## The release (ADR 0027)
 
 - Two images, built from the root: `apps/api/Dockerfile` (one image; its commands are `api`, `worker`, `console`,
-  `migrate`, `first-super-admin` and `demo`) and `apps/web/Dockerfile`. `docs/deploy-checklist.md` says how a deploy
+  `migrate`, `first-super-admin`, `demo` and `dedupe-files`) and `apps/web/Dockerfile`. `docs/deploy-checklist.md` says how a deploy
   runs them: settings per process, routes, health checks, migrations. A new environment variable goes in its table, a
   new public path in its routing table and in `docker/Caddyfile`. A migration that only adds is applied by hand before
   the release deploys (the website form's, `20261029100000_website_form`); the api never migrates on start.

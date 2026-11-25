@@ -1,5 +1,6 @@
 # The api's image (spec 12.3): one image, a container per command: `api`, `worker` and `console`, and the one-off
-# `migrate`, `first-super-admin` and `demo` (docker-entrypoint.sh). Build it from the repository's root:
+# `migrate`, `first-super-admin`, `demo` and `dedupe-files` (docker-entrypoint.sh). Build it from the repository's
+# root:
 #   docker build --file apps/api/Dockerfile --tag travel-crm-api .
 # Nothing secret is in it: every setting comes from the environment when a container starts (apps/api/README.md).
 

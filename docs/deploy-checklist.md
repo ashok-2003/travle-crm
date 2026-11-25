@@ -101,8 +101,9 @@ logs, and what is still open.
   `--build-arg STORAGE_ORIGIN=<the bucket's origin>` (such as `https://s3.ap-south-1.amazonaws.com`), which its
   Content-Security-Policy allows for uploads and logos.
 - **The api's image runs one command per service:** `api` (the default), `worker` and `console`, and the one-off
-  `migrate`, `first-super-admin` and `demo`. Each runs as the `node` user and writes nothing to its own file system:
-  run them read-only, with `/tmp` writable.
+  `migrate`, `first-super-admin`, `demo` and `dedupe-files` (the console's settings; 2026-11-25's clean-up of files
+  stored more than once, a dry run without `--apply`). Each runs as the `node` user and writes nothing to its own file
+  system: run them read-only, with `/tmp` writable.
 - **The web image rewrites nothing.** It is built without `API_ORIGIN`, so the load balancer routes (below); an `/api`
   request that reaches it is a 404.
 - **Ports:** the api 3001 (`PORT`), the console 3002 (`CONSOLE_PORT`), the web app 3000 (`PORT`); the worker has none.
