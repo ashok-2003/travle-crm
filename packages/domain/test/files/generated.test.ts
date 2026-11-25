@@ -99,7 +99,8 @@ describe("storing a generated file once", () => {
     const once = await store(organizationId, id);
     const twice = await store(organizationId, id);
     expect(twice.id).toBe(once.id);
-    // A first try that wrote its row and failed before storing anything: the retry finishes it as a sharing file.
+    // A first try that stored its bytes and failed before marking its row ready: the retry stores them under the row's own
+    // key again, a holder, so no object is left that no file reads.
     const failedId = "0199e7a0-0000-7000-8000-00000000d033";
     await test.db.forOrg(organizationId, (tx) =>
       tx.attachment.create({
@@ -112,9 +113,11 @@ describe("storing a generated file once", () => {
         },
       }),
     );
+    const ownKey = `organizations/${organizationId}/attachments/${failedId}`;
+    await test.storage.put({ key: ownKey, contentType: "application/pdf", body: bytes(brochure) });
     expect(await store(organizationId, failedId)).toMatchObject({ id: failedId, status: "ready" });
-    expect((await rowOf(failedId)).storedAsId).not.toBeNull();
-    expect(await test.platform.attachment.count({ where: { organizationId, storedAsId: null } })).toBe(1);
+    expect(await rowOf(failedId)).toMatchObject({ storedAsId: null, contentSha256: sha256(brochure) });
+    expect(new TextDecoder().decode((await test.storage.get(ownKey)) ?? undefined)).toBe(brochure);
   });
 
   it("hands the hash on with the bytes, so the same file stored after an erasure still finds them", async () => {
