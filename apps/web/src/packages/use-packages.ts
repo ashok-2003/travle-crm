@@ -23,11 +23,14 @@ export function usePackageChanges() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const refreshWork = useRefreshWork();
+  // Prices and seasons change the departures' calendar, and any change takes away the AI box's Undo all.
   const options = {
     onSuccess: () =>
       Promise.all([
         queryClient.invalidateQueries({ queryKey: trpc.packages.pathKey() }),
         queryClient.invalidateQueries({ queryKey: trpc.quotes.packages.pathKey() }),
+        queryClient.invalidateQueries({ queryKey: trpc.departures.pathKey() }),
+        queryClient.invalidateQueries({ queryKey: trpc.ai.packageChanges.latest.pathKey() }),
       ]),
   };
   return {
@@ -47,11 +50,7 @@ export function usePackageChanges() {
     updatePart: useMutation(
       trpc.packages.updatePart.mutationOptions({
         onSuccess: (_saved, input) =>
-          Promise.all([
-            options.onSuccess(),
-            queryClient.invalidateQueries({ queryKey: trpc.departures.pathKey() }),
-            input.newDestinationName === undefined ? null : refreshWork(),
-          ]),
+          Promise.all([options.onSuccess(), input.newDestinationName === undefined ? null : refreshWork()]),
       }),
     ),
     copyNote: useMutation(trpc.packages.copyNote.mutationOptions(options)),
@@ -59,8 +58,8 @@ export function usePackageChanges() {
 }
 
 /**
- * A price-table column is one or more seasons (Regular split around Christmas): its change is made season by season,
- * one after another, and the trip is read again once all are made (or the first refused).
+ * A price-table column is one or more seasons (Regular split around Christmas). Changing one season's dates is made
+ * season by season; removing a column is one call (and renaming one goes through the price table's save).
  */
 export function usePackageColumnChanges() {
   const trpc = useTRPC();
@@ -71,6 +70,7 @@ export function usePackageColumnChanges() {
       queryClient.invalidateQueries({ queryKey: trpc.packages.pathKey() }),
       queryClient.invalidateQueries({ queryKey: trpc.quotes.packages.pathKey() }),
       queryClient.invalidateQueries({ queryKey: trpc.departures.pathKey() }),
+      queryClient.invalidateQueries({ queryKey: trpc.ai.packageChanges.latest.pathKey() }),
     ]);
   return {
     saveSeasons: useMutation({
@@ -79,12 +79,8 @@ export function usePackageColumnChanges() {
       },
       onSettled: refresh,
     }),
-    removeSeasons: useMutation({
-      mutationFn: async (seasonIds: readonly string[]) => {
-        for (const seasonId of seasonIds) await client.packages.removeSeason.mutate({ seasonId });
-      },
-      onSettled: refresh,
-    }),
+    // The whole column goes in one transaction: all its seasons or none.
+    removeColumn: useMutation(trpc.packages.removeSeasonColumn.mutationOptions({ onSettled: refresh })),
     addSeason: useMutation(trpc.packages.saveSpecialPrices.mutationOptions({ onSuccess: refresh })),
   };
 }

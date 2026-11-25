@@ -66,7 +66,7 @@ describe("DayPanel", () => {
     });
   });
 
-  it("Price for this departure only shows the season's price in each box; an empty box keeps the season's price", async () => {
+  it("Price for this departure only shows the season's price in each box; an empty box is sent empty, so only the room priced is stored", async () => {
     const api = show("2026-11-27");
     await userEvent.click(button("Price for this departure only"));
     const double = screen.getByLabelText("Double, per person");
@@ -75,7 +75,7 @@ describe("DayPanel", () => {
     await userEvent.click(button("Save prices"));
     expect(await answerNext(api, "departures.setPrices", {})).toEqual({
       departureId: departure.departureId,
-      prices: { ...noPrices, double: 650000, single: 799900 },
+      prices: { ...noPrices, double: 650000 },
     });
   });
 

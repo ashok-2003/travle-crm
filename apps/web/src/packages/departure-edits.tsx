@@ -127,7 +127,8 @@ export function OwnPrices({
   const [typed, setTyped] = useState<Record<string, string> | null>(null);
   const read = (room: RoomType): { paise: number | null; ok: boolean } => {
     const text = (typed?.[room] ?? "").trim();
-    if (text === "") return { paise: seasonPrice(room), ok: true };
+    // An empty box is no price of its own: the server then prices the room from the season, room by room.
+    if (text === "") return { paise: null, ok: true };
     const paise = paiseFromRupeesText(text);
     return { paise, ok: paise !== null };
   };

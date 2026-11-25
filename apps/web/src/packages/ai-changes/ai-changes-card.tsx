@@ -97,7 +97,11 @@ function Box({ packageId }: { packageId: string }) {
     setFiles([]);
   };
   const latestRun = hideLatest || !latest.data?.undoable ? null : latest.data;
-  const done = applied ?? (latestRun ? { runId: latestRun.runId, count: latestRun.applied, changes: null } : null);
+  // Done (and Undo all) only while the api still says the run is undoable: a later change ends it.
+  const stillUndoable = applied !== null && latest.data?.undoable === true && latest.data.runId === applied.runId;
+  const done =
+    (stillUndoable ? applied : null) ??
+    (latestRun ? { runId: latestRun.runId, count: latestRun.applied, changes: null } : null);
   const body = () => {
     if (undone) return <UndoneView result={undone} onAgain={again} />;
     if (done) {

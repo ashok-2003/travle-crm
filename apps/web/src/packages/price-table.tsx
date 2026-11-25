@@ -7,38 +7,29 @@
 // While the table has changes not saved, season changes are off (they read the trip again), and Undo changes goes back.
 // Without quotes:edit it is only to read. The page gives it a new key when the trip is read again.
 import {
+  OPEN_SEASON_END,
   roomTypes,
   seasonColumns,
   type PackageDetail,
   type RoomType,
   type SeasonColumn,
 } from "@travel-crm/contracts/quotes";
-import { PlusIcon, Trash2Icon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { rupees } from "@/components/forms/money-field";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Spinner } from "@/components/ui/spinner";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { cn } from "@/lib/utils";
+import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useHolds } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
 import { WriteHint } from "@/subscription/write-hint";
-import { PriceCell } from "./price-cell";
 import { cellKey, tableInput, tableStart, type TableProblem } from "./price-table-input";
 import { seasonTint } from "./season-colours";
 import { SeasonColumnDialogs } from "./season-column-dialogs";
-import { SeasonColumnMenu, type ColumnAction } from "./season-column-menu";
-import { useSeasonDates } from "./season-dates";
+import { AddRoomMenu, PriceRow, SeasonHeadCell } from "./price-table-parts";
+import type { ColumnAction } from "./season-column-menu";
 import { usePackageChanges, usePackageColumnChanges } from "./use-packages";
 
 /** What a column's menu offers: its dates when it is one range; else "no end date" on the trip's last season, if it ends. */
@@ -59,8 +50,6 @@ export function PriceTable({
   onEdited: (edited: boolean) => void;
 }) {
   const t = useTranslations("packages.prices");
-  const tRooms = useTranslations("packages.form.roomTypeNames");
-  const describeDates = useSeasonDates();
   const mayEdit = useHolds("quotes:edit");
   const access = useWriteAccess("change");
   const hintId = `${useId()}-write`;
@@ -99,7 +88,7 @@ export function PriceTable({
             seasonId: piece,
             label: column.label,
             ...range,
-            endsOn: "2099-12-31",
+            endsOn: OPEN_SEASON_END,
             prices: column.prices,
           },
         ],
@@ -118,33 +107,29 @@ export function PriceTable({
         <TableHeader>
           <TableRow>
             <TableHead>{t("roomType")}</TableHead>
-            {columns.map((column, index) => {
-              const tint = seasonTint(index);
-              return (
-                <TableHead key={column.key} className={cn("align-top", tint.fill, tint.ink)}>
-                  <div className="flex items-start justify-between gap-2 py-2">
-                    <div>
-                      <p className="font-medium">{column.label}</p>
-                      <p className="text-caption font-normal">{describeDates(column, columns.length)}</p>
-                    </div>
-                    {mayEdit && (
-                      <SeasonColumnMenu
-                        season={column.label}
-                        actions={actionsOf(column, tripEnd)}
-                        disabled={edited || !access.allowed}
-                        describedBy={edited ? hintId : undefined}
-                        onOpen={(button) => {
+            {columns.map((column, index) => (
+              <SeasonHeadCell
+                key={column.key}
+                column={column}
+                columns={columns}
+                tint={seasonTint(index)}
+                menu={
+                  mayEdit
+                    ? {
+                        actions: actionsOf(column, tripEnd),
+                        disabled: edited || !access.allowed,
+                        describedBy: edited ? hintId : undefined,
+                        onOpen: (button) => {
                           opener.current = button;
-                        }}
-                        onChoose={(next) => {
+                        },
+                        onChoose: (next) => {
                           choose(column, next);
-                        }}
-                      />
-                    )}
-                  </div>
-                </TableHead>
-              );
-            })}
+                        },
+                      }
+                    : null
+                }
+              />
+            ))}
             {mayEdit && (
               <TableHead>
                 <span className="sr-only">{t("removeRoomColumn")}</span>
@@ -154,46 +139,19 @@ export function PriceTable({
         </TableHeader>
         <TableBody>
           {rows.map((room) => (
-            <TableRow key={room}>
-              <TableHead scope="row" className="font-medium">
-                {tRooms(room)}
-              </TableHead>
-              {columns.map((column) => {
-                const price = column.prices[room];
-                return (
-                  <TableCell key={column.key} className="numbers">
-                    {mayEdit ? (
-                      <PriceCell
-                        value={cells[cellKey(column, room)] ?? ""}
-                        label={t("cell", { room: tRooms(room), season: column.label })}
-                        notSold={t("notSold")}
-                        onChange={(next) => {
-                          setCells((now) => ({ ...now, [cellKey(column, room)]: next }));
-                        }}
-                      />
-                    ) : price === null ? (
-                      <span className="text-muted-foreground">{t("notSold")}</span>
-                    ) : (
-                      rupees(price)
-                    )}
-                  </TableCell>
-                );
-              })}
-              {mayEdit && (
-                <TableCell className="text-right">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    aria-label={t("removeRoom", { room: tRooms(room) })}
-                    onClick={() => {
-                      setRows((now) => now.filter((other) => other !== room));
-                    }}
-                  >
-                    <Trash2Icon aria-hidden="true" />
-                  </Button>
-                </TableCell>
-              )}
-            </TableRow>
+            <PriceRow
+              key={room}
+              room={room}
+              columns={columns}
+              cells={cells}
+              editable={mayEdit}
+              onCell={(column, text) => {
+                setCells((now) => ({ ...now, [cellKey(column, room)]: text }));
+              }}
+              onRemove={() => {
+                setRows((now) => now.filter((other) => other !== room));
+              }}
+            />
           ))}
         </TableBody>
       </Table>
@@ -211,26 +169,13 @@ export function PriceTable({
       {mayEdit && (
         <div>
           <div className="flex flex-wrap gap-3">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" disabled={remaining.length === 0 || !access.allowed}>
-                  <PlusIcon aria-hidden="true" />
-                  {t("addRoom")}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start">
-                {remaining.map((room) => (
-                  <DropdownMenuItem
-                    key={room}
-                    onSelect={() => {
-                      setRows((now) => [...now, room]);
-                    }}
-                  >
-                    {tRooms(room)}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <AddRoomMenu
+              remaining={remaining}
+              disabled={!access.allowed}
+              onAdd={(room) => {
+                setRows((now) => [...now, room]);
+              }}
+            />
             <Button
               disabled={!canSave || savePriceTable.isPending || !access.allowed}
               aria-describedby={access.allowed ? undefined : hintId}
@@ -259,6 +204,7 @@ export function PriceTable({
       {target !== null && (
         <SeasonColumnDialogs
           packageId={detail.id}
+          roomTypes={detail.roomTypes}
           column={target}
           action={action}
           onClose={() => {

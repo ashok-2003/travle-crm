@@ -70,6 +70,8 @@ export function useRefreshDepartures() {
       queryClient.invalidateQueries({ queryKey: trpc.quotes.pathKey() }),
       queryClient.invalidateQueries({ queryKey: trpc.bookings.pathKey() }),
       queryClient.invalidateQueries({ queryKey: trpc.finance.pathKey() }),
+      // A departure change ends the AI box's Undo all for its trip.
+      queryClient.invalidateQueries({ queryKey: trpc.ai.packageChanges.latest.pathKey() }),
       refreshWork(),
     ]).then(() => undefined);
 }

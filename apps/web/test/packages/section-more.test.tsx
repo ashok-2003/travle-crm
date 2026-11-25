@@ -27,10 +27,25 @@ describe("More", () => {
     });
     expect(lastInputTo("packages.updatePart")).toEqual({
       packageId: trip.id,
+      kind: "group",
       slug: "kedarnath-6-days",
       title: trip.title,
       defaultTravellerLevel: null,
       pricesIncludeGst: false,
+    });
+  });
+
+  it("turns a custom trip into a group trip", async () => {
+    stubApi({ "packages.updatePart": { data: null } });
+    const trip = aPackage({ kind: "custom", slug: "kedarnath" });
+    renderScreen(<MoreSection detail={trip} />, { width: "wide" });
+    await userEvent.click(screen.getByRole("button", { name: messages.packages.sections.more.title }));
+    expect(screen.queryByRole("switch", { name: words.pricesIncludeGst })).toBeNull();
+    await userEvent.click(await screen.findByRole("radio", { name: words.kinds.group }));
+    expect(screen.getByRole("switch", { name: words.pricesIncludeGst })).toBeTruthy();
+    await userEvent.click(screen.getByRole("button", { name: messages.packages.sections.save }));
+    await waitFor(() => {
+      expect(lastInputTo("packages.updatePart")).toMatchObject({ kind: "group", pricesIncludeGst: true });
     });
   });
 

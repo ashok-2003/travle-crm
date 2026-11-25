@@ -1,7 +1,7 @@
 {
   "list": {
     "title": "Departures",
-    "intro": "Group batches with seats: who has booked, who is holding, and who is waiting.",
+    "intro": "Group departures with seats: who has booked, who is holding, and who is waiting.",
     "filterLabel": "Show departures",
     "filters": {
       "upcoming": "Upcoming",
@@ -15,7 +15,7 @@
     },
     "seats": "{used} of {total}",
     "seatsHeld": "{sold} sold, {held} held",
-    "empty": "No departures yet. Add the first batch to start taking seats.",
+    "empty": "No departures yet. Add the first departure to start taking seats.",
     "noneHere": "No departures here.",
     "loading": "Loading departures",
     "loadFailed": "The departures didn't load.",
@@ -33,7 +33,7 @@
   "form": {
     "newTitle": "New departure",
     "editTitle": "Change this departure",
-    "description": "A batch with a number of seats. Seats sold and held are worked out from the bookings and holds.",
+    "description": "A departure with a number of seats. Seats sold and held are worked out from the bookings and holds.",
     "title": "Name",
     "titleHint": "Such as \"Kedarnath yatra, 3 Nov\".",
     "destination": "Destination",
@@ -219,7 +219,7 @@
     "stayForm": {
       "addTitle": "Add a stay",
       "editTitle": "Change this stay",
-      "description": "A hotel the batch sleeps in, with its days.",
+      "description": "A hotel the departure sleeps in, with its days.",
       "hotel": "Hotel",
       "supplier": "Supplier",
       "supplierHint": "Optional: the hotel from your suppliers.",
@@ -303,11 +303,11 @@
   },
   "settings": {
     "title": "Departures",
-    "intro": "How long seats are held, when a batch reads \"Filling fast\", and how many beds a room has when the rooms are drafted.",
+    "intro": "How long seats are held, when a departure reads \"Filling fast\", and how many beds a room has when the rooms are drafted.",
     "holdHours": "A hold lasts (hours)",
     "holdHoursHint": "Staff can hold for less on any one hold.",
     "fillingFastPercent": "Filling fast at (percent of seats free)",
-    "fillingFastHint": "A batch with this share of its seats free, or fewer, reads Filling fast.",
+    "fillingFastHint": "A departure with this share of its seats free, or fewer, reads Filling fast.",
     "defaultRoomCapacity": "Beds in a drafted room",
     "shareSeatCounts": "AI-written messages about empty seats",
     "shareSeatCountsNo": "Say \"a few seats\" or \"some seats\"",

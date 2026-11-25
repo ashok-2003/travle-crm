@@ -81,11 +81,7 @@ export function DeparturesCard({ detail }: { detail: PackageDetail }) {
             {columns.map((column, index) => (
               <li key={column.key} className="flex items-center gap-2">
                 <span aria-hidden="true" className={cn("size-4 shrink-0 rounded-sm", seasonTint(index).fill)} />
-                <span>
-                  {column.open
-                    ? t("legendOpen", { label: column.label })
-                    : t("legendRanges", { label: column.label, ranges: seasonDates(t, column) })}
-                </span>
+                <span>{t("legendRanges", { label: column.label, ranges: seasonDates(t, column, columns) })}</span>
               </li>
             ))}
           </ul>

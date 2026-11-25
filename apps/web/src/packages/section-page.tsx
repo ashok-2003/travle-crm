@@ -78,7 +78,7 @@ function PageEditor({ detail, close }: { detail: PackageDetail; close: () => voi
         name="priceDisplay"
         legend={t("priceDisplay")}
         options={[
-          { value: "from", label: t("priceFrom") },
+          { value: "from", label: t(custom ? "priceFrom" : "priceFromWorkedOut") },
           { value: "on_enquiry", label: t("priceOnEnquiry") },
         ]}
       />

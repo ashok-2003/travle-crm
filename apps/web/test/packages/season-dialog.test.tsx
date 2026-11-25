@@ -27,7 +27,8 @@ function show() {
   const api = stubApi({
     "packages.saveSpecialPrices": { data: null },
     "packages.saveSeason": { data: null },
-    "packages.removeSeason": { data: null },
+    "packages.removeSeasonColumn": { data: null },
+    "packages.savePriceTable": { data: null },
   });
   renderScreen(<PricesCard detail={trip} />, { width: "wide" });
   return api;
@@ -169,26 +170,14 @@ describe("Rename", () => {
     await userEvent.type(name, "Usual");
     await userEvent.click(within(dialog).getByRole("button", { name: season.save }));
     await waitFor(() => {
-      expect(inputsTo("packages.saveSeason")).toHaveLength(2);
+      expect(inputsTo("packages.savePriceTable")).toHaveLength(1);
     });
-    expect(inputsTo("packages.saveSeason")).toEqual([
-      {
-        packageId: trip.id,
-        seasonId: regularA,
-        label: "Usual",
-        startsOn: "2027-01-01",
-        endsOn: "2027-12-17",
-        prices: { ...noPrices, double: 720_000 },
-      },
-      {
-        packageId: trip.id,
-        seasonId: regularB,
-        label: "Usual",
-        startsOn: "2028-01-02",
-        endsOn: "2099-12-31",
-        prices: { ...noPrices, double: 720_000 },
-      },
-    ]);
+    // One save, one transaction: the column's two pieces are named together.
+    expect(inputsTo("packages.savePriceTable")[0]).toEqual({
+      packageId: trip.id,
+      roomTypes: ["double"],
+      columns: [{ seasonIds: [regularA, regularB], label: "Usual", prices: { ...noPrices, double: 720_000 } }],
+    });
   });
 });
 
@@ -200,8 +189,8 @@ describe("Remove", () => {
     const dialog = await screen.findByRole("alertdialog");
     await userEvent.click(within(dialog).getByRole("button", { name: words.remove }));
     await waitFor(() => {
-      expect(inputsTo("packages.removeSeason")).toHaveLength(2);
+      expect(inputsTo("packages.removeSeasonColumn")).toHaveLength(1);
     });
-    expect(inputsTo("packages.removeSeason")).toEqual([{ seasonId: regularA }, { seasonId: regularB }]);
+    expect(inputsTo("packages.removeSeasonColumn")).toEqual([{ packageId: trip.id, seasonIds: [regularA, regularB] }]);
   });
 });

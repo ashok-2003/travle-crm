@@ -57,7 +57,9 @@ describe("the price table", () => {
       expect.stringContaining("Christmas"),
     ]);
     // The open column never shows its end of time: "all other days".
-    expect(table.getByRole("columnheader", { name: new RegExp(words.allOtherDays) })).toBeTruthy();
+    expect(
+      table.getByRole("columnheader", { name: new RegExp(messages.packages.departuresCalendar.seasonOpen) }),
+    ).toBeTruthy();
     expect(table.queryByText(/2099/)).toBeNull();
     expect(table.getByRole("columnheader", { name: /18 Dec.*1 Jan/ })).toBeTruthy();
     expect(table.getByRole("rowheader", { name: "Double" })).toBeTruthy();

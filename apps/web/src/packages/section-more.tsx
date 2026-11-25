@@ -4,13 +4,20 @@
 // with, what travellers fill in for a booking and, for a group trip, whether its prices include GST. Saved alone
 // (packages.updatePart); without quotes:edit the same facts are only to read.
 import { travellerLevels } from "@travel-crm/contracts/bookings";
-import { updatePackagePartInput, type PackageDetail, type UpdatePackagePartInput } from "@travel-crm/contracts/quotes";
+import {
+  packageKinds,
+  updatePackagePartInput,
+  type PackageDetail,
+  type PackageKind,
+  type UpdatePackagePartInput,
+} from "@travel-crm/contracts/quotes";
 import { ChevronDownIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
-import { Controller } from "react-hook-form";
+import { Controller, useWatch } from "react-hook-form";
 import { Details } from "@/components/details";
 import { checked } from "@/components/forms/checked";
+import { ChoiceField } from "@/components/forms/choice-field";
 import { SelectField } from "@/components/forms/select-field";
 import { TextField } from "@/components/forms/text-field";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
@@ -36,6 +43,7 @@ export function slugOf(name: string): string {
 const DEFAULT_LEVEL = "default";
 type Problem = "required" | "invalid" | "slug";
 interface Values {
+  kind: PackageKind;
   slug: string;
   title: string;
   level: string;
@@ -43,15 +51,18 @@ interface Values {
 }
 
 const fieldOf: Partial<Record<string, keyof Values>> = {
+  kind: "kind",
   slug: "slug",
   title: "title",
   defaultTravellerLevel: "level",
   pricesIncludeGst: "pricesIncludeGst",
 };
 
-function toInput(packageId: string, typed: Values, group: boolean) {
+function toInput(packageId: string, typed: Values) {
+  const group = typed.kind === "group";
   return updatePackagePartInput.safeParse({
     packageId,
+    kind: typed.kind,
     slug: typed.slug.trim() === "" ? null : typed.slug.trim(),
     title: typed.title,
     defaultTravellerLevel: typed.level === DEFAULT_LEVEL ? null : typed.level,
@@ -62,10 +73,10 @@ function toInput(packageId: string, typed: Values, group: boolean) {
 function MoreEditor({ detail, close }: { detail: PackageDetail; close: () => void }) {
   const t = useTranslations("packages.form");
   const gstId = useId();
-  const group = detail.kind === "group";
   const { updatePart, save } = useSectionSave("more", () => undefined);
   const { form, onSubmit, formProblem } = useCheckedForm<Values, UpdatePackagePartInput, Problem>(
     {
+      kind: detail.kind,
       slug: detail.slug ?? slugOf(detail.name),
       title: detail.title,
       level: detail.defaultTravellerLevel ?? DEFAULT_LEVEL,
@@ -73,15 +84,22 @@ function MoreEditor({ detail, close }: { detail: PackageDetail; close: () => voi
     },
     (typed) =>
       checked(
-        toInput(detail.id, typed, group),
+        toInput(detail.id, typed),
         typed,
         (path) => fieldOf[String(path[0])],
         (field) => (field === "slug" ? "slug" : "invalid"),
       ),
     (problem) => t(`problems.${problem}`),
   );
+  const group = useWatch({ control: form.control, name: "kind" }) === "group";
   return (
     <SectionForm onSubmit={onSubmit(save)} sending={updatePart} problem={formProblem} onCancel={close}>
+      <ChoiceField
+        control={form.control}
+        name="kind"
+        legend={t("kind")}
+        options={packageKinds.map((value) => ({ value, label: t(`kinds.${value}`) }))}
+      />
       <TextField
         control={form.control}
         name="slug"
@@ -125,6 +143,7 @@ function MoreSummary({ detail }: { detail: PackageDetail }) {
   return (
     <Details
       rows={[
+        { label: t("kind"), value: t(`kinds.${detail.kind}`) },
         {
           label: t("slug"),
           value: detail.slug === null ? tSections("notSet") : `/a/${detail.agencyCode}/${detail.slug}`,

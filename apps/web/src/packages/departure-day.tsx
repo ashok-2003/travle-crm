@@ -16,14 +16,16 @@ import { useDepartureChanges } from "@/departures/use-departures";
 import { departureRoute } from "@/lib/routes";
 import { useHolds } from "@/session/me-context";
 import { ChangeSeats, noPrices, OwnPrices, useChangeGate } from "./departure-edits";
+import { columnIndexOn } from "./departure-calendar-days";
 import { seasonDates } from "./season-words";
 
-/** The price-table column the departure's season belongs to (the legend's and the day's colour). */
+/** The price-table column whose dates cover the departure's first day (the legend's and the day's colour). */
 function useSeasonColumn(detail: PackageDetail, departure: CalendarDeparture) {
-  return useMemo(
-    () => seasonColumns(detail.seasons).find((entry) => entry.label === departure.seasonLabel),
-    [detail.seasons, departure.seasonLabel],
-  );
+  return useMemo(() => {
+    const columns = seasonColumns(detail.seasons);
+    const index = columnIndexOn(columns, departure.startDate);
+    return index === null ? undefined : columns[index];
+  }, [detail.seasons, departure.startDate]);
 }
 
 /** What the departure is: read by anyone who sees the panel, a day that has passed included. */
@@ -38,7 +40,9 @@ export function DepartureFacts({ detail, departure }: { detail: PackageDetail; d
         <p className="font-medium">
           {departure.seasonLabel === null ? t("seasonNone") : t("season", { label: departure.seasonLabel })}
         </p>
-        {column !== undefined && <p className="text-caption text-muted-foreground">{seasonDates(t, column)}</p>}
+        {column !== undefined && (
+          <p className="text-caption text-muted-foreground">{seasonDates(t, column, seasonColumns(detail.seasons))}</p>
+        )}
         {departure.priceSource === "departure" && <p className="text-caption text-muted-foreground">{t("priceOwn")}</p>}
       </div>
       {priced.length > 0 && (

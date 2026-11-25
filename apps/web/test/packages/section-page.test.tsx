@@ -41,6 +41,9 @@ describe("Page and AI", () => {
     renderScreen(<PageSection detail={trip} />, { width: "wide" });
     await userEvent.click(edit());
     expect(screen.queryByLabelText(words.fromPrice)).toBeNull();
+    // A group trip honours the choice: its From is worked out, or "Price on enquiry".
+    expect(screen.getByRole("radio", { name: words.priceFromWorkedOut })).toBeTruthy();
+    expect(screen.getByRole("radio", { name: words.priceOnEnquiry })).toBeTruthy();
     expect(screen.queryByRole("button", { name: words.calculate })).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: sections.save }));
     await waitFor(() => {

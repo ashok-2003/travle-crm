@@ -41,6 +41,18 @@ const inputsTo = (path: string) => {
   });
   return sent;
 };
+/** The api's "latest run" answers: nothing until the changes are applied, then the run (undoable), as the real one does. */
+function afterApply(applied: number) {
+  let done = false;
+  const run = { runId, appliedAt: new Date().toISOString(), applied, undoable: true };
+  return {
+    "ai.packageChanges.applyChanges": () => {
+      done = true;
+      return { data: { applied } };
+    },
+    "ai.packageChanges.latest": () => ({ data: done ? run : null }),
+  } satisfies Record<string, Answer>;
+}
 const show = async (text = "Double is 13000 from 1 Dec") => {
   await userEvent.type(await screen.findByRole("textbox", { name: words.textLabel }), text);
   await userEvent.click(screen.getByRole("button", { name: words.show }));
@@ -121,7 +133,7 @@ describe("the AI changes card", () => {
   it("applies the ticked changes, says how many, and refreshes the trip", async () => {
     const { api, client } = render({
       "ai.packageChanges.propose": { data: proposal([priceChange, flaggedChange, seatsChange]) },
-      "ai.packageChanges.applyChanges": { data: { applied: 2 } },
+      ...afterApply(2),
     });
     const refreshed = vi.spyOn(client, "invalidateQueries");
     await show();
@@ -140,7 +152,7 @@ describe("the AI changes card", () => {
   it("asks before Undo all, then says what was undone and which departures stayed", async () => {
     render({
       "ai.packageChanges.propose": { data: proposal([priceChange]) },
-      "ai.packageChanges.applyChanges": { data: { applied: 1 } },
+      ...afterApply(1),
       "ai.packageChanges.undo": {
         data: {
           undone: 1,
@@ -174,6 +186,29 @@ describe("the AI changes card", () => {
     });
     expect(await screen.findByText("3 changes applied")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: words.undoAll })).toBeInTheDocument();
+  });
+
+  it("takes the done view away once the api says the run can no longer be undone", async () => {
+    let applied = false;
+    let undoable = true;
+    const run = () => ({ runId, appliedAt: new Date().toISOString(), applied: 1, undoable });
+    const { client } = render({
+      "ai.packageChanges.propose": { data: proposal([priceChange]) },
+      "ai.packageChanges.applyChanges": () => {
+        applied = true;
+        return { data: { applied: 1 } };
+      },
+      "ai.packageChanges.latest": () => ({ data: applied ? run() : null }),
+    });
+    await show();
+    await userEvent.click(await screen.findByRole("button", { name: "Apply 1 change" }));
+    expect(await screen.findByRole("button", { name: words.undoAll })).toBeInTheDocument();
+    // A later change to the trip: the next read says Undo all is over.
+    undoable = false;
+    await client.invalidateQueries();
+    await waitFor(() => {
+      expect(screen.queryByRole("button", { name: words.undoAll })).toBeNull();
+    });
   });
 
   it("shows a refusal", async () => {
