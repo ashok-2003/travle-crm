@@ -75,6 +75,9 @@ export function useDepartureChanges() {
   return {
     addPackageDates: useMutation(trpc.departures.addPackageDates.mutationOptions(withPackages)),
     reopen: useMutation(trpc.departures.reopen.mutationOptions(withPackages)),
+    // Seats and prices show on the trip's calendar and in its "From" price.
+    setSeats: useMutation(trpc.departures.setSeats.mutationOptions(withPackages)),
+    setPrices: useMutation(trpc.departures.setPrices.mutationOptions(withPackages)),
     create: useMutation(trpc.departures.create.mutationOptions(options)),
     update: useMutation(trpc.departures.update.mutationOptions(options)),
     setStatus: useMutation(trpc.departures.setStatus.mutationOptions(options)),
