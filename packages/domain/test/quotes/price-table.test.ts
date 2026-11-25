@@ -99,7 +99,10 @@ describe("savePriceTable", () => {
       savePriceTable(tx, world.manager, {
         packageId: trip.packageId,
         roomTypes: ["double"],
-        columns: [{ seasonIds: [trip.christmas], label: "Christmas", prices: prices({ double: 9_500_000 }) }],
+        columns: [
+          { seasonIds: [trip.regularA, trip.regularB], label: "Regular", prices: prices() },
+          { seasonIds: [trip.christmas], label: "Christmas", prices: prices({ double: 9_500_000 }) },
+        ],
       }),
     );
     const seasons = await world.inOrg((tx) => seasonsOf(tx, trip.packageId));
@@ -122,5 +125,55 @@ describe("savePriceTable", () => {
       ),
     );
     expect(reason).toBe("PRICE_TABLE_COLUMN_UNPRICED");
+  });
+
+  it("refuses a room-type change that leaves a season out of the table", async () => {
+    const trip = await aTrip();
+    const reason = await reasonOf(
+      world.inOrg((tx) =>
+        savePriceTable(tx, world.manager, {
+          packageId: trip.packageId,
+          roomTypes: ["double"],
+          columns: [{ seasonIds: [trip.christmas], label: "Christmas", prices: prices() }],
+        }),
+      ),
+    );
+    expect(reason).toBe("PRICE_TABLE_INCOMPLETE");
+  });
+
+  it("a subset save without a room-type change leaves the other seasons as they were", async () => {
+    const trip = await aTrip();
+    const before = await world.inOrg((tx) => seasonsOf(tx, trip.packageId));
+    await world.inOrg((tx) =>
+      savePriceTable(tx, world.manager, {
+        packageId: trip.packageId,
+        roomTypes: ["single", "double"],
+        columns: [{ seasonIds: [trip.christmas], label: "Christmas", prices: prices({ double: 9_900_000 }) }],
+      }),
+    );
+    const after = await world.inOrg((tx) => seasonsOf(tx, trip.packageId));
+    expect(after.filter((season) => season.id !== trip.christmas)).toEqual(
+      before.filter((season) => season.id !== trip.christmas),
+    );
+    expect(after.find((season) => season.id === trip.christmas)?.prices.double).toBe(9_900_000);
+  });
+
+  it("refuses a season named twice, in one column or across columns", async () => {
+    const trip = await aTrip();
+    const save = (columns: { seasonIds: string[]; label: string; prices: RoomPrices }[]) =>
+      reasonOf(
+        world.inOrg((tx) =>
+          savePriceTable(tx, world.manager, { packageId: trip.packageId, roomTypes: ["double"], columns }),
+        ),
+      );
+    expect(await save([{ seasonIds: [trip.christmas, trip.christmas], label: "X", prices: prices() }])).toBe(
+      "PRICE_TABLE_REPEATED_SEASON",
+    );
+    expect(
+      await save([
+        { seasonIds: [trip.christmas], label: "X", prices: prices() },
+        { seasonIds: [trip.christmas], label: "Y", prices: prices() },
+      ]),
+    ).toBe("PRICE_TABLE_REPEATED_SEASON");
   });
 });

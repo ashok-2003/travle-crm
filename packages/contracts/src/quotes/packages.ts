@@ -12,7 +12,7 @@ import {
 import { recordId } from "../identity/fields.js";
 import { calendarDate } from "../kernel/index.js";
 import { MAX_SEATS } from "../departures/seat-limit.js";
-import { roomBooking, roomPrices, roomPricesOutput, roomType } from "./room-prices.js";
+import { roomBooking, roomPrices, roomPricesOutput, roomType, type RoomPrices, type RoomType } from "./room-prices.js";
 import { MAX_QUOTE_PAISE, quoteDay, quoteItem, quoteTaxRate, MAX_QUOTE_DAYS, MAX_QUOTE_ITEMS } from "./quotes.js";
 
 const text = (max: number) => z.string().trim().max(max);
@@ -375,6 +375,10 @@ export const describeBrochureInput = z.strictObject({
 });
 export type DescribeBrochureInput = z.infer<typeof describeBrochureInput>;
 
+/** Whether a column prices at least one of the room types the trip sells (shared with the domain's own check). */
+export const columnHasPrice = (sold: readonly RoomType[], prices: RoomPrices) =>
+  sold.some((type) => prices[type] !== null);
+
 /** A trip's price table saved in one go: its room types, and per column (seasons sharing a label and prices) the new prices. */
 export const savePriceTableInput = z
   .strictObject({
@@ -391,8 +395,12 @@ export const savePriceTableInput = z
       .min(1),
   })
   .superRefine((value, context) => {
+    const ids = value.columns.flatMap((column) => column.seasonIds);
+    if (!unique(ids)) {
+      context.addIssue({ code: "custom", message: "A season is named twice", path: ["columns"] });
+    }
     value.columns.forEach((column, index) => {
-      if (!value.roomTypes.some((type) => column.prices[type] !== null)) {
+      if (!columnHasPrice(value.roomTypes, column.prices)) {
         context.addIssue({
           code: "custom",
           message: "Give at least one room type a price",

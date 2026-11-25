@@ -54,4 +54,17 @@ describe("savePriceTableInput", () => {
     expect(result.success).toBe(false);
     expect(result.error?.issues[0]?.path).toEqual(["columns", 0, "prices"]);
   });
+
+  it("refuses a season named twice, across columns too", () => {
+    const column = { label: "Regular", prices: { ...none, double: 5 } };
+    const result = savePriceTableInput.safeParse({
+      packageId: id,
+      roomTypes: ["double"],
+      columns: [
+        { seasonIds: [id], ...column },
+        { seasonIds: [id], ...column },
+      ],
+    });
+    expect(result.success).toBe(false);
+  });
 });
