@@ -101,7 +101,7 @@ api_image() {
   docker run --label "$run" --network "$run" --read-only --tmpfs /tmp "$@"
 }
 
-echo "migrate, first-super-admin and demo, once each"
+echo "migrate, first-super-admin, demo and a dedupe-files dry run, once each"
 api_image --rm --env DATABASE_MIGRATOR_URL=postgresql://app_migrator:migrator@postgres:5432/travel_crm \
   "$api_tag" migrate | tee "$work/migrate.log"
 grep --quiet "All migrations have been successfully applied" "$work/migrate.log" || fail "migrate applied nothing"
@@ -111,6 +111,8 @@ password="$(api_image --rm --env-file "$work/console.env" "$api_tag" \
 echo "ok: first-super-admin made the first super admin"
 api_image --rm --env-file "$work/console.env" "$api_tag" demo | grep --fixed-strings "The demo is ready" ||
   fail "demo didn't build the demo"
+api_image --rm --env-file "$work/console.env" "$api_tag" dedupe-files | grep --fixed-strings "Dry run:" ||
+  fail "dedupe-files didn't count as a dry run"
 
 echo "api, console and worker"
 api_image --detach --name "$run-api" --env-file "$work/api.env" --publish 127.0.0.1::3001 \
