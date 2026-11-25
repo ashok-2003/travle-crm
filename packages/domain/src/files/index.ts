@@ -27,3 +27,11 @@ export {
   isShortLivedRecordType,
 } from "./record-types.js";
 export { bytesStored, type StoredBytesCheck } from "./uploads.js";
+export {
+  duplicateCandidates,
+  identicalSets,
+  organizationsWithFiles,
+  shareStoredBytes,
+  type DuplicateCandidate,
+  type DuplicateSet,
+} from "./dedupe.js";

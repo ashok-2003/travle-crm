@@ -51,6 +51,7 @@ export {
 export { organizationAgentState } from "./agent-state.js";
 export { organizationsOverview } from "./dashboard.js";
 export { createCaseOrganization, removeCaseOrganization } from "./agent-cases.js";
+export { dedupeStoredFiles, type DedupeCount } from "./dedupe-files.js";
 export { demoStaff, RESET_DEMO_QUEUE, resetDemoOrganization, type DemoSettings } from "./demo.js";
 export {
   emailLogPurgeSchedule,

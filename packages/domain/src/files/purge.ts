@@ -123,6 +123,9 @@ async function handOverBytes(tx: OrgTx, storage: ObjectStorage, record: FileReco
   const heir = staying[0]?.id;
   if (heir === undefined) return;
   await storage.copy(storageKeyOf({ organizationId, id: holderId }), storageKeyOf({ organizationId, id: heir }));
+  // The clean-up (dedupe.ts) may have queued the heir's own object, a second copy it stopped needing: now it holds the
+  // bytes, so it stays.
+  await tx.storedFileDeletion.deleteMany({ where: { targetOrganizationId: organizationId, attachmentId: heir } });
   await tx.$executeRaw`
     UPDATE attachment SET stored_as_id = NULL WHERE organization_id = ${organizationId}::uuid AND id = ${heir}::uuid`;
   await tx.$executeRaw`
