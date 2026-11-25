@@ -39,7 +39,7 @@ describe("ChangeTable", () => {
 
   it("shows a flagged change in red with its reason, unticked", () => {
     renderTable(["c1"]);
-    const row = screen.getByRole("row", { name: /Cancel the departure on 12 Dec/ });
+    const row = screen.getByRole("row", { name: /Cancel the departure on Sun 12 Dec/ });
     expect(within(row).getByText(words.flags.has_bookings)).toHaveClass("text-status-bad-ink");
     expect(within(row).getByRole("checkbox")).not.toBeChecked();
     expect(within(screen.getByRole("row", { name: /Prices for Regular/ })).getByRole("checkbox")).toBeChecked();
