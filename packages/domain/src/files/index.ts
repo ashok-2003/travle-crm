@@ -7,14 +7,16 @@ export {
   exportedFiles,
   LATE_WRITES_MS,
   queueOrganizationFileDeletion,
-  storedFileKeys,
+  storedFiles,
   type ExportedFile,
   type FileRecord,
 } from "./purge.js";
 export {
+  deleteQueuedAttachment,
   deleteQueuedFile,
   dueFileDeletions,
   forgetFileDeletion,
+  LINKS_LAPSED_MS,
   nextFileDeletionDue,
   organizationFolder,
   type StoredFileDeletion,
@@ -27,3 +29,12 @@ export {
   isShortLivedRecordType,
 } from "./record-types.js";
 export { bytesStored, type StoredBytesCheck } from "./uploads.js";
+export {
+  duplicateCandidates,
+  holderSha256,
+  identicalSets,
+  organizationsWithFiles,
+  shareStoredBytes,
+  type DuplicateCandidate,
+  type DuplicateSet,
+} from "./dedupe.js";

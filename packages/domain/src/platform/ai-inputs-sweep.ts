@@ -67,6 +67,7 @@ export async function sweepAiInputs(services: PlatformServices, now: Date): Prom
         }
         count += await deleteRecordFiles(
           tx,
+          services.storage,
           { organizationId: old.organizationId, recordType: AI_INPUT_RECORD_TYPE, recordId: old.recordId },
           now,
         );

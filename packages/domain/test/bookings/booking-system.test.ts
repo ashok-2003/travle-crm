@@ -1,6 +1,7 @@
 // The system's side of bookings (release 6): the listeners for "quote.accepted" and "quote.reverted" (a repeat of an event adds
 // nothing), the night's Completed, a claim left waiting over a day, what Today shows, and the erasure of a customer's travellers,
 // ID numbers, claims, feedback and files.
+import { createMemoryStorage } from "@travel-crm/integrations/storage";
 import { createPlatformDatabase, type PlatformDatabase } from "@travel-crm/db/platform";
 import type { OrgTx } from "@travel-crm/db";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
@@ -193,6 +194,7 @@ describe("the system's side of bookings", () => {
     await platformDb.transaction((tx) =>
       eraseCustomerParts(
         tx,
+        createMemoryStorage(),
         systemActor(world.organizationId),
         { organizationId: world.organizationId, personId: person.personId },
         now,

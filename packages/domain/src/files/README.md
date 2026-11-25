@@ -28,13 +28,19 @@ documents are marked sensitive (spec 5).
   - `remove(actor, { recordType, recordId, attachmentId })`: a soft delete; only members with
     `documents:view_sensitive` may remove a sensitive file (the system may not), and no one may remove a file of a
     system-owned record type: `issued_document`, `import_report` and `data_export` (`FORBIDDEN`/`SYSTEM_OWNED_FILE`);
-  - `storeGeneratedFile(actor, file)`: stores a file the server made (a rendered PDF) and returns it ready. With a
-    chosen `attachmentId` a retry stores it once (`CONFLICT`/`ATTACHMENT_ID_IN_USE` if the id belongs to another
+  - `storeGeneratedFile(actor, file)`: stores a file the server made or downloaded (a rendered PDF, a WhatsApp file) and
+    returns it ready. Bytes the organization already holds (same size and SHA-256 on a live file holding its own) are
+    not uploaded again: the file shares that one's object, as a copy does (short-lived files are always stored apart).
+    With a chosen `attachmentId` a retry stores it once (`CONFLICT`/`ATTACHMENT_ID_IN_USE` if the id belongs to another
     record, organization or a deleted file); a retry after a failed upload completes the pending row with its own
     size and type; the name must pass `attachmentFileName` (`VALIDATION`/`INVALID_FILE_NAME`), and the type must be one
     the record takes (`VALIDATION`/`CONTENT_TYPE_NOT_ALLOWED`);
   - `systemDownloadLink(organizationId, { attachmentId })`: for server code that has already decided the viewer may
     see the file (share links); refuses sensitive files (`FORBIDDEN`/`SENSITIVE_FILE`);
+  - `copyFile(actor, from, to)` and `copyFileIn(tx, actor, from, to)`: a ready file attached to another record too (a
+    trip's file sent as a WhatsApp message's), a file of its own there that shares the stored bytes: ready at once,
+    nothing copied in storage, nothing added to the storage used (so never `STORAGE_LIMIT_REACHED`). The same copy
+    asked for again (same record, name, type and size) is the one made before;
   - `systemFile(organizationId, { recordType, recordId, attachmentId })`: a ready file's bytes and stored type, for
     server code that draws it into what it makes (the worker puts the organization's logo on a PDF); named by its
     record like `downloadLink`, and refuses sensitive files (`FORBIDDEN`/`SENSITIVE_FILE`);
@@ -49,16 +55,21 @@ documents are marked sensitive (spec 5).
     folder, due at once and again after `LATE_WRITES_MS` (15 minutes, once upload links handed out before the purge
     have lapsed), and returns how many files the organization's rows held, removed ones and unfinished uploads
     included;
-  - `deleteRecordFiles(tx, { organizationId, recordType, recordId }, now)`: an erasure's. Deletes the record's rows,
-    removed ones included, queues each file's bytes due at `now`, and returns how many went. A system-owned record's
+  - `deleteRecordFiles(tx, storage, { organizationId, recordType, recordId }, now)`: an erasure's. Deletes the record's
+    rows, removed ones included, queues each file's bytes due at `now`, and returns how many went. A file whose bytes
+    files of other records share hands them on first: storage copies them to the oldest of those, which holds them
+    from then on. A system-owned record's
     files are refused (`FORBIDDEN`/`SYSTEM_OWNED_FILE`), but the short-lived ones (`isShortLivedRecordType`:
     `import_batch`, `import_report`, `data_export`), which the sweep and erasure delete for good;
   - for the job that empties the outbox: `dueFileDeletions(tx, { now, limit, organizationId? })`,
-    `deleteQueuedFile(storage, deletion)` (the file, or the whole folder, `organizationFolder(id)`),
+    `deleteQueuedAttachment(tx, storage, deletion)` (a file, its row held while storage deletes it, and skipped when
+    the row holds its own bytes again: an heir of a hand-over), `deleteQueuedFile(storage, deletion)` (the file, or
+    the whole folder, `organizationFolder(id)`),
     `forgetFileDeletion(tx, id)` and `nextFileDeletionDue(tx, organizationId?)`. Each is safe to repeat.
-- Exports: `exportedFiles(tx, storage, where, linkSeconds)` (files with download links).
+- Exports: `exportedFiles(tx, storage, where, linkSeconds)` (files with download links) and
+  `storedFiles(tx, organizationId)` (every file's id with the key its bytes are read from, for the platform's export).
   `bytesStored(tx, organizationId, now?)`: the storage the organization uses, named rather than left to row-level
-  security, so a platform transaction counts that one alone.
+  security, so a platform transaction counts that one alone. A file sharing another's bytes counts nothing.
 
 - Record types (`record-types.ts`): `IMPORT_FILE_RECORD_TYPE` (`import_batch`), `IMPORT_REPORT_RECORD_TYPE`
   (`import_report`) and `DATA_EXPORT_RECORD_TYPE` (`data_export`), `allowedContentTypes(recordType)` and
@@ -75,6 +86,12 @@ None yet.
   confirm, download and remove take the record along with the id.
 - A file's storage key is `organizations/<organization id>/attachments/<attachment id>`, made from the row and never
   stored, so a row can't point at another organization's file.
+- A file is stored once (2026-11-25): a copy names the attachment whose object holds its bytes (`stored_as_id`, a key
+  that includes the organization), and every read uses that one's key (`bytesKeyOf`). Only a holder is ever named,
+  never a copy. Each copy still behaves as if it had its own bytes: its own name, sensitivity, removal and erasure,
+  and removing the holder leaves it readable. Uploads, generated files and the outbox use the row's own key
+  (`storageKeyOf`). A holder whose bytes the server had keeps their SHA-256 (`content_sha256`), which is how a
+  generated file finds them. The console's `dedupe-files` command turned the copies stored before into such files.
 - Pending files (uploads not yet confirmed) are never listed or downloadable.
 - Deleted files stay in storage, and count toward the limit, until the platform's purge.
 - An upload counts toward the limit from the moment it is asked for, and, if it never becomes ready (stopped, or

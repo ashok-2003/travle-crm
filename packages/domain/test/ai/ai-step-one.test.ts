@@ -2,6 +2,7 @@
 // deleted with its file; the scoring queued and run only for an agency with the AI on, a plan that has it and a subscription
 // that isn't suspended or cancelled, never moving a stage, within the monthly limit, once for a burst of messages, again
 // only after five new messages with real words, and erased with the customer. Against the real database, under row-level security.
+import { createMemoryStorage } from "@travel-crm/integrations/storage";
 import { randomUUID } from "node:crypto";
 import { AI_KNOWLEDGE_RECORD_TYPE } from "@travel-crm/contracts/files";
 import { createPlatformDatabase, type PlatformDatabase } from "@travel-crm/db/platform";
@@ -681,7 +682,13 @@ describe("the AI, step one", () => {
       await score();
       expect(await inOrg((tx) => tx.leadAiInsight.count())).toBe(1);
       await platformDb.transaction((tx) =>
-        eraseCustomerParts(tx, systemActor(organizationId), { organizationId, personId: chat.personId ?? "" }, testNow),
+        eraseCustomerParts(
+          tx,
+          createMemoryStorage(),
+          systemActor(organizationId),
+          { organizationId, personId: chat.personId ?? "" },
+          testNow,
+        ),
       );
       expect(await inOrg((tx) => tx.leadAiInsight.count({ where: { leadId: lead.id } }))).toBe(0);
     });
@@ -729,7 +736,13 @@ describe("the AI, step one", () => {
       tx.lead.findUniqueOrThrow({ where: { id: lead.id }, select: { personId: true } }),
     );
     await platformDb.transaction((tx) =>
-      eraseCustomerParts(tx, systemActor(organizationId), { organizationId, personId: person.personId }, testNow),
+      eraseCustomerParts(
+        tx,
+        createMemoryStorage(),
+        systemActor(organizationId),
+        { organizationId, personId: person.personId },
+        testNow,
+      ),
     );
     expect(await inOrg((tx) => tx.aiDraft.count({ where: { id: draft.draftId } }))).toBe(0);
   });

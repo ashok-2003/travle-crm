@@ -2,6 +2,7 @@
 // subscription is read-only, suspended or cancelled; STOP wins in every chat, one with no person linked too; only inside
 // the 24-hour window; past the shared monthly limit it hands the chat over, asking the model nothing; never while a
 // person answers; a customer's erasure takes its memory of them.
+import { createMemoryStorage } from "@travel-crm/integrations/storage";
 import { randomUUID } from "node:crypto";
 import { createPlatformDatabase, type PlatformDatabase } from "@travel-crm/db/platform";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
@@ -131,7 +132,13 @@ describe("the agent's gates", () => {
     await on.inOrg((tx) => tx.aiLearning.create({ data: { kind: "need", text: "People ask for Kedarnath" } }));
     const personId = (await on.inOrg((tx) => tx.whatsappConversation.findFirstOrThrow())).personId ?? "";
     await platformDb.transaction((tx) =>
-      eraseCustomerParts(tx, systemActor(on.organizationId), { organizationId: on.organizationId, personId }, testNow),
+      eraseCustomerParts(
+        tx,
+        createMemoryStorage(),
+        systemActor(on.organizationId),
+        { organizationId: on.organizationId, personId },
+        testNow,
+      ),
     );
     expect(await on.inOrg((tx) => tx.aiChat.count())).toBe(0);
     expect(await on.inOrg((tx) => tx.aiLearning.count())).toBe(0);

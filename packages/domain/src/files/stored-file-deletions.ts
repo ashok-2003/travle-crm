@@ -6,6 +6,13 @@ import type { ObjectStorage } from "@travel-crm/integrations/storage";
 import { isUuid } from "../kernel/index.js";
 import { storageKeyOf } from "./attachment-row.js";
 
+/**
+ * How long after a file stops needing its own object that object is kept: longer than every link the product signs (5
+ * minutes for a download, 15 for an export's files), so a link already handed out (a WhatsApp send's, fetched a moment
+ * later) still works. The clean-up and a hand-over queue the objects they free this late.
+ */
+export const LINKS_LAPSED_MS = 20 * 60 * 1000;
+
 /** One queued deletion: an attachment's bytes, or everything in a purged organization's folder (`attachmentId` null). */
 export interface StoredFileDeletion {
   id: string;
@@ -63,6 +70,24 @@ export async function deleteQueuedFile(storage: ObjectStorage, deletion: StoredF
   } else {
     await storage.delete(storageKeyOf({ organizationId: deletion.organizationId, id: deletion.attachmentId }));
   }
+}
+
+/**
+ * One queued attachment's deletion, in the job's platform transaction: its row is held while storage deletes the object,
+ * so a hand-over can't give the file these bytes in between (it locks the row first). A file that holds its own bytes
+ * again (an heir, or a WhatsApp file stored again under its id) keeps them, and only the queue's row goes.
+ */
+export async function deleteQueuedAttachment(
+  tx: OrgTx,
+  storage: ObjectStorage,
+  deletion: StoredFileDeletion & { attachmentId: string },
+): Promise<void> {
+  const [row] = await tx.$queryRaw<{ storedAsId: string | null }[]>`
+    SELECT stored_as_id AS "storedAsId" FROM attachment
+    WHERE organization_id = ${deletion.organizationId}::uuid AND id = ${deletion.attachmentId}::uuid
+    FOR SHARE`;
+  if (row?.storedAsId !== null) await deleteQueuedFile(storage, deletion);
+  await forgetFileDeletion(tx, deletion.id);
 }
 
 /** Forgets a deletion once its file is gone. Two runs may both get here: the second finds nothing to forget. */

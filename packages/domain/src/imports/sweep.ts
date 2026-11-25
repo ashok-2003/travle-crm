@@ -3,6 +3,7 @@
 // under an import already expired (a job's write after an erasure) goes too. The sweep lists a page of them, then
 // sweeps each in its own short transaction, so one slow import never holds back the rest.
 import { type OrgTx, sql } from "@travel-crm/db";
+import type { ObjectStorage } from "@travel-crm/integrations/storage";
 import { IMPORT_FILE_RECORD_TYPE, IMPORT_REPORT_RECORD_TYPE } from "../files/index.js";
 import { deleteImportFiles, emptyKeptValues } from "./withdraw.js";
 
@@ -41,7 +42,7 @@ export async function importsToSweep(
  * marks it expired. An import a job holds is skipped (SKIP LOCKED) for the next hour, as is one not yet due. Returns
  * whether it swept.
  */
-export async function sweepImport(tx: OrgTx, item: SweepItem, now: Date): Promise<boolean> {
+export async function sweepImport(tx: OrgTx, storage: ObjectStorage, item: SweepItem, now: Date): Promise<boolean> {
   const [batch] = await tx.$queryRaw<{ status: string; keepUntil: Date }[]>`
     SELECT status, keep_until AS "keepUntil"
     FROM import_batch
@@ -50,7 +51,7 @@ export async function sweepImport(tx: OrgTx, item: SweepItem, now: Date): Promis
   if (batch === undefined) return false;
   const due = batch.status !== "expired" && batch.keepUntil < now;
   if (!due && batch.status !== "expired") return false;
-  await deleteImportFiles(tx, item.organizationId, [item.id], now);
+  await deleteImportFiles(tx, storage, item.organizationId, [item.id], now);
   if (due) {
     await emptyKeptValues(tx, item.organizationId, [item.id]);
     await tx.importBatch.updateMany({

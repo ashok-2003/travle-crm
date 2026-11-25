@@ -14,7 +14,7 @@ import {
   nextFileDeletionDue,
   organizationFolder,
   queueOrganizationFileDeletion,
-  storedFileKeys,
+  storedFiles,
 } from "../../src/files/index.js";
 import { OWNER_ROLE_KEY } from "../../src/identity/index.js";
 import { systemActor } from "../../src/kernel/index.js";
@@ -37,14 +37,14 @@ describe("permanent deletion of files", () => {
     await test.close();
   });
 
-  /** Stores a file on the record, the way the system stores generated files. */
+  /** Stores a file on the record, the way the system stores generated files; each its own bytes. */
   async function stored(organizationId: string, recordId: string, fileName: string) {
     return test.files.storeGeneratedFile(systemActor(organizationId), {
       recordType: "traveller",
       recordId,
       fileName,
       contentType: "application/pdf",
-      body: bytes("%PDF-1.3"),
+      body: bytes(`%PDF-1.3 ${fileName}`),
     });
   }
 
@@ -81,8 +81,8 @@ describe("permanent deletion of files", () => {
       attachmentId: removed.id,
     });
     await stored(await createOrganization(test), traveller, "Another agency's visa.pdf");
-    const keys = await platformDb.transaction((tx) => storedFileKeys(tx, organizationId));
-    expect(keys.sort()).toEqual(
+    const files = await platformDb.transaction((tx) => storedFiles(tx, organizationId));
+    expect(files.map((file) => file.key).sort()).toEqual(
       [kept.id, removed.id].map((id) => `organizations/${organizationId}/attachments/${id}`).sort(),
     );
   });
@@ -92,16 +92,16 @@ describe("permanent deletion of files", () => {
     const visa = await stored(organizationId, traveller, "Visa.pdf");
     const ticket = await stored(organizationId, otherTraveller, "Ticket.pdf");
     const record = { organizationId, recordType: "traveller", recordId: traveller };
-    expect(await platformDb.transaction((tx) => deleteRecordFiles(tx, record, new Date()))).toBe(1);
+    expect(await platformDb.transaction((tx) => deleteRecordFiles(tx, test.storage, record, new Date()))).toBe(1);
     expect(await queued(organizationId)).toEqual([expect.objectContaining({ attachmentId: visa.id })]);
     expect(await test.platform.attachment.count({ where: { organizationId } })).toBe(1);
     // Again: no rows left, so nothing more is queued.
-    expect(await platformDb.transaction((tx) => deleteRecordFiles(tx, record, new Date()))).toBe(0);
+    expect(await platformDb.transaction((tx) => deleteRecordFiles(tx, test.storage, record, new Date()))).toBe(0);
     expect(await queued(organizationId)).toHaveLength(1);
     // Rolled back with its transaction: nothing deleted, nothing queued.
     await expect(
       platformDb.transaction(async (tx) => {
-        await deleteRecordFiles(tx, { ...record, recordId: otherTraveller }, new Date());
+        await deleteRecordFiles(tx, test.storage, { ...record, recordId: otherTraveller }, new Date());
         throw new Error("the erasure failed later on");
       }),
     ).rejects.toThrow(/later on/);
@@ -115,7 +115,7 @@ describe("permanent deletion of files", () => {
     const ticket = await stored(organizationId, otherTraveller, "Ticket.pdf");
     const now = new Date();
     await platformDb.transaction((tx) =>
-      deleteRecordFiles(tx, { organizationId, recordType: "traveller", recordId: traveller }, now),
+      deleteRecordFiles(tx, test.storage, { organizationId, recordType: "traveller", recordId: traveller }, now),
     );
     const [one] = await platformDb.transaction((tx) => dueFileDeletions(tx, { now, limit: 10, organizationId }));
     if (!one) throw new Error("nothing queued");
@@ -150,7 +150,7 @@ describe("permanent deletion of files", () => {
     const organizationId = await createOrganization(test);
     await stored(organizationId, traveller, "Passport - Asha Mehta.pdf");
     await platformDb.transaction((tx) =>
-      deleteRecordFiles(tx, { organizationId, recordType: "traveller", recordId: traveller }, new Date()),
+      deleteRecordFiles(tx, test.storage, { organizationId, recordType: "traveller", recordId: traveller }, new Date()),
     );
     const columns = await test.platform.$queryRaw<{ column_name: string; data_type: string }[]>`
       SELECT column_name, data_type FROM information_schema.columns
@@ -169,13 +169,23 @@ describe("permanent deletion of files", () => {
     const organizationId = await createOrganization(test);
     await expect(
       platformDb.transaction((tx) =>
-        deleteRecordFiles(tx, { organizationId, recordType: "issued_document", recordId: traveller }, new Date()),
+        deleteRecordFiles(
+          tx,
+          test.storage,
+          { organizationId, recordType: "issued_document", recordId: traveller },
+          new Date(),
+        ),
       ),
     ).rejects.toMatchObject({ reason: "SYSTEM_OWNED_FILE" });
     await stored(organizationId, traveller, "Visa.pdf");
     await expect(
       test.db.forOrg(organizationId, (tx) =>
-        deleteRecordFiles(tx, { organizationId, recordType: "traveller", recordId: traveller }, new Date()),
+        deleteRecordFiles(
+          tx,
+          test.storage,
+          { organizationId, recordType: "traveller", recordId: traveller },
+          new Date(),
+        ),
       ),
     ).rejects.toThrow(/permission denied/);
     await expect(

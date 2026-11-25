@@ -1,6 +1,7 @@
 // Copying a customer's file, or one the agency sent from the phone, into our storage (spec 4.3 I4): MSG91's link dies after 30
 // days, so each file is downloaded at once through the port (size cap, type allowlist, timeout), stored as an attachment on the
-// record type whatsapp_message, and the link blanked. While MSG91 can't serve it the job retries with backoff (10 retries
+// record type whatsapp_message (once: the same bytes sent again, as a phone does with a brochure, share the first file's
+// stored object), and the link blanked. While MSG91 can't serve it the job retries with backoff (10 retries
 // from 60 s, capped at an hour each: it gives up within about 6 hours). A row still pending after 24 hours is settled `failed`
 // (code `unavailable`) by the health check, or by a copy-job retry landing after 24 hours, which only a health re-queue can
 // produce; nothing queues it again. The job

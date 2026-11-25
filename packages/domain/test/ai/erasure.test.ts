@@ -1,5 +1,6 @@
 // A customer's erasure takes every AI row about them, the earlier agents' too: chat memory, voice history and grounded
 // facts, bookings, insights, field suggestions, drafts and, with them, the agency's lessons; another customer's chat stays.
+import { createMemoryStorage } from "@travel-crm/integrations/storage";
 import { createPlatformDatabase, type PlatformDatabase } from "@travel-crm/db/platform";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { withdrawAiParts } from "../../src/ai/erasure.js";
@@ -50,7 +51,7 @@ describe("erasing a customer's AI rows", () => {
       return chat.id;
     });
     const counts = await platformDb.transaction((tx) =>
-      withdrawAiParts(tx, {
+      withdrawAiParts(tx, createMemoryStorage(), {
         organizationId: on.organizationId,
         personId: on.chat.personId ?? "",
         phones: [on.chat.phoneE164],

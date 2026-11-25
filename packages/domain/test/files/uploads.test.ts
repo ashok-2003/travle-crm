@@ -246,7 +246,7 @@ describe("uploading files", () => {
 
     expect(retried).toMatchObject({ status: "ready", contentType: "image/png", sizeBytes: 29 });
     expect(await files.storageUsedBytes(organizationId)).toBe(before + 29);
-    expect(await test.storage.head(`organizations/${organizationId}/attachments/${retried.id}`)).toEqual({
+    expect(await test.storage.head(`organizations/${organizationId}/attachments/${retried.id}`)).toMatchObject({
       sizeBytes: 29,
       contentType: "image/png",
     });

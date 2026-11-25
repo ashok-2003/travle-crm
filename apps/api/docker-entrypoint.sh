@@ -1,14 +1,15 @@
 #!/bin/sh
 # The api image's commands (spec 12.3: one image, a container per command): `api`, `worker` and `console` run until
-# stopped; `migrate`, `first-super-admin` and `demo` run once. Each execs Node, so Node is the container's first
-# process and SIGTERM reaches it directly: the processes' own drains (apps/api/README.md) do the stopping.
+# stopped; `migrate`, `first-super-admin`, `demo` and `dedupe-files` run once. Each execs Node, so Node is the
+# container's first process and SIGTERM reaches it directly: the processes' own drains (apps/api/README.md) do the
+# stopping.
 # `api-and-worker` runs the api and the worker in one container, for a host without background workers.
 set -eu
 
 # The console never holds the Google service accounts, whatever the host hands the container (the console's own code
 # drops them too).
 case "${1:-}" in
-  console | first-super-admin | demo) unset GOOGLE_SHEETS_SERVICE_ACCOUNTS ;;
+  console | first-super-admin | demo | dedupe-files) unset GOOGLE_SHEETS_SERVICE_ACCOUNTS ;;
 esac
 
 command="${1:-}"
@@ -18,7 +19,7 @@ case "$command" in
   api) exec node /app/apps/api/dist/server.mjs "$@" ;;
   worker) exec node /app/apps/api/dist/worker.mjs "$@" ;;
   console) exec node /app/apps/api/dist/console.mjs "$@" ;;
-  first-super-admin | demo) exec node /app/apps/api/dist/console-command.mjs "$command" "$@" ;;
+  first-super-admin | demo | dedupe-files) exec node /app/apps/api/dist/console-command.mjs "$command" "$@" ;;
   # Applies the migrations as app_migrator (DATABASE_MIGRATOR_URL), with the db package's Prisma config.
   migrate)
     cd /app/packages/db
@@ -62,7 +63,8 @@ case "$command" in
     exit "$status"
     ;;
   *)
-    echo "Usage: <api | worker | api-and-worker | console | migrate | first-super-admin | demo> [arguments]" >&2
+    echo "Usage: <api | worker | api-and-worker | console | migrate | first-super-admin | demo | dedupe-files>" \
+      "[arguments]" >&2
     exit 64
     ;;
 esac

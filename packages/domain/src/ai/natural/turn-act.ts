@@ -115,17 +115,11 @@ async function actDepsOf(turn: LiveTurn, act: TurnAct): Promise<NaturalActDeps> 
   const { deps, input, prepared } = turn;
   const { organizationId } = input;
   const money = has(act.staged, MONEY_ACTIONS);
-  const copiesFiles = money || act.staged.has("send_brochure");
   const tasks = act.task !== null || act.staged.has("create_task");
   const managers = money ? await deps.managers(organizationId) : [];
-  const storageLimitBytes =
-    copiesFiles && deps.subscriptions !== undefined
-      ? ((await deps.subscriptions.entitlementsOf(organizationId))?.limits.storageBytes ?? null)
-      : null;
   return {
     files: deps.files,
     recipients: () => Promise.resolve(managers),
-    storageLimitBytes,
     supplierStateCode: prepared.supplierStateCode,
     taskOwner: tasks ? await taskOwnerOf(deps, organizationId) : null,
     workingHours: tasks ? hoursOf(await deps.db.forOrg(organizationId, (tx) => readAssignment(tx))) : UNREAD_HOURS,

@@ -1,5 +1,6 @@
 // The agent's suggestions to mark a lead Lost or Not a lead: written once, never again for a kind a person turned down,
 // and moved only by a person's yes, inside their scope; erased with the customer.
+import { createMemoryStorage } from "@travel-crm/integrations/storage";
 import { createPlatformDatabase, type PlatformDatabase } from "@travel-crm/db/platform";
 import { softDeleted } from "@travel-crm/db";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
@@ -218,7 +219,7 @@ describe("the agent's suggestion to mark a lead Lost or Not a lead", () => {
     await suggest(on);
     const person = await on.inOrg((tx) => tx.lead.findUniqueOrThrow({ where: { id: on.leadId } }));
     const result = await platformDb.transaction((tx) =>
-      withdrawAiParts(tx, {
+      withdrawAiParts(tx, createMemoryStorage(), {
         organizationId: on.organizationId,
         personId: person.personId,
         leadIds: [on.leadId],

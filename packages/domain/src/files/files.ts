@@ -9,7 +9,8 @@ import { listAttachments, listAttachmentsOfRecords, removeAttachment, storageUse
 import type { DownloadLink, FilesDependencies, GeneratedFile, StoredFile } from "./dependencies.js";
 import { downloadLink, systemDownloadLink, systemFile } from "./downloads.js";
 import { copyFile, copyFileIn } from "./copies.js";
-import { confirmUpload, requestUpload, storeGeneratedFile, type StoredBytesCheck } from "./uploads.js";
+import { storeGeneratedFile } from "./generated.js";
+import { confirmUpload, requestUpload, type StoredBytesCheck } from "./uploads.js";
 
 export interface Files {
   /**
@@ -38,22 +39,26 @@ export interface Files {
   ): Promise<Map<string, AttachmentSummary[]>>;
   /** Soft-deletes the file. Only members with documents:view_sensitive may remove a sensitive file. */
   remove(actor: Actor, input: AttachmentRefInput): Promise<void>;
-  /** Stores a file the server made and returns it ready; with a chosen attachmentId, a retry stores it once. */
+  /**
+   * Stores a file the server made or downloaded and returns it ready; with a chosen attachmentId, a retry stores it once.
+   * Bytes the organization already holds are shared, not uploaded again.
+   */
   storeGeneratedFile(actor: Actor, file: GeneratedFile): Promise<AttachmentSummary>;
-  /** A ready file copied onto another record inside storage (a trip's file sent as a WhatsApp message's). */
+  /**
+   * A ready file attached to another record too (a trip's file sent as a WhatsApp message's): a file of its own there,
+   * sharing the stored bytes, so it adds nothing to the organization's storage.
+   */
   copyFile(
     actor: Actor,
     from: AttachmentRefInput,
     to: { recordType: string; recordId: string },
   ): Promise<AttachmentSummary>;
-  /** `copyFile` inside a transaction already open: the copy's rows join it and go if it rolls back. */
+  /** `copyFile` inside a transaction already open: the copy joins it and goes if it rolls back. */
   copyFileIn(
     tx: OrgTx,
     actor: Actor,
     from: AttachmentRefInput,
     to: { recordType: string; recordId: string },
-    /** The storage limit looked up before the transaction opened, when the caller has it (null: none). */
-    knownLimitBytes?: number | null,
   ): Promise<AttachmentSummary>;
   /** A link for trusted server code (share links) to an ordinary file; sensitive files are refused. */
   systemDownloadLink(organizationId: string, input: { attachmentId: string }): Promise<DownloadLink>;
@@ -78,8 +83,7 @@ export function createFiles(dependencies: FilesDependencies): Files {
     remove: (actor, input) => removeAttachment(dependencies, actor, input),
     storeGeneratedFile: (actor, file) => storeGeneratedFile(dependencies, actor, file),
     copyFile: (actor, from, to) => copyFile(dependencies, actor, from, to),
-    copyFileIn: (tx, actor, from, to, knownLimitBytes) =>
-      copyFileIn(dependencies, tx, actor, from, to, knownLimitBytes),
+    copyFileIn: (tx, actor, from, to) => copyFileIn(tx, actor, from, to),
     systemDownloadLink: (organizationId, input) => systemDownloadLink(dependencies, organizationId, input),
     systemFile: (organizationId, input, options) => systemFile(dependencies, organizationId, input, options),
     storageUsedBytes: (organizationId) => storageUsedBytes(dependencies, organizationId),

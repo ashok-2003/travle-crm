@@ -128,6 +128,16 @@ when one is wrong), serves nothing, runs no jobs and exits (`src/console-command
   `DEMO_PASSWORD` from `.env` (it says to set them when they aren't), purging the last demo it built. Run it after
   `pnpm services:up` and `pnpm db:migrate`. It prints the organization code and the usernames to sign in with (`asha`
   the Owner, `ravi` in Sales, `meena` in Operations), never a password: theirs is `DEMO_PASSWORD`.
+- **`pnpm --filter @travel-crm/api-server run dedupe-files -- [--apply] [--organization <id>]`** is the one-off
+  clean-up of files stored more than once before a file shared its holder's bytes (2026-11-25): per organization, ready
+  files with the same size, type and ETag, whatever their names, come to share one object (a live file's first, then
+  one not on an AI input, then one not on a WhatsApp message, then the oldest), which keeps the bytes' SHA-256 so the
+  same file sent again finds it, and the others' objects
+  go through the deletions' outbox, deleted 20 minutes later, once every link handed out for them has lapsed. Without
+  `--apply` it only counts; `--apply` finds the sets again rather than replaying the dry run's, so its counts may differ
+  a little. Don't run `--apply` while an organization's export is running (it could miss a file whose own object goes
+  meanwhile). It prints organization ids, file counts and sizes, never a file's name. Safe to run again, and worth
+  running again later: files stored before the release, and browser uploads, have no hash to be found by.
 
 ## Environment
 

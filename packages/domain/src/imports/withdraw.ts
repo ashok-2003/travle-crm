@@ -3,6 +3,7 @@
 // sees them all. The files go for good through the deletions' outbox; what the imports keep of rows, values and
 // headers is emptied; the counts and outcomes stay. An erasure also forgets the agency's header memory (M3).
 import { type OrgTx, sql, withDeleted } from "@travel-crm/db";
+import type { ObjectStorage } from "@travel-crm/integrations/storage";
 import { deleteRecordFiles, IMPORT_FILE_RECORD_TYPE, IMPORT_REPORT_RECORD_TYPE } from "../files/index.js";
 
 /** Who an erasure forgets: a customer (crm's person) or a removed member. */
@@ -45,6 +46,7 @@ export async function emptyKeptValues(tx: OrgTx, organizationId: string, imports
  */
 export async function deleteImportFiles(
   tx: OrgTx,
+  storage: ObjectStorage,
   organizationId: string,
   importIds: readonly string[],
   now: Date,
@@ -57,7 +59,7 @@ export async function deleteImportFiles(
   let files = 0;
   for (const recordId of importIds) {
     for (const recordType of importRecordTypes) {
-      files += await deleteRecordFiles(tx, { organizationId, recordType, recordId }, now);
+      files += await deleteRecordFiles(tx, storage, { organizationId, recordType, recordId }, now);
     }
   }
   return files;
@@ -70,6 +72,7 @@ export async function deleteImportFiles(
  */
 export async function withdrawImportFiles(
   tx: OrgTx,
+  storage: ObjectStorage,
   organizationId: string,
   now: Date,
   forget: ForgottenSubject | null,
@@ -83,6 +86,7 @@ export async function withdrawImportFiles(
   );
   const files = await deleteImportFiles(
     tx,
+    storage,
     organizationId,
     stored.map((file) => file.recordId),
     now,

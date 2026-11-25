@@ -8,6 +8,7 @@
 // on their lead are crm's, erased with the lead. Runs in the erasure's platform transaction, naming the organization.
 import { WHATSAPP_RECORD_TYPE } from "@travel-crm/contracts/files";
 import type { OrgTx } from "@travel-crm/db";
+import type { ObjectStorage } from "@travel-crm/integrations/storage";
 import { randomUUID } from "node:crypto";
 import { deleteRecordFiles } from "../files/index.js";
 import { forgetRecordNotifications } from "../notifications/index.js";
@@ -23,6 +24,7 @@ export interface WhatsAppWithdrawn {
 
 export async function withdrawWhatsApp(
   tx: OrgTx,
+  storage: ObjectStorage,
   input: {
     organizationId: string;
     personId: string;
@@ -51,6 +53,7 @@ export async function withdrawWhatsApp(
   for (const message of withFiles) {
     files += await deleteRecordFiles(
       tx,
+      storage,
       { organizationId, recordType: WHATSAPP_RECORD_TYPE, recordId: message.id },
       now,
     );

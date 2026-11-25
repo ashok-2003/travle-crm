@@ -120,10 +120,12 @@ describe("which files a record takes", () => {
         body: bytes("Name"),
       });
       const record = { organizationId: organization, recordType, recordId: importId };
-      expect(await platformDb.transaction((tx) => deleteRecordFiles(tx, record, new Date()))).toBe(1);
+      expect(await platformDb.transaction((tx) => deleteRecordFiles(tx, test.storage, record, new Date()))).toBe(1);
     }
     const issued = { organizationId: organization, recordType: "issued_document", recordId: importId };
-    await expect(platformDb.transaction((tx) => deleteRecordFiles(tx, issued, new Date()))).rejects.toMatchObject({
+    await expect(
+      platformDb.transaction((tx) => deleteRecordFiles(tx, test.storage, issued, new Date())),
+    ).rejects.toMatchObject({
       code: "FORBIDDEN",
       reason: "SYSTEM_OWNED_FILE",
     });

@@ -2,6 +2,7 @@
 // sweep deletes its file and report for good and empties what it keeps of the rows, keeping its counts; a file stored
 // late under an expired import goes too; an erasure withdraws every import file of the organization at once, and the
 // erased person's rows lose their ids and fingerprints.
+import { createMemoryStorage } from "@travel-crm/integrations/storage";
 import { createPlatformDatabase, type PlatformDatabase } from "@travel-crm/db/platform";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { importsToSweep, rememberHeaderFields, sweepImport, withdrawImportFiles } from "../../src/imports/index.js";
@@ -92,7 +93,7 @@ describe("keeping and deleting an import's files", () => {
   /** The sweep as the console runs it: a page of imports to visit, each swept in its own transaction. */
   async function sweep(now: Date) {
     const items = await platformDb.transaction((tx) => importsToSweep(tx, now, 100, []));
-    for (const item of items) await platformDb.transaction((tx) => sweepImport(tx, item, now));
+    for (const item of items) await platformDb.transaction((tx) => sweepImport(tx, createMemoryStorage(), item, now));
     return items;
   }
   const attachmentsOf = (id: string) => test.platform.attachment.count({ where: { recordId: id } });
@@ -155,7 +156,9 @@ describe("keeping and deleting an import's files", () => {
         rememberHeaderFields(tx, "leads", [{ header: "Priya Sharma", field: "name" }], now),
       );
     }
-    const withdrawn = await platformDb.transaction((tx) => withdrawImportFiles(tx, organizationId, now, { personId }));
+    const withdrawn = await platformDb.transaction((tx) =>
+      withdrawImportFiles(tx, createMemoryStorage(), organizationId, now, { personId }),
+    );
     expect(withdrawn).toEqual({ imports: 2, files: 4 });
     for (const { id } of [done, waiting]) {
       expect(await attachmentsOf(id)).toBe(0);

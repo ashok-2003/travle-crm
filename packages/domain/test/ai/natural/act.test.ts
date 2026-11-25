@@ -63,7 +63,6 @@ describe("the natural agent's live act", () => {
   const deps = (changes: Partial<NaturalActDeps> = {}): NaturalActDeps => ({
     files: test.files,
     recipients: () => Promise.resolve([]),
-    storageLimitBytes: null,
     supplierStateCode: "05",
     taskOwner: ASSIGNER,
     workingHours: WORKING,

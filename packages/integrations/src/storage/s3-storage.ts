@@ -139,7 +139,9 @@ export function createS3Storage(settings: S3StorageSettings): S3Storage {
       assertSafeKey(key);
       try {
         const object = await client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
-        return { sizeBytes: object.ContentLength ?? 0, contentType: object.ContentType ?? null };
+        // S3 quotes the ETag ("\"9e10…\""); the port gives it bare.
+        const etag = object.ETag?.replaceAll('"', "") ?? null;
+        return { sizeBytes: object.ContentLength ?? 0, contentType: object.ContentType ?? null, etag };
       } catch (error) {
         if (isErrorNamed(error, "NotFound")) return null;
         throw error;

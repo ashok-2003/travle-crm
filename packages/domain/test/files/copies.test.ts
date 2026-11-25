@@ -1,7 +1,9 @@
-// A file copied onto another record inside storage: a ready file, its own row counted in storage, the limit holding, and the
-// same copy asked for twice made once.
+// A file attached to another record without storing it again: a ready file of its own there that shares the stored bytes,
+// adds nothing to the organization's storage, is allowed when storage is full, names the first holder when copied again,
+// and is made once when asked for twice.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { bytesStored } from "../../src/files/index.js";
+import { systemActor } from "../../src/kernel/index.js";
 import {
   bytes,
   createOrganization,
@@ -31,15 +33,35 @@ describe("copying a file onto another record", () => {
     return { sales, source: attachment };
   }
 
-  it("makes a ready file of its own on the other record, with the bytes copied inside storage", async () => {
+  const used = (organization = organizationId, files = test) =>
+    files.db.forOrg(organization, (tx) => bytesStored(tx, organization));
+  const storedAsOf = (id: string) =>
+    test.db.forOrg(organizationId, async (tx) => (await tx.attachment.findUniqueOrThrow({ where: { id } })).storedAsId);
+
+  it("makes a ready file of its own on the other record, sharing the stored bytes and adding none", async () => {
     const { sales, source } = await stored(organizationId);
+    const objects = test.storage.objects.size;
+    const before = await used();
     const copy = await test.files.copyFile(sales, ref(source), target);
     expect(copy).toMatchObject({ ...target, fileName: source.fileName, status: "ready", sizeBytes: source.sizeBytes });
     expect(copy.id).not.toBe(source.id);
-    expect(await test.storage.head(`organizations/${organizationId}/attachments/${copy.id}`)).toMatchObject({
-      sizeBytes: 11,
-    });
+    expect(await storedAsOf(copy.id)).toBe(source.id);
+    expect(test.storage.objects.size).toBe(objects);
+    expect(await used()).toBe(before);
     expect((await test.files.list(sales, target)).map((file) => file.id)).toContain(copy.id);
+  });
+
+  it("names the first file's holder when a copy is copied again: never a chain", async () => {
+    const { sales, source } = await stored(organizationId);
+    const first = await test.files.copyFile(sales, ref(source), {
+      recordType: "lead",
+      recordId: "0199e7a0-0000-7000-8000-0000000000ff",
+    });
+    const second = await test.files.copyFile(sales, ref(first), {
+      recordType: "lead",
+      recordId: "0199e7a0-0000-7000-8000-0000000000fc",
+    });
+    expect(await storedAsOf(second.id)).toBe(source.id);
   });
 
   it("refuses a file that is not there, or one named under another record", async () => {
@@ -51,45 +73,55 @@ describe("copying a file onto another record", () => {
     });
   });
 
-  it("makes one copy when the same copy is asked for twice, and counts it once", async () => {
+  it("makes one copy when the same copy is asked for twice", async () => {
     const { sales, source } = await stored(organizationId);
     const record = { recordType: "lead", recordId: "0199e7a0-0000-7000-8000-0000000000fa" };
-    const used = () => test.db.forOrg(organizationId, (tx) => bytesStored(tx, organizationId));
-    const before = await used();
     const first = await test.files.copyFile(sales, ref(source), record);
     const again = await test.files.copyFile(sales, ref(source), record);
     expect(again.id).toBe(first.id);
-    expect(await used()).toBe(before + source.sizeBytes);
   });
 
-  it("finishes a copy that an earlier try left pending, instead of making a second", async () => {
+  it("finishes a copy that the copy in storage of before left pending, as a copy sharing the bytes", async () => {
     const { sales, source } = await stored(organizationId);
     const record = { recordType: "lead", recordId: "0199e7a0-0000-7000-8000-0000000000fb" };
-    // The first try wrote its row, and storage lost the source for a moment.
-    const key = `organizations/${organizationId}/attachments/${source.id}`;
-    // The map is read-only to code; a test may reach in to make storage lose the object for a moment.
-    const objects = test.storage.objects as Map<string, NonNullable<ReturnType<typeof test.storage.objects.get>>>;
-    const object = objects.get(key);
-    objects.delete(key);
-    await expect(test.files.copyFile(sales, ref(source), record)).rejects.toMatchObject({ code: "NOT_FOUND" });
-    if (object !== undefined) objects.set(key, object);
+    // What the old copy wrote before storage failed it: a pending row of the same file on the record.
+    const pending = await test.db.forOrg(organizationId, (tx) =>
+      tx.attachment.create({
+        data: { ...record, fileName: source.fileName, contentType: source.contentType, sizeBytes: source.sizeBytes },
+      }),
+    );
     const done = await test.files.copyFile(sales, ref(source), record);
-    expect(done.status).toBe("ready");
+    expect(done).toMatchObject({ id: pending.id, status: "ready" });
+    expect(await storedAsOf(pending.id)).toBe(source.id);
     const rows = await test.db.forOrg(organizationId, (tx) => tx.attachment.findMany({ where: record }));
     expect(rows).toHaveLength(1);
   });
 
-  it("holds to the organization's storage limit, as an upload does", async () => {
+  it("copies even when the organization's storage is full: a copy stores nothing", async () => {
     const limited = createTestFiles({ storageLimitBytes: 15 });
     try {
       const other = await createOrganization(limited, "Small agency");
       const { sales, source } = await stored(other, limited);
-      await expect(limited.files.copyFile(sales, ref(source), target)).rejects.toMatchObject({
-        code: "LIMIT_REACHED",
-        reason: "STORAGE_LIMIT_REACHED",
-      });
+      await expect(limited.files.copyFile(sales, ref(source), target)).resolves.toMatchObject({ status: "ready" });
+      const another = { recordType: "lead", recordId: "0199e7a0-0000-7000-8000-0000000000fe" };
+      await expect(
+        limited.db.forOrg(other, (tx) => limited.files.copyFileIn(tx, systemActor(other), ref(source), another)),
+      ).resolves.toMatchObject({ status: "ready" });
+      expect(await used(other, limited)).toBe(source.sizeBytes);
     } finally {
       await limited.close();
     }
+  });
+
+  it("goes with the transaction it was made in, when that rolls back", async () => {
+    const { source } = await stored(organizationId);
+    const record = { recordType: "lead", recordId: "0199e7a0-0000-7000-8000-0000000000fd" };
+    await expect(
+      test.db.forOrg(organizationId, async (tx) => {
+        await test.files.copyFileIn(tx, systemActor(organizationId), ref(source), record);
+        throw new Error("the turn failed later on");
+      }),
+    ).rejects.toThrow(/later on/);
+    expect(await test.db.forOrg(organizationId, (tx) => tx.attachment.count({ where: record }))).toBe(0);
   });
 });

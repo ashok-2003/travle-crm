@@ -1,5 +1,6 @@
 // An in-memory ObjectStorage for tests: it keeps files in a Map and checks a simulated browser upload the way S3
 // checks a presigned one (same size and type, before it expires).
+import { createHash } from "node:crypto";
 import { assertExpiry, assertInlineAllowed, assertPositiveSize, assertSafeKey, assertSafePrefix } from "./checks.js";
 import type { ObjectStorage, PresignedUpload, StoredObject } from "./object-storage.js";
 
@@ -66,7 +67,10 @@ export function createMemoryStorage(now: () => Date = () => new Date()): MemoryS
       promised((): StoredObject | null => {
         assertSafeKey(key);
         const object = objects.get(key);
-        return object ? { sizeBytes: object.body.byteLength, contentType: object.contentType } : null;
+        if (!object) return null;
+        // S3's ETag for a file stored in one piece: the MD5 of its bytes.
+        const etag = createHash("md5").update(object.body).digest("hex");
+        return { sizeBytes: object.body.byteLength, contentType: object.contentType, etag };
       }),
     get: (key) =>
       promised(() => {
