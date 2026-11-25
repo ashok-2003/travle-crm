@@ -289,7 +289,7 @@ describe("the fallback providers (the owner, 2026-11-23: free providers catch wh
   });
 });
 
-describe("the reasoning model behind the keys (the owner, 2026-11-25: Gemini first, gpt-5-mini on Azure behind it)", () => {
+describe("the reasoning model (the owner, 2026-11-25: first, but behind Gemini's keys in the WhatsApp agent's chats)", () => {
   const AZURE = "https://example.services.ai.azure.com/openai/v1";
   const MISTRAL = "https://api.mistral.ai/v1";
   const azure = {
@@ -306,12 +306,36 @@ describe("the reasoning model behind the keys (the owner, 2026-11-25: Gemini fir
     { role: "tool" as const, content: "₹9,499", toolCallId: "c1" },
   ];
 
-  it("leaves every feature to the keys while they answer", async () => {
+  it("asks the keys first for the WhatsApp agent's chats with customers, and the reasoning model first for the rest", async () => {
     const { asked } = stubFetch();
     const model = createAiModel(settings(azure), logger);
-    const features = ["sales_agent", "agent_image", "score_lead", "chat_summary", "agent_voice", "fill_form"] as const;
-    for (const feature of features) await model?.complete({ feature, messages, user: "org" });
-    expect(asked).toEqual(features.map(() => ({ url: `${GOOGLE}/chat/completions`, model: "gemini-3.5-flash-lite" })));
+    const chats = ["sales_agent", "agent_image", "chat_summary", "autopilot", "agent_voice", "fill_form"] as const;
+    const rest = ["draft_packages", "change_package", "score_lead", "write_up"] as const;
+    for (const feature of [...chats, ...rest]) await model?.complete({ feature, messages, user: "org" });
+    const google = { url: `${GOOGLE}/chat/completions`, model: "gemini-3.5-flash-lite" };
+    // Voice notes and Fill it for me stay on the keys alone: the reasoning model can't hear a recording.
+    expect(asked.slice(0, chats.length)).toEqual(chats.map(() => google));
+    expect(asked.slice(chats.length)).toEqual(
+      rest.map(() => ({ url: `${AZURE}/chat/completions`, model: "our-gpt-5-mini" })),
+    );
+  });
+
+  it("sends the rest to the keys when the reasoning model can't answer", async () => {
+    const asked: string[] = [];
+    vi.stubGlobal("fetch", (url: string, init: RequestInit) => {
+      const body = JSON.parse(typeof init.body === "string" ? init.body : "{}") as { model?: unknown };
+      asked.push(`${url.startsWith(AZURE) ? "azure" : "google"}:${String(body.model)}`);
+      const answer = { model: body.model, choices: [{ message: { content: "Hi" }, finish_reason: "stop" }] };
+      return Promise.resolve(
+        url.startsWith(AZURE) ? new Response("", { status: 503 }) : new Response(JSON.stringify(answer)),
+      );
+    });
+    const model = createAiModel(settings(azure), logger);
+    expect(await model?.complete({ feature: "draft_packages", messages, user: "org" })).toMatchObject({
+      ok: true,
+      model: "gemini-3.5-flash-lite",
+    });
+    expect(asked).toEqual(["azure:our-gpt-5-mini", "google:gemini-3.5-flash-lite"]);
   });
 
   it("answers when every key is rate limited, before the free fallbacks, with room to think; voice notes never reach it", async () => {

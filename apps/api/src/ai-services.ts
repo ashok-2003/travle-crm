@@ -1,10 +1,9 @@
-// The AI model the features call (ADR 0029), built once per process: the keys first, from AI_API_KEY with AI_BASE_URL
-// and the models when
+// The AI model the features call (ADR 0029), built once per process: when AI_PRIMARY_* are set, the reasoning model (an
+// OpenAI reasoning model on its own endpoint) first, but behind the keys in the WhatsApp agent's chats with customers;
+// the keys: from AI_API_KEY with AI_BASE_URL and the models when
 // those are set (any OpenAI-compatible endpoint, Google's Gemini direct included), or from AI_VERTEX_SERVICE_ACCOUNT's
 // token in the key's place (Gemini on Vertex AI, ruling R14), with AI_BACKUP_API_KEY's AI behind it when that is set (and
-// AI_BACKUP_API_KEY_2's, on the same endpoint and models, behind that), then the reasoning model when AI_PRIMARY_* are set
-// (an OpenAI reasoning model on its own endpoint, for every feature but those that hear recordings; the name is from when
-// it was asked first), then the fallback providers (AI_FALLBACK_* and
+// AI_BACKUP_API_KEY_2's, on the same endpoint and models, behind that), then the fallback providers (AI_FALLBACK_* and
 // AI_FALLBACK_2_*, each its own endpoint, key and models), else OpenRouter with its zero-data-retention
 // routing from OPENROUTER_API_KEY. Null when no key is set: the features then say the AI isn't set up. The journeys' fake
 // (AI_TEST_SERVER_URL, never in production) receives OpenRouter's calls in its place. Every call goes through the
@@ -15,6 +14,7 @@ import {
   serviceAccountToken,
   withModelChain,
   withTracing,
+  type AiFeature,
   type AiModel,
 } from "@travel-crm/integrations/ai";
 import type { Logger } from "@travel-crm/integrations/logging";
@@ -136,12 +136,13 @@ function fallbackModels(environment: AiSettings, logger: Logger): AiModel[] {
 }
 
 /**
- * The reasoning model of AI_PRIMARY_* (gpt-5-mini on Azure AI Foundry): asked first from 2026-11-24, then behind the keys
- * from 2026-11-25 (the owner: Gemini answers the customers better), when every key refused and before the free fallback
- * providers, for all but what holds a recording (voice notes, Fill it for me), which it can't hear. Medium effort with
- * room to think: a replay of 40 live turns found medium as right as high, inside the agent's turn time.
+ * The reasoning model of AI_PRIMARY_* (gpt-5-mini on Azure AI Foundry, the owner, 2026-11-24): asked first, but behind the
+ * keys in the WhatsApp agent's chats with customers (`CUSTOMER_CHATS`; the owner, 2026-11-25: Gemini answers customers
+ * better, the reasoning model writes packages and the rest better), never for what holds a recording (voice notes, Fill
+ * it for me), which it can't hear. Medium effort with room to think: a replay of 40 live turns found medium as right as
+ * high, inside the agent's turn time.
  */
-function reasoningModelBehindKeys(environment: AiSettings, logger: Logger): AiModel | null {
+function reasoningModelOf(environment: AiSettings, logger: Logger): AiModel | null {
   const { AI_PRIMARY_API_KEY: apiKey, AI_PRIMARY_BASE_URL: baseUrl, AI_PRIMARY_MODELS: list } = environment;
   if (apiKey === undefined || baseUrl === undefined || list === undefined) return null;
   return createOpenRouterModel({
@@ -168,14 +169,51 @@ function reasoningModelBehindKeys(environment: AiSettings, logger: Logger): AiMo
   });
 }
 
+/** The WhatsApp agent's chats with customers: its turns and what it hears, sees and reads in them, and lite's autopilot. */
+const CUSTOMER_CHATS: ReadonlySet<AiFeature> = new Set([
+  "sales_agent",
+  "agent_image",
+  "agent_voice",
+  "chat_summary",
+  "autopilot",
+]);
+
+const chainOf = (models: AiModel[]): AiModel => {
+  const [only, ...more] = models;
+  return only !== undefined && more.length === 0 ? only : withModelChain(models);
+};
+
+/** `chosen` answers the features named, `others` the rest; a tool round goes on to whichever serves its writer. */
+function byFeature(features: ReadonlySet<AiFeature>, chosen: AiModel, others: AiModel): AiModel {
+  return {
+    configured: chosen.configured || others.configured,
+    serves: (model) => chosen.serves?.(model) === true || others.serves?.(model) === true,
+    complete: (request) => (features.has(request.feature) ? chosen : others).complete(request),
+  };
+}
+
 function modelOf(environment: AiSettings, logger: Logger): AiModel | null {
-  const reasoning = reasoningModelBehindKeys(environment, logger);
-  return keysModelOf(environment, logger, reasoning === null ? [] : [reasoning]) ?? reasoning;
+  const reasoning = reasoningModelOf(environment, logger);
+  // The same adapters in both orders, so a key resting at its limit rests for both.
+  const keys = keysModelOf(environment, logger, (members, fallbacks) =>
+    reasoning === null
+      ? chainOf([...members, ...fallbacks])
+      : byFeature(
+          CUSTOMER_CHATS,
+          chainOf([...members, reasoning, ...fallbacks]),
+          chainOf([reasoning, ...members, ...fallbacks]),
+        ),
+  );
+  return keys ?? reasoning;
 }
 
 // The owner allowed the sales agent on Gemini direct as a proof of concept (2026-11-17); zero data retention is to be
-// revisited before scale. `behindKeys` are asked after every key and before the fallback providers.
-function keysModelOf(environment: AiSettings, logger: Logger, behindKeys: AiModel[]): AiModel | null {
+// revisited before scale. `arrange` puts the keys' adapters and the fallback providers in their order.
+function keysModelOf(
+  environment: AiSettings,
+  logger: Logger,
+  arrange: (keys: AiModel[], fallbacks: AiModel[]) => AiModel,
+): AiModel | null {
   // One credential for every feature: the service account (its token kept and renewed for the process's life), or the key.
   const vertex = environment.AI_VERTEX_SERVICE_ACCOUNT;
   // Never a token to the adapter's default address (OpenRouter's), whatever the start-up check let through.
@@ -213,10 +251,8 @@ function keysModelOf(environment: AiSettings, logger: Logger, behindKeys: AiMode
       ...zeroRetention,
       onRateLimited: logRateLimits(logger, vertex === undefined ? "AI_API_KEY" : "AI_VERTEX_SERVICE_ACCOUNT"),
     });
-    const after = [...behindKeys, ...fallbackModels(environment, logger)];
-    if (environment.AI_BACKUP_API_KEY === undefined) {
-      return after.length === 0 ? first : withModelChain([first, ...after]);
-    }
+    const fallbacks = fallbackModels(environment, logger);
+    if (environment.AI_BACKUP_API_KEY === undefined) return arrange([first], fallbacks);
     // The backup keeps the first's endpoint and models unless it names its own.
     const backupChat = environment.AI_BACKUP_CHAT_MODELS ?? chat;
     const backupFast = environment.AI_BACKUP_FAST_MODELS ?? environment.AI_BACKUP_CHAT_MODELS ?? fast;
@@ -244,12 +280,14 @@ function keysModelOf(environment: AiSettings, logger: Logger, behindKeys: AiMode
         onRateLimited: logRateLimits(logger, name),
       });
     const second = environment.AI_BACKUP_API_KEY_2;
-    return withModelChain([
-      first,
-      backup(environment.AI_BACKUP_API_KEY, "AI_BACKUP_API_KEY"),
-      ...(second === undefined ? [] : [backup(second, "AI_BACKUP_API_KEY_2")]),
-      ...after,
-    ]);
+    return arrange(
+      [
+        first,
+        backup(environment.AI_BACKUP_API_KEY, "AI_BACKUP_API_KEY"),
+        ...(second === undefined ? [] : [backup(second, "AI_BACKUP_API_KEY_2")]),
+      ],
+      fallbacks,
+    );
   }
   const apiKey = environment.OPENROUTER_API_KEY;
   if (apiKey === undefined) return null;
