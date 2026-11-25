@@ -96,6 +96,35 @@ describe("the natural agent's trip sheets", () => {
     expect(onTheDay?.departures.map((one) => one.startsOn)).toEqual(["2026-12-12", "2026-12-19", "2026-12-26"]);
   });
 
+  it("works the From price out as the trip page does: a cheaper season no departure falls in doesn't lower it", async () => {
+    const { inOrg, sheets, kedarkantha } = await world();
+    await inOrg((tx) =>
+      tx.packageSeason.create({
+        data: {
+          templateId: kedarkantha,
+          label: "Spring",
+          startsOn: new Date("2027-03-01T00:00:00Z"),
+          endsOn: new Date("2027-03-31T00:00:00Z"),
+          priceTriplePaise: 500_000n,
+        },
+      }),
+    );
+    expect((await sheets())[0]?.fromPaise).toBe(949_900);
+  });
+
+  it("counts a departure starting today in the From price, as the trip page lists it", async () => {
+    const { inOrg, sheets, kedarkantha } = await world();
+    await inOrg((tx) =>
+      tx.departure.updateMany({
+        where: { templateId: kedarkantha, startDate: new Date("2026-12-05T00:00:00Z") },
+        data: { priceTriplePaise: 800_000n },
+      }),
+    );
+    const [onTheDay] = await sheets(parseCalendarDate("2026-12-05"));
+    expect(onTheDay?.departures.map((one) => one.startsOn)).not.toContain("2026-12-05");
+    expect(onTheDay?.fromPaise).toBe(800_000);
+  });
+
   it("carries each trip's brochures with their words, and its photos, and keeps fileIds as natural reads them", async () => {
     const { inOrg, sheets, kedarkantha } = await world();
     await inOrg(async (tx) => {

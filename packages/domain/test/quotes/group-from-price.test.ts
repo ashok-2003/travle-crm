@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { RoomPrices } from "@travel-crm/contracts/quotes";
 import { parseCalendarDate } from "../../src/kernel/index.js";
 import { createPackage, groupFromPrices, savePackageSeason } from "../../src/quotes/index.js";
+import { publicDepartures } from "../../src/departures/index.js";
 import { openWorld, type World } from "../bookings/support.js";
 import { aDeparture } from "../departures/support.js";
 
@@ -67,6 +68,30 @@ describe("groupFromPrices", () => {
     expect((await from(id)).get(id)).toBeNull();
     await depart(id, "2026-12-05");
     expect((await from(id)).get(id)).toBe(599_900);
+  });
+
+  it("follows the trip page's departures: one starting today counts, a full one counts, a closed one does not", async () => {
+    const id = await aGroupTrip({ quad: 599_900 });
+    await depart(id, "2026-11-10", { priceQuadPaise: 500_000n });
+    expect((await from(id)).get(id)).toBe(500_000);
+    await world.inOrg((tx) => tx.departure.updateMany({ where: { templateId: id }, data: { seatsTotal: 1 } }));
+    const full = await world.inOrg(async (tx) => {
+      const made = await aDeparture(tx, { startDate: "2026-12-07", endDate: "2026-12-07", seatsTotal: 1 });
+      await tx.departure.update({ where: { id: made.id }, data: { templateId: id, priceQuadPaise: 400_000n } });
+      return made.id;
+    });
+    const listed = await world.inOrg((tx) =>
+      publicDepartures(tx, {
+        destinationId: null,
+        packageId: id,
+        today: "2026-11-10",
+        now: new Date("2026-11-10T06:00:00Z"),
+      }),
+    );
+    expect(listed.map((one) => one.id)).toContain(full);
+    expect((await from(id)).get(id)).toBe(400_000);
+    await world.inOrg((tx) => tx.departure.update({ where: { id: full }, data: { status: "closed" } }));
+    expect((await from(id)).get(id)).toBe(500_000);
   });
 
   it("answers for several trips at once", async () => {
