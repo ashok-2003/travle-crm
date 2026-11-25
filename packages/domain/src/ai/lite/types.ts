@@ -56,24 +56,6 @@ export type SaleStage =
 
 export type { HandOverReason };
 
-export type FixedTextKey =
-  | "price_from"
-  | "price_full"
-  | "seats_left"
-  | "book_payment"
-  | "book_payment_full"
-  | "payment_again"
-  | "payment_heading"
-  | "screenshot_received"
-  | "ask_screenshot"
-  | "hand_over"
-  | "voice_note"
-  | "identity"
-  | "not_run"
-  | "close"
-  | "later"
-  | "how_can_i_help";
-
 export type Move =
   | { kind: "greet"; packageIds: string[] } // [] asks where they'd like to go
   | { kind: "answer_package"; packageId: string; ask: ChecklistItem | null }

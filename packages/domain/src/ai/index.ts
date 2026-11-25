@@ -83,5 +83,4 @@ export type { Spreadsheets } from "@travel-crm/integrations/spreadsheets";
 export { requestRateSheetUpload } from "./rates/input.js";
 export { keptTrace, keptTraces, type KeptTrace } from "./traces/trace-reads.js";
 export { createTraceSink, forgetTraces, TRACE_DAYS, tracesDue } from "./traces/trace-sink.js";
-export * from "./natural/index.js";
 export * from "./one/index.js";

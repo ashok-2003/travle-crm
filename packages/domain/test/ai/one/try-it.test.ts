@@ -5,7 +5,9 @@ import { withTracing } from "@travel-crm/integrations/ai";
 import { createMemoryToolAgent } from "@travel-crm/integrations/tool-agent";
 import { createMemoryTracing } from "@travel-crm/integrations/tracing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { BUILT_IN_NATURAL_PROMPT, oneTryItTurn, type NaturalPrompt } from "../../../src/ai/index.js";
+import { oneTryItTurn } from "../../../src/ai/index.js";
+import type { NaturalPrompt } from "../../../src/ai/natural/prompt.js";
+import { BUILT_IN_ONE_PROMPT } from "../../../src/ai/one/prompt.js";
 import { memberOf } from "../../imports/support/test-imports.js";
 import { createTestInbox, type TestInbox } from "../../inbox/support.js";
 import { naturalAgency } from "../natural/support/natural-agency.js";
@@ -36,7 +38,7 @@ describe("Try it on the one agent", () => {
     const tryIt = (
       messages: readonly TestAiLine[],
       state: Parameters<typeof oneTryItTurn>[2]["state"] = null,
-      prompt: NaturalPrompt = BUILT_IN_NATURAL_PROMPT,
+      prompt: NaturalPrompt = BUILT_IN_ONE_PROMPT,
       tap?: "book" | "change",
     ) => oneTryItTurn(deps, member, { messages, state, prompt, chatId: CHAT_ID, ...(tap ? { tap } : {}) }, NOW);
     const rows = () =>
@@ -150,7 +152,7 @@ describe("Try it on the one agent", () => {
     const on = await world();
     const live: NaturalPrompt = {
       version: "langfuse:whatsapp-agent/real-agent@3",
-      text: BUILT_IN_NATURAL_PROMPT.text,
+      text: BUILT_IN_ONE_PROMPT.text,
       source: { name: "whatsapp-agent/real-agent", version: 3, label: "production" },
     };
     on.model.answer({ text: "Hi! Kaunsa trek dekh rahe hain?" });

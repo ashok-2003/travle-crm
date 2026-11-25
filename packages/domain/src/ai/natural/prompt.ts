@@ -1,6 +1,5 @@
-// The natural agent's prompt: the built-in text, its placeholders, and filling them in for one agency. The placeholders
-// are written as Langfuse writes variables, {{agent_name}}, so the built-in text and Langfuse's prompt are one template.
-import { NATURAL_PROMPT_TEXT } from "./prompt-text.js";
+// The agent's prompt as a turn holds it, and filling in its placeholders for one agency. They are written as Langfuse
+// writes variables, {{agent_name}}, so the built-in text and Langfuse's prompt are one template.
 
 export interface NaturalPrompt {
   /** "built-in-1", or Langfuse's "langfuse:<name>@<version>". */
@@ -14,8 +13,6 @@ export interface AgentVoice {
   agencyName: string;
   tone: "friendly" | "professional";
 }
-
-export const BUILT_IN_NATURAL_PROMPT: NaturalPrompt = { version: "built-in-1", text: NATURAL_PROMPT_TEXT };
 export const NATURAL_PROMPT_PLACEHOLDERS = ["agent_name", "agency_name", "tone"] as const;
 
 /** A placeholder as Langfuse writes it, with the spaces its editor allows inside the braces. */

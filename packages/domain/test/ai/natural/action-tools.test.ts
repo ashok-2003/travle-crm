@@ -1,6 +1,6 @@
 // The natural agent's actions (spec 3.3, 3.4; G2, G6, G7): each checked against the data, then staged, or refused with
 // a sentence that names the way on. Pure: the trips are literal sheets and the quote is a fake.
-import { type BookingTerms, type LiveOffer, type NaturalFacts } from "@travel-crm/contracts/ai";
+import type { BookingTerms, LiveOffer, NaturalFacts } from "@travel-crm/contracts/ai";
 import { describe, expect, it } from "vitest";
 import { stageAction, withStaged, type ActionContext } from "../../../src/ai/natural/tools/action-tools.js";
 import type { NaturalChatLine, StagedSet } from "../../../src/ai/natural/types.js";

@@ -55,9 +55,6 @@ export const postedState = z.strictObject({
   }),
 });
 
-/** The Langfuse label the live prompt is read at, as a turn's trace names it. */
-export const naturalPromptLabels = { live: "production" } as const;
-
 /** The lead's fields an update_lead saves, as the screen names them. */
 export const dryLeadFields = ["trip", "dates", "adults", "children", "pickup", "room", "name"] as const;
 export type DryLeadField = (typeof dryLeadFields)[number];

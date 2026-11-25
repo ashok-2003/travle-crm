@@ -1,7 +1,6 @@
-// The turn block (spec 4.4), the final user message: the time and what the chat has had, the lead, the trips this chat
-// is about, summarised as the prompt cuts a sheet (get_trip reads one whole), when the trips are indexed (as many as fit
-// the budget), what the app did, then the new lines.
-import { type LiveOffer, type NaturalFacts } from "@travel-crm/contracts/ai";
+// The words of the turn block (spec 4.4) the one agent and the chat summary reuse: the lead, its live offer, its dates
+// and the team's notes, and the trips the customer's words name.
+import type { LiveOffer, NaturalFacts } from "@travel-crm/contracts/ai";
 import { calendarMonth } from "@travel-crm/contracts/crm";
 import {
   calendarDateIn,
@@ -10,22 +9,17 @@ import {
   parseCalendarDate,
   type CalendarDate,
 } from "../../../kernel/index.js";
-import { fenced } from "../../fenced.js";
 import { oneLine } from "../../lite/context/blocks.js";
 import { stageLabel, travellerWords } from "../../lite/context/lead-card.js";
-import { clockWords } from "../../lite/context/messages.js";
-import { WAKING_HOURS } from "../../lite/follow-ups.js";
 import { findPackages, meaningful } from "../../lite/lookups/find-packages.js";
 import { indexEntryOf } from "../trips/trip-sheets.js";
-import { isText, roomNames, tripInFull } from "../trips/trip-text.js";
+import { isText, roomNames } from "../trips/trip-text.js";
 import type { NaturalChatLine, NaturalLeadView, TripSheet } from "../types.js";
-import { newLineWords, stampOf } from "./chat-turns.js";
-import { cutText, estimateTokens, NATURAL_BUDGETS } from "./tokens.js";
+import { stampOf } from "./chat-turns.js";
+import { cutText } from "./tokens.js";
 
-const MOST_FOCUS_TRIPS = 3;
 const SUMMARY_CUT = 600;
 const NOTE_CUT = 300;
-const TASK_CUT = 200;
 /**
  * Words that never name one trip, past those lite's `meaningful` drops: a kind of trip ("trek"), a trip's length and the
  * thing asked for ("days", "brochure": titles like "Chopta (4 days)" hold them, and "1 days ka brochure" pulled in every
@@ -52,8 +46,6 @@ export interface TurnBlockInput {
   indexed: boolean;
 }
 
-/** A clock time of the agency's day, "21:00" as "9 pm". */
-const hourWords = (time: string) => clockWords(new Date(`1970-01-01T${time}:00Z`), "UTC");
 const monthName = (year: number, month: number) =>
   new Intl.DateTimeFormat("en-IN", { month: "long", timeZone: "UTC" }).format(new Date(Date.UTC(year, month - 1, 1)));
 
@@ -64,27 +56,6 @@ export function whenWords(lead: NaturalLeadView, today: CalendarDate): string | 
   const [year, month] = lead.month.split("-").map(Number) as [number, number];
   const name = monthName(year, month);
   return `${year === Number(today.slice(0, 4)) ? name : `${name} ${String(year)}`}, no day yet`;
-}
-
-function nowBlock(input: TurnBlockInput, sheetOf: (packageId: string | null) => TripSheet | undefined): string {
-  const { today, timeZone, facts, cameFrom } = input;
-  const ad = cameFrom === null ? undefined : sheetOf(cameFrom.packageId);
-  const sent = facts.sentTripIds.flatMap((id) => sheetOf(id)?.label ?? []).map((label) => `${label} brochure`);
-  const tasks = input.lead.openTasks.map((task) => oneLine(cutText(task, TASK_CUT)).replace(/[.\s]+$/u, ""));
-  return [
-    `<now>${formatShortDay(today, today)} ${today.slice(0, 4)}, ${clockWords(input.now, timeZone)}, the customer's time ` +
-      `(${timeZone}). Follow-ups go out ${hourWords(WAKING_HOURS.from)} to ${hourWords(WAKING_HOURS.until)}.`,
-    [
-      cameFrom === null
-        ? null
-        : `Came from: ${oneLine(cameFrom.source)}${ad === undefined ? "" : ` for ${ad.label} ${fenced(ad.title)}`}.`,
-      `Sent: ${sent.length === 0 ? "none" : sent.join(", ")}.`,
-      `Live offer: ${facts.offer === null ? "none" : offerWords(facts.offer, input, sheetOf)}.`,
-      `Open tasks: ${tasks.length === 0 ? "none" : tasks.join("; ")}.</now>`,
-    ]
-      .filter(isText)
-      .join(" "),
-  ].join("\n");
 }
 
 export function offerWords(
@@ -162,33 +133,4 @@ export function namedTrips(sheets: readonly TripSheet[], text: string): string[]
       matched.set(entry.id, (matched.get(entry.id) ?? 0) + 1);
   const most = Math.max(0, ...matched.values());
   return index.filter((entry) => matched.get(entry.id) === most).map((entry) => entry.id);
-}
-
-/** The trips the new lines name first, as they are what the customer asks about now, then the lead's and the ad's. */
-function focusTrips(input: TurnBlockInput): TripSheet[] {
-  const named = namedTrips(input.sheets, input.newLines.map((line) => line.text).join("\n"));
-  const wanted = new Set([...named, input.lead.packageId, input.cameFrom?.packageId ?? null]);
-  return [...wanted]
-    .flatMap((id) => input.sheets.find((sheet) => sheet.packageId === id) ?? [])
-    .slice(0, MOST_FOCUS_TRIPS);
-}
-
-const withTrips = (head: string, trips: readonly string[], tail: string) =>
-  trips.length === 0
-    ? `${head}\n${tail}`
-    : `${head}\nTrips this chat is about, summarised:\n\n${trips.join("\n\n")}\n\n${tail}`;
-
-export function turnBlock(input: TurnBlockInput): string {
-  const sheetOf = (packageId: string | null) => input.sheets.find((sheet) => sheet.packageId === packageId);
-  const head = `${nowBlock(input, sheetOf)}\n${leadBlock(input, sheetOf)}`;
-  const tail = [input.notice, "New messages:", ...input.newLines.map((line) => newLineWords(line, input))]
-    .filter(isText)
-    .join("\n");
-  // A trip that doesn't fit what the rest leaves is left out: its index line is in the agency block, and get_trip reads it.
-  let trips: string[] = [];
-  for (const sheet of input.indexed ? focusTrips(input) : []) {
-    const tried = [...trips, fenced(tripInFull(sheet, input.today))];
-    if (estimateTokens(withTrips(head, tried, tail)) <= NATURAL_BUDGETS.turn) trips = tried;
-  }
-  return withTrips(head, trips, tail);
 }

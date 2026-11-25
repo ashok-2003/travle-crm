@@ -24,7 +24,7 @@ import { amountsIn } from "./guards/amounts.js";
 import { groundedSetOf } from "./guards/grounded.js";
 import { BOOK_TITLE, CHANGE_TITLE, offerCardBody } from "../one/card.js";
 import { stagedOf } from "./act-types.js";
-import type { LoopEnd } from "./loop.js";
+import type { LoopEnd } from "./loop/types.js";
 import type { NaturalTraceBuilder } from "./trace.js";
 import { isText, roomNames } from "./trips/trip-text.js";
 import type { QuoteFigures, StagedAction, StagedSet, TripSheet } from "./types.js";

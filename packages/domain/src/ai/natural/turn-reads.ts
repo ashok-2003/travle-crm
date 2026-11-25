@@ -6,10 +6,10 @@ import type { Database, OrgTx } from "@travel-crm/db";
 import type { CalendarDate } from "../../kernel/index.js";
 import type { GuardContext, traceFlags } from "./guards/check-words.js";
 import { groundedAmounts, tripTextOf } from "./guards/grounded.js";
-import type { LoopIO } from "./loop.js";
+import type { LoopIO } from "./loop/types.js";
 import { runReadTool } from "./tools/read-tools.js";
 import { tripSheetsOf } from "./trips/trip-sheets.js";
-import type { NaturalChatLine, QuoteFigures, ReadContext, StagedAction, StagedSet, TripSheet } from "./types.js";
+import type { NaturalChatLine, QuoteFigures, ReadContext, StagedSet, TripSheet } from "./types.js";
 
 export type FlagContext = Parameters<typeof traceFlags>[1];
 
@@ -28,31 +28,6 @@ export interface DoneSoFar {
 
 const DAY_MS = 86_400_000;
 const TEAM_DAYS = 30;
-const PAYMENT_NOTICE =
-  "Their payment screenshot is with you to check: thank them and say you'll confirm here once it's checked. A person takes this chat over after your reply.";
-const VOICE_NOTICE = "Their voice note couldn't be played; ask them to type what they said.";
-const PAYMENT_CHECK: StagedAction = {
-  tool: "hand_over",
-  reason: "payment_check",
-  summary: "A payment screenshot came in this chat: check it in Payments.",
-};
-
-/**
- * Ruling 6, before the model: a payment screenshot, or a voice note nobody could play, gets one call with no tools and
- * the notice of what the app did; code hands the screenshot to the team itself.
- */
-export function beforeTheModel(newLines: readonly NaturalChatLine[]): {
-  notice: string | null;
-  withTools: boolean;
-  forced: StagedAction[];
-} {
-  if (newLines.some((line) => line.mayBePayment === true)) {
-    return { notice: PAYMENT_NOTICE, withTools: false, forced: [PAYMENT_CHECK] };
-  }
-  if (newLines.some((line) => line.untranscribed === true))
-    return { notice: VOICE_NOTICE, withTools: false, forced: [] };
-  return { notice: null, withTools: true, forced: [] };
-}
 
 /**
  * What the guards and the trace's flags read: of the chat, only the lines the model read (`shown`), the Team's of the

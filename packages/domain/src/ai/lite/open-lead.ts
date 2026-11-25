@@ -8,24 +8,7 @@ import type { OrgTx } from "@travel-crm/db";
 import { agencyFactsOf, isBlocked, mayBringIn, startLeadFromChat } from "../../crm/index.js";
 import { lockChat } from "../../inbox/index.js";
 import { DomainError, systemActor } from "../../kernel/index.js";
-import type { LiteDependencies, Move } from "./types.js";
-
-/**
- * The moves that work on a trip, and so need a lead to work on: asking a checklist item, offering or pricing packages,
- * booking, sending the payment details again. A close, silence, a hand-over or a fixed line that only acknowledges
- * (identity, "we don't run that", a screenshot thanked) needs none, and opens none.
- */
-export const LEAD_MOVES: ReadonlySet<Move["kind"]> = new Set([
-  "greet",
-  "answer_package",
-  "give_dates",
-  "give_price",
-  "ask_detail",
-  "confirm_place",
-  "show_other_trips",
-  "book",
-  "resend_payment",
-]);
+import type { LiteDependencies } from "./types.js";
 
 /**
  * Whether a person marked the customer's newest lead Not a lead (by hand, or by saying yes to the AI's suggestion). The

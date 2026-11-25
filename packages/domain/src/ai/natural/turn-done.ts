@@ -2,7 +2,7 @@
 // act: the fallback (a task), a hand-over, nothing sent (quiet) or a reply; or the outcome of a turn the act gave way in.
 import type { LiteOutcome } from "../lite/types.js";
 import { stagedOf } from "./act-types.js";
-import type { LoopEnd } from "./loop.js";
+import type { LoopEnd } from "./loop/types.js";
 import { actOnTurn, type ActEnd, type LiveTurn, type TurnAct } from "./turn-act.js";
 
 /** How the turn ended, for its trace and its log line. */

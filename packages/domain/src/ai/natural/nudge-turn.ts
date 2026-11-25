@@ -1,23 +1,10 @@
-// The natural agent's follow-up turn (plan 2, Task 7; ruling 13): the live turn's reads and gates with the follow-up's own
-// on top (fewer than two sent, the silence unbroken since the last turn that ran, an open lead, the agency's waking hours),
-// then one call whose only tool is stay_quiet, then the same act as a reply's. A line that can't be had or is refused sends
-// nothing and tells nobody: a follow-up is a courtesy, never an answer owed, so it has no fallback line and no retry.
-import { randomUUID } from "node:crypto";
-import type { NaturalTrace } from "@travel-crm/contracts/ai";
+// The follow-up's own gates, which the one agent's follow-up keeps from the natural agent's (ruling 13): fewer than two
+// sent, the silence unbroken since the last turn that ran, an open lead, the agency's waking hours; and the notice the
+// model reads beside the chat.
 import type { AiPrompts } from "@travel-crm/integrations/prompts";
 import type { LiteDependencies, LiteOutcome, LiteTurnInput } from "../lite/types.js";
 import { inWakingHours, nextMorning, stillQuiet } from "../lite/follow-ups.js";
-import { buildNaturalContext, type NaturalContext } from "./context/build.js";
-import { stampOf } from "./context/chat-turns.js";
-import { liveLoopIO } from "./live-io.js";
-import { runNaturalLoop, type LoopSettings } from "./loop.js";
-import { prepareNaturalTurn, type NaturalPrepared } from "./prepare.js";
-import type { NaturalPrompt } from "./prompt.js";
-import { naturalPromptOf } from "./prompt-source.js";
-import { startNaturalTrace } from "./trace.js";
-import { actOnTurn, type LiveTurn } from "./turn-act.js";
-import { actOfEnd, doneOf, endedOf, type TurnDone } from "./turn-done.js";
-import { logNaturalTurn, naturalTurnNote, naturalTurnStart } from "./turn-note.js";
+import type { NaturalPrepared } from "./prepare.js";
 
 const MOST_FOLLOW_UPS = 2;
 
@@ -67,96 +54,4 @@ export async function nudgeGate(
     }
     return state.followUpsSent + 1;
   });
-}
-
-/** The context the follow-up's one call reads: the turn's, with stay_quiet the only tool. */
-function contextOf(prepared: NaturalPrepared, prompt: NaturalPrompt, input: { number: number; now: Date }) {
-  const { facts, timeZone, today } = prepared;
-  const quiet = facts.lastTurnAt === null ? input.now : new Date(facts.lastTurnAt);
-  const context = buildNaturalContext({
-    prompt,
-    voice: prepared.voice,
-    timeZone,
-    today,
-    now: input.now,
-    answers: prepared.answers,
-    contact: prepared.contact,
-    sheets: prepared.sheets,
-    lead: prepared.lead,
-    facts,
-    lines: prepared.lines,
-    cameFrom: prepared.cameFrom,
-    notice: nudgeNotice(input.number, stampOf(quiet, { today, timeZone })),
-    withTools: true,
-  });
-  return { ...context, tools: context.tools.filter((tool) => tool.name === "stay_quiet") } satisfies NaturalContext;
-}
-
-async function followUp(
-  turn: LiveTurn,
-  prompt: NaturalPrompt,
-  number: number,
-  timing: { startedMs: number; clock: () => number },
-  trace: ReturnType<typeof startNaturalTrace>,
-): Promise<TurnDone> {
-  const { deps, input, now, prepared } = turn;
-  const context = contextOf(prepared, prompt, { number, now });
-  const { io, flagContext } = liveLoopIO(deps, prepared, input, context, now, timing.clock);
-  const settings: LoopSettings = {
-    startedMs: timing.startedMs,
-    organizationId: input.organizationId,
-    forced: [],
-    flagContext,
-  };
-  const end = await runNaturalLoop(context, io, settings, trace);
-  switch (end.end) {
-    case "superseded":
-      return endedOf(turn, "superseded", null);
-    // No fallback line, no retry, no task: the customer asked nothing of us.
-    case "model_failed":
-      return endedOf(turn, "nothing", end.reason);
-    case "fallback":
-      return endedOf(turn, "nothing", end.reason);
-    case "final": {
-      const act = actOfEnd(end);
-      const result = await actOnTurn(turn, act);
-      return "refused" in result ? endedOf(turn, "blocked", result.refused) : doneOf(turn, act, result);
-    }
-  }
-}
-
-/** The follow-up for a customer gone quiet: one trace of its chat, one log line; the outcome is what the worker keeps. */
-export async function runNaturalNudge(deps: NudgeDependencies, input: LiteTurnInput, now: Date): Promise<LiteOutcome> {
-  const clock = () => deps.clock?.().getTime() ?? Date.now();
-  const startedMs = clock();
-  const [prompt, prepared] = await Promise.all([naturalPromptOf(deps.prompts), prepareNaturalTurn(deps, input, now)]);
-  const leadId = typeof prepared === "string" ? null : prepared.leadId;
-  const start = naturalTurnStart(input, prompt, leadId);
-  const work = async (): Promise<LiteOutcome> => {
-    const finish = (done: TurnDone, trace: NaturalTrace | null) => {
-      try {
-        deps.tracing?.note(naturalTurnNote(done, trace));
-      } catch {
-        // A note that fails costs the trace its detail, never the turn.
-      }
-      logNaturalTurn(deps.logger, input, done, trace?.calls.length ?? 0, clock() - startedMs);
-      return done.outcome;
-    };
-    const ended = (outcome: LiteOutcome): TurnDone => ({
-      outcome,
-      reason: null,
-      messages: [],
-      actions: [],
-      fallback: null,
-      leadId,
-    });
-    if (typeof prepared === "string") return finish(ended(prepared), null);
-    const number = await nudgeGate(deps, input, prepared, now);
-    if (typeof number === "string") return finish(ended(number), null);
-    const turn: LiveTurn = { deps, input, now, prepared, traceId: randomUUID(), actions: [] };
-    const trace = startNaturalTrace(prompt, startedMs);
-    const done = await followUp(turn, prompt, number, { startedMs, clock }, trace);
-    return finish(done, trace.finish(done.outcome, done.fallback, clock()));
-  };
-  return deps.tracing === undefined ? work() : deps.tracing.turn(start, work);
 }
