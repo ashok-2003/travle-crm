@@ -197,4 +197,36 @@ describe("an organization's export", () => {
     ]);
     expect([...(test.storage.objects.get(copyKey)?.body ?? [])]).toEqual([1, 2, 3]);
   });
+
+  it("copies a file sharing another's bytes under its own id, with the holder's bytes", async () => {
+    const { organizationId } = await onboardOrganization(test.services, support, onboardingInput(plan));
+    const [holder, sharer] = await test.services.db.forOrg(organizationId, async (tx) => {
+      const file = { fileName: "Spiti.pdf", contentType: "application/pdf", sizeBytes: 3, status: "ready" };
+      const kept = await tx.attachment.create({
+        data: { ...file, recordType: "trip_kit", recordId: randomUUID(), confirmedAt: new Date() },
+      });
+      const shared = await tx.attachment.create({
+        data: {
+          ...file,
+          recordType: "whatsapp_message",
+          recordId: randomUUID(),
+          confirmedAt: new Date(),
+          storedAsId: kept.id,
+        },
+      });
+      return [kept, shared];
+    });
+    await test.storage.put({
+      key: `organizations/${organizationId}/attachments/${holder.id}`,
+      contentType: "application/pdf",
+      body: new Uint8Array([1, 2, 3]),
+    });
+    await cancel(test.services, support, { organizationId, reason: "Closing down" });
+    const requested = await requestOrganizationExport(test.services, support, organizationId);
+    await runOrganizationExport(test.services, requested, { batchRows: 50, partBytes: 64 * 1024 });
+    const prefix = `platform/exports/${organizationId}/${requested.exportId}/files/`;
+    for (const file of [holder, sharer]) {
+      expect([...(test.storage.objects.get(`${prefix}${file.id}`)?.body ?? [])]).toEqual([1, 2, 3]);
+    }
+  });
 });
