@@ -12,7 +12,7 @@ import {
 import { recordId } from "../identity/fields.js";
 import { calendarDate } from "../kernel/index.js";
 import { MAX_SEATS } from "../departures/seat-limit.js";
-import { roomBooking, roomPrices, roomPricesOutput, roomType } from "./room-prices.js";
+import { roomBooking, roomPrices, roomPricesOutput, roomType, type RoomPrices, type RoomType } from "./room-prices.js";
 import { MAX_QUOTE_PAISE, quoteDay, quoteItem, quoteTaxRate, MAX_QUOTE_DAYS, MAX_QUOTE_ITEMS } from "./quotes.js";
 
 const text = (max: number) => z.string().trim().max(max);
@@ -31,6 +31,8 @@ export const MAX_PACKAGE_BROCHURES = 5;
 export const MAX_HIGHLIGHTS = 10;
 /** The most a package's notes may hold. */
 export const MAX_PACKAGE_NOTES = 3000;
+/** A season that "lasts until changed" ends on this day. */
+export const OPEN_SEASON_END = "2099-12-31";
 
 /** A tier's line: priced from a rate when it has one, else at its fixed price; neither makes a "needs a rate" line. */
 export const tierLine = z.strictObject({
@@ -379,3 +381,39 @@ export const describeBrochureInput = z.strictObject({
   description: oneLine(BROCHURE_DESCRIPTION_MAX),
 });
 export type DescribeBrochureInput = z.infer<typeof describeBrochureInput>;
+
+/** Whether a column prices at least one of the room types the trip sells (shared with the domain's own check). */
+export const columnHasPrice = (sold: readonly RoomType[], prices: RoomPrices) =>
+  sold.some((type) => prices[type] !== null);
+
+/** A trip's price table saved in one go: its room types, and per column (seasons sharing a label and prices) the new prices. */
+export const savePriceTableInput = z
+  .strictObject({
+    packageId: recordId,
+    roomTypes: z.array(roomType).min(1).max(6).refine(unique, "Each room type once"),
+    columns: z
+      .array(
+        z.strictObject({
+          seasonIds: z.array(recordId).min(1),
+          label: text(60).min(1),
+          prices: roomPrices,
+        }),
+      )
+      .min(1),
+  })
+  .superRefine((value, context) => {
+    const ids = value.columns.flatMap((column) => column.seasonIds);
+    if (!unique(ids)) {
+      context.addIssue({ code: "custom", message: "A season is named twice", path: ["columns"] });
+    }
+    value.columns.forEach((column, index) => {
+      if (!columnHasPrice(value.roomTypes, column.prices)) {
+        context.addIssue({
+          code: "custom",
+          message: "Give at least one room type a price",
+          path: ["columns", index, "prices"],
+        });
+      }
+    });
+  });
+export type SavePriceTableInput = z.infer<typeof savePriceTableInput>;
