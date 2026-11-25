@@ -255,3 +255,48 @@ export const addPackageDatesResult = z.object({
   cancelled: z.array(z.object({ date: calendarDate, departureId: recordId })),
 });
 export type AddPackageDatesResult = z.infer<typeof addPackageDatesResult>;
+
+/** The most days one calendar read may span (a month and a half). */
+export const MAX_CALENDAR_DAYS = 45;
+/** A trip's departures starting from `from` to `to`, both included, for its calendar. */
+export const departureCalendarInput = z
+  .strictObject({ packageId: recordId, from: calendarDate, to: calendarDate })
+  .refine((value) => value.to >= value.from, { message: "The last day is before the first", path: ["to"] })
+  .refine(
+    (value) =>
+      value.to < value.from || (Date.parse(value.to) - Date.parse(value.from)) / 86_400_000 <= MAX_CALENDAR_DAYS,
+    {
+      message: `Read at most ${String(MAX_CALENDAR_DAYS)} days at a time`,
+      path: ["to"],
+    },
+  );
+export type DepartureCalendarInput = z.infer<typeof departureCalendarInput>;
+
+/** One departure on the calendar: its seats and the prices that apply on its first day. */
+export const calendarDeparture = z.object({
+  departureId: recordId,
+  startDate: calendarDate,
+  endDate: calendarDate,
+  status: departureStatus,
+  seatsTotal: z.int(),
+  seatsSold: z.int(),
+  seatsHeld: z.int(),
+  seatsFree: z.int(),
+  /** What applies on the first day, whoever it comes from. */
+  prices: roomPricesOutput,
+  /** What the departure sets itself; all null when the season's apply. */
+  ownPrices: roomPricesOutput,
+  priceSource: z.enum(["departure", "season", "none"]),
+  seasonLabel: z.string().nullable(),
+});
+export type CalendarDeparture = z.infer<typeof calendarDeparture>;
+
+/** Seats of one departure, changed on their own. */
+export const setDepartureSeatsInput = z.strictObject({
+  departureId: recordId,
+  seatsTotal: z.int().min(0).max(MAX_SEATS),
+});
+export type SetDepartureSeatsInput = z.infer<typeof setDepartureSeatsInput>;
+/** A departure's own prices, changed on their own; all null means the season's apply. */
+export const setDeparturePricesInput = z.strictObject({ departureId: recordId, prices: roomPrices });
+export type SetDeparturePricesInput = z.infer<typeof setDeparturePricesInput>;
