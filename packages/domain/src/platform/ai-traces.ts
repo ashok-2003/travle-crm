@@ -1,6 +1,5 @@
-// The console's lite-agent turn traces: a list of the kept turns, and one turn opened with its file and its chat's
-// messages. Every opening is written in the platform log before the file is read; customer words are read only here,
-// inside the trace's own organization, and never reach a log line or an error.
+// The console's agent turn traces: a list of the kept turns' rows (ids, counts, codes and timings, never words), and one
+// turn opened, written in the platform log. A one agent turn's detail is in Langfuse, not here.
 import type {
   AiTraceDetail,
   AiTraceInput,
@@ -9,11 +8,9 @@ import type {
   AiTraceRow,
 } from "@travel-crm/contracts/platform";
 import { asOrganization } from "@travel-crm/db/platform";
-import { errorFields } from "@travel-crm/integrations/logging";
-import { keptTrace, keptTraces, readTraceFile, traceMessages, type KeptTrace } from "../ai/index.js";
+import { keptTrace, keptTraces, type KeptTrace } from "../ai/index.js";
 import { findOrganizationRecord } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
-import { traceFileView } from "./ai-trace-detail.js";
 import { recordPlatformAudit, type PlatformActor } from "./platform-log.js";
 import { tokenCostPaise, type PlatformServices } from "./services.js";
 
@@ -85,23 +82,5 @@ export async function openAiTrace(
     });
     return found;
   });
-  const trace = rowView(row, services);
-  const priced = services.aiPrices != null;
-  // A storage outage is a file that can't be read: the opening is already logged, and a throw would invite a retry
-  // that logs it again.
-  const file = await (
-    row.fileKey === null ? Promise.resolve(null) : readTraceFile(services.storage, row.fileKey)
-  ).catch((error: unknown) => {
-    services.logger.warn(
-      { event: "ai.trace-unreadable", traceId, ...errorFields(error) },
-      "A turn's trace file was unreadable",
-    );
-    return null;
-  });
-  if (file === null) return { trace, priced, file: null };
-  const ids = [...new Set([...file.trace.messageIds, ...file.trace.sent.messageIds])];
-  const messages = await services.platformDb.transaction((tx) =>
-    asOrganization(tx, organizationId, (orgTx) => traceMessages(orgTx, row.conversationId, ids)),
-  );
-  return { trace, priced, file: traceFileView(file, messages) };
+  return { trace: rowView(row, services), priced: services.aiPrices != null };
 }

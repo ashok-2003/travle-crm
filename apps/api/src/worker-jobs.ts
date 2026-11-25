@@ -210,19 +210,19 @@ export async function retireSchedules(runner: Pick<JobRunner, "unschedule">): Pr
   for (const queue of RETIRED_SCHEDULES) await runner.unschedule(queue);
 }
 
-/** What the agent's turns and follow-ups run with; its traces are kept in the worker's storage. */
+/** What the agent's turns and follow-ups run with; each turn keeps its row of ai_turn_trace. */
 export function autopilotDependencies(
   dependencies: Pick<
     WorkerJobDependencies,
-    "db" | "identity" | "files" | "subscriptions" | "storage" | "logger" | "tracing" | "prompts"
+    "db" | "identity" | "files" | "subscriptions" | "logger" | "tracing" | "prompts"
   > & {
     managers: BookingRecipients;
   },
   model: AiModel,
 ) {
-  const { db, identity, files, subscriptions, storage, logger, managers, tracing, prompts } = dependencies;
-  // One sink keeps the lite and natural traces and the one agent's turn rows.
-  const traces = createTraceSink({ db, storage, logger });
+  const { db, identity, files, subscriptions, logger, managers, tracing, prompts } = dependencies;
+  // The sink keeps the one agent's turn rows.
+  const toolTurns = createTraceSink({ db, logger });
   return {
     db,
     ai: model,
@@ -231,15 +231,14 @@ export function autopilotDependencies(
       (await identity.organizationProfile(organizationId))?.name ?? "the agency",
     files,
     managers,
-    // A returning customer's new lead, opened by the lite turn, is owned as a new number's is.
+    // A returning customer's new lead, opened by the turn, is owned as a new number's is.
     identity,
-    traces,
-    toolTurns: traces,
+    toolTurns,
     // The one agent's model and tools run in LangGraph.
     toolAgent: createLangGraphToolAgent(),
     // Each turn one trace of its chat, its model calls inside.
     ...(tracing === undefined ? {} : { tracing }),
-    // The natural agent runs on Langfuse's live prompt.
+    // The agent runs on Langfuse's live prompt.
     ...(prompts === undefined ? {} : { prompts }),
   };
 }

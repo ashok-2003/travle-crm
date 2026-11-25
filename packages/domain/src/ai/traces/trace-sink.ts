@@ -1,12 +1,11 @@
-// The sink that keeps each lite turn's trace: an index row first, then the gzip file, so no file lacks a row to expire it.
-// A one agent turn keeps its row alone: Langfuse holds its detail.
+// The sink that keeps each one agent turn's row of ai_turn_trace (Langfuse holds its detail), and the sweep's reads of
+// the rows due. Rows of earlier agents may still name a file (fileKey), which the sweep deletes with them.
 import type { Database, OrgTx } from "@travel-crm/db";
 import { errorFields } from "@travel-crm/integrations/logging";
 import type { Logger } from "@travel-crm/integrations/logging";
-import type { ObjectStorage } from "@travel-crm/integrations/storage";
-import type { LiteTrace, TraceSink } from "../lite/types.js";
-import { TRACE_DAYS, traceFileOf, traceKey } from "./trace-file.js";
 
+/** How long a trace is kept. */
+export const TRACE_DAYS = 14;
 const DAY_MS = 86_400_000;
 /** The longest a turn waits for its trace to be kept. */
 const TRACE_WRITE_LIMIT_MS = 5_000;
@@ -51,39 +50,23 @@ export interface ToolTurnSink {
   recordToolTurn(trace: ToolTurnTrace): Promise<void>;
 }
 
-export function createTraceSink(deps: {
-  db: Database;
-  storage: ObjectStorage;
-  logger: Logger;
-  timeoutMs?: number;
-}): TraceSink & ToolTurnSink {
-  /** The row first, then the file when there is one; a failure or a slow store is one warn line, never the turn's. */
-  async function keep(
-    trace: { id: string; organizationId: string; startedAt: Date },
-    row: (tx: Transaction, fileKey: string | null) => Promise<unknown>,
-    body: Uint8Array | null,
-  ) {
+export function createTraceSink(deps: { db: Database; logger: Logger; timeoutMs?: number }): ToolTurnSink {
+  /** The row; a failure or a slow store is one warn line, never the turn's. */
+  async function keep(turn: ToolTurnTrace) {
     try {
-      const fileKey = body === null ? null : traceKey(trace.organizationId, trace.startedAt, trace.id);
       const write = async () => {
-        // A row whose file never arrived is expected (a lost put): readers treat a missing file as null.
-        await deps.db.forOrg(trace.organizationId, (tx) => row(tx, fileKey));
-        if (fileKey !== null && body !== null)
-          await deps.storage.put({ key: fileKey, contentType: "application/gzip", body });
+        await deps.db.forOrg(turn.organizationId, (tx) => insertToolTurnRow(tx, turn));
       };
       await withinLimit(write(), deps.timeoutMs ?? TRACE_WRITE_LIMIT_MS);
     } catch (error) {
       // A trace is for debugging: losing one never changes what the turn did, and the line holds no customer words.
       deps.logger.warn(
-        { event: "ai.trace-failed", traceId: trace.id, ...errorFields(error) },
+        { event: "ai.trace-failed", traceId: turn.id, ...errorFields(error) },
         "A turn's trace was lost",
       );
     }
   }
-  return {
-    record: (trace) => keep(trace, (tx, fileKey) => insertRow(tx, trace, fileKey), traceFileOf(trace)),
-    recordToolTurn: (turn) => keep(turn, (tx, fileKey) => insertToolTurnRow(tx, turn, fileKey), null),
-  };
+  return { recordToolTurn: keep };
 }
 
 type Transaction = Parameters<Parameters<Database["forOrg"]>[1]>[0];
@@ -97,7 +80,7 @@ async function expiryOf(tx: Transaction, trace: { conversationId: string; starte
   return new Date(trace.startedAt.getTime() + (chat?.state === "erased" ? 0 : TRACE_DAYS * DAY_MS));
 }
 
-function insertToolTurnRow(tx: Transaction, turn: ToolTurnTrace, fileKey: string | null) {
+function insertToolTurnRow(tx: Transaction, turn: ToolTurnTrace) {
   return expiryOf(tx, turn).then((expiresAt) =>
     tx.aiTurnTrace.create({
       data: {
@@ -116,35 +99,10 @@ function insertToolTurnRow(tx: Transaction, turn: ToolTurnTrace, fileKey: string
         durationMs: turn.durationMs,
         failedChecks: turn.failedChecks,
         promptVersions: turn.promptVersions,
-        fileKey,
         expiresAt,
       },
     }),
   );
-}
-
-async function insertRow(tx: Transaction, trace: LiteTrace, fileKey: string | null) {
-  const expiresAt = await expiryOf(tx, trace);
-  return tx.aiTurnTrace.create({
-    data: {
-      id: trace.id,
-      conversationId: trace.conversationId,
-      leadId: trace.leadId,
-      startedAt: trace.startedAt,
-      kind: trace.kind,
-      outcome: trace.outcome,
-      reason: trace.reason,
-      move: trace.move,
-      saleStage: trace.stage,
-      model: trace.model,
-      inputTokens: trace.inputTokens,
-      outputTokens: trace.outputTokens,
-      durationMs: trace.durationMs,
-      promptVersions: trace.promptVersions,
-      fileKey,
-      expiresAt,
-    },
-  });
 }
 
 /**

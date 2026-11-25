@@ -14,7 +14,6 @@ import { createTestIdentity, type TestIdentity } from "../identity/test-identity
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { withdrawAiParts } from "../../src/ai/erasure.js";
 import { organizationFolder } from "../../src/files/index.js";
-import { traceKey } from "../../src/ai/traces/trace-file.js";
 import {
   AiTracesSweepFailedError,
   createPlatformServices,
@@ -68,11 +67,11 @@ describe("the hourly sweep of AI traces", () => {
     await isolated.drop();
   });
 
-  /** A trace `ageDays` old on a chat, with its file; `leadId` names the lead it was about. */
+  /** A trace `ageDays` old on a chat, with its file as an earlier agent kept one; `leadId` names the lead it was about. */
   async function addTrace(organizationId: string, conversationId: string, ageDays: number, leadId?: string) {
     const id = randomUUID();
     const startedAt = new Date(NOW.getTime() - ageDays * DAY_MS);
-    const fileKey = traceKey(organizationId, startedAt, id);
+    const fileKey = `organizations/${organizationId}/ai-traces/${startedAt.toISOString().slice(0, 10)}/${id}.json.gz`;
     await db.forOrg(organizationId, (tx) =>
       tx.aiTurnTrace.create({
         data: {

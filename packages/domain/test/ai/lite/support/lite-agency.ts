@@ -1,5 +1,6 @@
-// The agency every lite test starts from: a connected number, a customer who has written, a ready setup (a Kedarnath group
-// package with two departures, payment details, answers, name and tone), and the autopilot on.
+// The agency many agent tests start from (first written for the lite agent): a connected number, a customer who has
+// written, a ready setup (a Kedarnath group package with two departures, payment details, answers, name and tone), and
+// the autopilot on. Its turns run the one agent, on the in-memory tool agent.
 import {
   AGENCY_PAYMENT_QR_RECORD_TYPE,
   PACKAGE_BROCHURE_RECORD_TYPE,
@@ -18,7 +19,6 @@ import {
   saveAgentBasics,
   saveAiSettings,
 } from "../../../../src/ai/index.js";
-import type { TraceSink } from "../../../../src/ai/lite/types.js";
 import { parseCalendarDate } from "../../../../src/kernel/index.js";
 import type { Entitlements } from "../../../../src/subscriptions/index.js";
 import { aLead } from "../../../crm/support/records.js";
@@ -194,7 +194,6 @@ export async function liteAgency(test: TestInbox, options: { ready?: boolean; ro
     at = liteTurnAt,
     options: {
       token?: string;
-      traces?: TraceSink;
       db?: Database;
       identity?: typeof identity;
       entitlements?: Entitlements;
@@ -213,7 +212,6 @@ export async function liteAgency(test: TestInbox, options: { ready?: boolean; ro
         files: test.files,
         managers: () => Promise.resolve([]),
         toolAgent: createMemoryToolAgent(),
-        ...(options.traces === undefined ? {} : { traces: options.traces }),
       },
       { organizationId, conversationId: chat.id, kind: "reply", token: options.token ?? message.id },
       at,
@@ -222,7 +220,7 @@ export async function liteAgency(test: TestInbox, options: { ready?: boolean; ro
    * The minute job at `at`, or by the clock `at` reads (lead follow-up tasks, then the follow-ups due), for this agency
    * alone: the job visits every agency in the shared database, and only this one has the AI.
    */
-  const nudges = (at: Date | (() => Date), traces?: TraceSink, tracing?: AiTracing) =>
+  const nudges = (at: Date | (() => Date), tracing?: AiTracing) =>
     runAiNudges(
       {
         db: test.db,
@@ -235,7 +233,6 @@ export async function liteAgency(test: TestInbox, options: { ready?: boolean; ro
         files: test.files,
         managers: () => Promise.resolve([]),
         toolAgent: createMemoryToolAgent(),
-        ...(traces === undefined ? {} : { traces }),
       },
       typeof at === "function" ? at : () => at,
     );

@@ -11,7 +11,7 @@ import {
 } from "@travel-crm/db/platform";
 import { aiChatResumedListener, aiCustomerWroteListener, runAiNudges } from "../../src/ai/index.js";
 import { liteAgency, liteTurnAt } from "./lite/support/lite-agency.js";
-import { greeting, understood, written } from "./lite/support/turn-script.js";
+import { greeting } from "./lite/support/turn-script.js";
 import { systemActor } from "../../src/kernel/index.js";
 import { agentPauseOf, type Entitlements } from "../../src/subscriptions/index.js";
 import { createTestInbox, testNow, type TestInbox } from "../inbox/support.js";
@@ -29,7 +29,7 @@ const entitlements: Entitlements = {
 };
 const withoutAi: Entitlements = { ...entitlements, modules: new Set(["crm", "inbox"]) };
 const scriptReply = (on: { model: { answer: (...answers: string[]) => void } }) => {
-  on.model.answer(understood([["hello", "Hi"]]), written(greeting));
+  on.model.answer(greeting);
 };
 const turnAt = liteTurnAt;
 const hour = 3_600_000;

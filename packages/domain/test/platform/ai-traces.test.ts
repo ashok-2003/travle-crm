@@ -1,5 +1,5 @@
-// The console's lite-agent turn traces: listed and opened for super admins, kept turns only (14 days, customer not
-// erased), their messages read as kept now from their own chat, and each opening written in the platform log.
+// The console's agent turn traces: listed and opened for super admins, kept turns only (14 days, customer not erased),
+// rows only (a one turn's detail is in Langfuse), and each opening written in the platform log.
 import { randomUUID } from "node:crypto";
 import { createDatabase, type Database } from "@travel-crm/db";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
@@ -8,12 +8,7 @@ import { createMemoryJobAdministration, createMemoryJobQueue } from "@travel-crm
 import { createMemoryLogger } from "@travel-crm/integrations/logging";
 import { createMemoryStorage } from "@travel-crm/integrations/storage";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
-import { asOrganization } from "@travel-crm/db/platform";
-import { traceMessages } from "../../src/ai/index.js";
 import { withdrawAiParts } from "../../src/ai/erasure.js";
-import { startTrace } from "../../src/ai/lite/turn-trace.js";
-import { promptVersions } from "../../src/ai/lite/prompts/library.js";
-import { readTraceFile } from "../../src/ai/traces/trace-file.js";
 import { createTraceSink } from "../../src/ai/traces/trace-sink.js";
 import { withdrawWhatsApp } from "../../src/inbox/index.js";
 import {
@@ -112,42 +107,25 @@ describe("the console's AI turn traces", () => {
   }
 
   /** A kept turn on a chat, started `hoursAgo` before NOW, through the real sink. */
-  async function aTurn(
-    organizationId: string,
-    chat: { chatId: string; messageIds: string[] },
-    hoursAgo: number,
-    extra: Partial<ReturnType<typeof startTrace>> = {},
-  ) {
-    const trace = startTrace(
-      { organizationId, conversationId: chat.chatId, kind: "reply", token: "t" },
-      null,
-      new Date(NOW.getTime() - hoursAgo * HOUR),
-    );
-    Object.assign(trace, {
+  async function aTurn(organizationId: string, chat: { chatId: string }, hoursAgo: number) {
+    const trace = {
+      id: randomUUID(),
+      organizationId,
+      conversationId: chat.chatId,
+      leadId: null,
+      kind: "reply" as const,
+      startedAt: new Date(NOW.getTime() - hoursAgo * HOUR),
+      durationMs: 900,
       outcome: "replied",
       reason: "ok",
-      move: "greet",
-      stage: "exploring",
       model: "fake-model",
       inputTokens: 1_000_000,
       outputTokens: 500_000,
-      durationMs: 900,
-      intents: ["hello"],
-      messageIds: chat.messageIds.slice(0, 2),
-      understand: { blocks: { Agency: "Hills Travel", "Lead card": "none" }, raw: '{"intents":["hello"]}' },
-      lookups: [
-        {
-          request: { tool: "find_packages", words: "kedarnath" },
-          result: { tool: "find_packages", words: "kedarnath", exact: [], closest: [] },
-        },
-      ],
-      checks: [{ name: "no_price", passed: true, detail: null }],
-      write: { blocks: { You: "Asha", Move: "greet" }, raw: ['{"text":"Hello"}'] },
-      sent: { messageIds: [chat.messageIds[1]], text: "Hello! Which dates?" },
-      actions: ["lead:adults"],
-      ...extra,
-    });
-    await createTraceSink({ db, storage, logger }).record(trace);
+      cachedTokens: 0,
+      failedChecks: 0,
+      promptVersions: { "real-agent": 4 },
+    };
+    await createTraceSink({ db, logger }).recordToolTurn(trace);
     return trace;
   }
 
@@ -167,12 +145,7 @@ describe("the console's AI turn traces", () => {
     const all = await listAiTraces(services, { organizationId, limit: 50 }, NOW);
     expect(all.traces.map((row) => row.id)).toEqual([other.id, one.id, two.id, three.id]);
     expect(all.priced).toBe(true);
-    expect(all.traces[0]).toMatchObject({
-      costPaise: 7_500,
-      kind: "reply",
-      outcome: "replied",
-      saleStage: "exploring",
-    });
+    expect(all.traces[0]).toMatchObject({ costPaise: 7_500, kind: "reply", outcome: "replied", saleStage: null });
     const mine = await listAiTraces(services, { organizationId, conversationId: a.chatId, limit: 50 }, NOW);
     expect(mine.traces.map((row) => row.id)).toEqual([one.id, two.id, three.id]);
 
@@ -256,25 +229,14 @@ describe("the console's AI turn traces", () => {
     });
   });
 
-  it("opening reads the file and the chat's messages as kept now, and logs it", async () => {
+  it("opening gives the turn's row, priced, and logs it", async () => {
     const { organizationId, a } = await agency();
     const trace = await aTurn(organizationId, a, 1);
     const detail = await openAiTrace(services, admin, { organizationId, traceId: trace.id }, NOW);
-    expect(detail.priced).toBe(true);
-    expect(detail.trace.id).toBe(trace.id);
-    expect(detail.file?.understand?.blocks.map((block) => block.title)).toEqual(["Agency", "Lead card"]);
-    expect(detail.file?.understand?.answer).toBe('{"intents":["hello"]}');
-    expect(detail.file?.messages.map((message) => [message.from, message.text])).toEqual([
-      ["customer", "A: Hi, kedarnath please"],
-      ["you", "A: Hello! Which dates?"],
-    ]);
-    expect(detail.file?.messagesGone).toBe(0);
-    expect(detail.file?.sent.messages.map((message) => message.text)).toEqual(["A: Hello! Which dates?"]);
-    expect(detail.file?.lookups[0]?.result).toBe(
-      JSON.stringify({ tool: "find_packages", words: "kedarnath", exact: [], closest: [] }, null, 2),
-    );
-    expect(detail.file?.write?.answers).toEqual(['{"text":"Hello"}']);
-    expect(detail.file?.actions).toEqual(["lead:adults"]);
+    expect(detail).toEqual({
+      priced: true,
+      trace: expect.objectContaining({ id: trace.id, outcome: "replied", costPaise: 7_500 }) as unknown,
+    });
     const log = await opened(organizationId);
     expect(log).toHaveLength(1);
     expect(log[0]).toMatchObject({
@@ -286,67 +248,6 @@ describe("the console's AI turn traces", () => {
       before: null,
       after: null,
     });
-  });
-
-  it("a message of another chat is never shown", async () => {
-    const { organizationId, a, b } = await agency();
-    const trace = await aTurn(organizationId, a, 1, {
-      messageIds: [a.messageIds[0] ?? "", b.messageIds[0] ?? "", "m1"],
-    });
-    const detail = await openAiTrace(services, admin, { organizationId, traceId: trace.id }, NOW);
-    expect(detail.file?.messages.map((message) => message.id)).toEqual([a.messageIds[0]]);
-    expect(detail.file?.messagesGone).toBe(2);
-  });
-
-  it("a missing file gives the row and no file", async () => {
-    const { organizationId, a } = await agency();
-    const trace = await aTurn(organizationId, a, 1);
-    const row = await db.forOrg(organizationId, (tx) => tx.aiTurnTrace.findFirstOrThrow({ where: { id: trace.id } }));
-    if (row.fileKey === null) throw new Error("a lite turn has a file");
-    await storage.delete(row.fileKey);
-    expect(await readTraceFile(storage, row.fileKey)).toBeNull();
-    const detail = await openAiTrace(services, admin, { organizationId, traceId: trace.id }, NOW);
-    expect(detail.file).toBeNull();
-    expect(detail.trace.id).toBe(trace.id);
-    expect(await opened(organizationId)).toHaveLength(1);
-  });
-
-  it("a one turn's row, which has no file, opens with the row and no file", async () => {
-    const { organizationId, a } = await agency();
-    const trace = { id: randomUUID() };
-    await createTraceSink({ db, storage, logger }).recordToolTurn({
-      id: trace.id,
-      organizationId,
-      conversationId: a.chatId,
-      leadId: null,
-      kind: "reply",
-      startedAt: new Date(NOW.getTime() - HOUR),
-      durationMs: 100,
-      outcome: "replied",
-      reason: null,
-      model: "m",
-      inputTokens: 1,
-      outputTokens: 1,
-      cachedTokens: 0,
-      failedChecks: 0,
-      promptVersions: { "real-agent": 0 },
-    });
-    const detail = await openAiTrace(services, admin, { organizationId, traceId: trace.id }, NOW);
-    expect(detail.file).toBeNull();
-    expect(detail.trace.id).toBe(trace.id);
-  });
-
-  it("a turn on an older prompt names both versions", async () => {
-    const { organizationId, a } = await agency();
-    const current = promptVersions()["understand.instructions"];
-    const trace = await aTurn(organizationId, a, 1, {
-      promptVersions: { "understand.instructions": current, "old.piece": 3 } as never,
-    });
-    const detail = await openAiTrace(services, admin, { organizationId, traceId: trace.id }, NOW);
-    expect(detail.file?.promptVersions).toEqual([
-      { name: "understand.instructions", used: current, current },
-      { name: "old.piece", used: 3, current: null },
-    ]);
   });
 
   it("another organization's trace is not found, and an unknown organization is refused", async () => {
@@ -371,45 +272,6 @@ describe("the console's AI turn traces", () => {
     await expect(openAiTrace(services, { userId: null }, { organizationId, traceId: trace.id }, NOW)).rejects.toThrow(
       RangeError,
     );
-  });
-
-  it("a message of another chat or a non-uuid id is never shown as sent, and every gone id is counted", async () => {
-    const { organizationId, a, b } = await agency();
-    const trace = await aTurn(organizationId, a, 1, {
-      messageIds: [a.messageIds[0] ?? ""],
-      sent: { messageIds: [a.messageIds[1] ?? "", b.messageIds[1] ?? "", "not-a-uuid"], text: "x", filled: [] },
-    });
-    const detail = await openAiTrace(services, admin, { organizationId, traceId: trace.id }, NOW);
-    expect(detail.file?.sent.messages.map((message) => message.id)).toEqual([a.messageIds[1]]);
-    expect(detail.file?.messagesGone).toBe(2);
-  });
-
-  it("messages of a chat erased after the row was found are not read", async () => {
-    const { organizationId, a } = await agency();
-    const read = () =>
-      services.platformDb.transaction((tx) =>
-        asOrganization(tx, organizationId, (orgTx) => traceMessages(orgTx, a.chatId, a.messageIds)),
-      );
-    expect(await read()).toHaveLength(3);
-    await db.forOrg(organizationId, (tx) =>
-      tx.whatsappConversation.update({ where: { id: a.chatId }, data: { state: "erased" } }),
-    );
-    expect(await read()).toEqual([]);
-  });
-
-  it("a storage outage on the file gives the row and no file, and the opening is logged once", async () => {
-    const { organizationId, a } = await agency();
-    const trace = await aTurn(organizationId, a, 1);
-    const real = storage.get.bind(storage);
-    storage.get = () => Promise.reject(new TypeError("storage down"));
-    try {
-      const detail = await openAiTrace(services, admin, { organizationId, traceId: trace.id }, NOW);
-      expect(detail).toMatchObject({ file: null, trace: { id: trace.id } });
-    } finally {
-      storage.get = real;
-    }
-    expect(await opened(organizationId)).toHaveLength(1);
-    expect(JSON.stringify(logger.entries)).not.toContain("Hi, kedarnath");
   });
 
   it("a cursor whose turn was swept is refused, and one only erased still pages", async () => {

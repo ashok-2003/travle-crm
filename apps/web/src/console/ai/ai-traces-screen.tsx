@@ -1,6 +1,6 @@
 "use client";
 
-// /console/organizations/<id>/ai-traces: the lite agent's turns in one agency's chats over the last 14 days (or one
+// /console/organizations/<id>/ai-traces: the AI agent's turns in one agency's chats over the last 14 days (or one
 // chat's), a super admin's alone. Support is told so and the api is not asked, which would refuse.
 import { InfoIcon } from "lucide-react";
 import { useTranslations } from "next-intl";

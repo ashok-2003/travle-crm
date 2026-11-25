@@ -13,7 +13,7 @@ import type { Identity } from "../identity/index.js";
 import { agentPauseOf, type SubscriptionAccess } from "../subscriptions/index.js";
 import { aiAllowed } from "./allowed.js";
 import type { BookingRecipients } from "./booking.js";
-import type { LiteTurnInput, TraceSink } from "./lite/types.js";
+import type { LiteTurnInput } from "./lite/types.js";
 import { AI_TOKEN_PREFIX, agentAnswers, mayWrite } from "./may-write.js";
 import { runNaturalFallback } from "./natural/turn-fallback.js";
 import { tellAgentNotReady } from "./not-ready-notice.js";
@@ -35,8 +35,6 @@ export interface AgentDependencies {
   managers: BookingRecipients;
   /** Where the turn logs its outcome (codes only); the worker passes its own. */
   logger?: Logger;
-  /** Where the turn hands the whole of each turn it prepared (plan 3b keeps them); without one, none is kept. */
-  traces?: TraceSink;
   /**
    * Who owns the agency's leads (the turn opens a returning customer's new lead with it), the team's names and who holds
    * a permission. Each call runs its own queries: never inside a transaction.

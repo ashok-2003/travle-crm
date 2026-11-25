@@ -1,7 +1,6 @@
 // The blanks the Write model copies: spacing and case are ignored, anything else in brackets is unknown, spans point at values.
 import { describe, expect, it } from "vitest";
 import { Blanks, fillBlanks } from "../../../src/ai/lite/blanks.js";
-import { oneEmoji, styleProblem } from "../../../src/ai/lite/style.js";
 
 function blanks() {
   const all = new Blanks();
@@ -51,47 +50,5 @@ describe("blanks", () => {
       "Sat 14 Nov",
       "Pickup is at 6 am from ₹500 parking.",
     ]);
-  });
-});
-
-describe("the voice rules", () => {
-  it("passes a good reply and names each problem", () => {
-    expect(styleProblem("We have two dates. Which do you prefer?", "english")).toBeNull();
-    expect(styleProblem("One. Two. Three. Four.", "english")).toBe("sentences");
-    expect(styleProblem("Which date? And how many?", "english")).toBe("questions");
-    expect(styleProblem("Great question! We run it.", "english")).toBe("filler");
-    expect(styleProblem("“Absolutely, yes.", "english")).toBe("filler");
-    expect(styleProblem("बिल्कुल, हम चलाते हैं।", "hindi")).toBe("filler");
-    expect(styleProblem("Aap kab jaana chahenge?", "hindi")).toBe("script");
-    expect(styleProblem("आप कब जाना चाहेंगे?", "hinglish")).toBe("script");
-    expect(styleProblem("आप कब जाना चाहेंगे?", "english")).toBe("script");
-    expect(styleProblem("Aap kab jaana chahenge?", "hinglish")).toBeNull();
-    expect(styleProblem("I’m a bot, happy to help.", "english")).toBe("persona");
-    expect(styleProblem("Main insaan hoon.", "hinglish")).toBe("persona");
-  });
-
-  it("never lets the agent claim to be a person, or say bot", () => {
-    for (const text of [
-      "I'm human, happy to help.",
-      "I'm a person like you.",
-      "I am a real person.",
-      "I’m a real person!",
-      "मैं इंसान हूँ।",
-      "मैं एक इंसान हूँ।",
-      "हम असली इंसान हैं।",
-      "I am a bot.",
-      "मैं एक बॉट हूँ।",
-      "Our bot will help.",
-    ]) {
-      expect(styleProblem(text, /[\u0900-\u097F]/.test(text) ? "hindi" : "english"), text).toBe("persona");
-    }
-    expect(styleProblem("I'm the assistant of Hills Travel.", "english")).toBeNull();
-    expect(styleProblem("It is a robotic arm.", "english")).toBeNull();
-  });
-
-  it("keeps the first emoji and drops the rest", () => {
-    expect(oneEmoji("Hi 🙂 we run it 🏔️ and 👍")).toBe("Hi 🙂 we run it and");
-    expect(oneEmoji("No emoji here.")).toBe("No emoji here.");
-    expect(oneEmoji("Flag 🇮🇳 and 👨‍👩‍👧")).toBe("Flag 🇮🇳 and");
   });
 });

@@ -12,7 +12,7 @@ import { eraseCustomerParts } from "../../../src/platform/erase-customer.js";
 import type { Entitlements } from "../../../src/subscriptions/index.js";
 import { createTestInbox, testNow, type TestInbox } from "../../inbox/support.js";
 import { liteAgency, liteEntitlements } from "./support/lite-agency.js";
-import { greeting, outbound, understood, written, type Agency } from "./support/turn-script.js";
+import { greeting, outbound, type Agency } from "./support/turn-script.js";
 
 describe("the agent's gates", () => {
   let test: TestInbox;
@@ -27,7 +27,7 @@ describe("the agent's gates", () => {
   });
 
   const script = (on: Agency) => {
-    on.model.answer(understood([["hello", "Hi"]]), written(greeting));
+    on.model.answer(greeting);
   };
   const plan = (status: Entitlements["status"], modules = ["crm", "inbox", "ai"]): Entitlements => ({
     ...liteEntitlements,
