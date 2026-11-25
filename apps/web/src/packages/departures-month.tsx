@@ -1,7 +1,7 @@
 "use client";
 
 // The desktop month grid of a trip's departures (Google Calendar's month view): the registry Calendar with larger days,
-// each in its season's colour, a departure's lowest price and seats left on its day, "Cancelled" and "Full" where they
+// each departure's day in its season's colour with its lowest price and seats left, "Cancelled" and "Full" where they
 // are. The arrows change the month (the card reads that month's days); tapping a day selects it for the panel.
 import type { CalendarDeparture } from "@travel-crm/contracts/departures";
 import type { SeasonColumn } from "@travel-crm/contracts/quotes";
@@ -39,15 +39,30 @@ export function DeparturesMonth({
   onSelect: (day: Day) => void;
 }) {
   const t = useTranslations("packages.departuresCalendar");
-  const modifiers = Object.fromEntries(
-    columns.map((column, index) => [
-      `season${String(index)}`,
-      column.ranges.map((range) => ({ from: dateOf(range.startsOn), to: dateOf(range.endsOn) })),
-    ]),
-  );
-  const modifiersClassNames = Object.fromEntries(
-    columns.map((_column, index) => [`season${String(index)}`, `${seasonTint(index).fill} ${seasonTint(index).ink}`]),
-  );
+  // Only a departure's day is coloured (the owner, 2026-11-25): by the season it falls in, else plain grey. A dated
+  // season wins over the open one, which covers all other days (as the legend says).
+  const covers = (column: SeasonColumn, day: Day) =>
+    column.ranges.some((range) => range.startsOn <= day && day <= range.endsOn);
+  const seasonOf = (day: Day) => {
+    const dated = columns.findIndex((column) => !column.open && covers(column, day));
+    return dated === -1 ? columns.findIndex((column) => column.open && covers(column, day)) : dated;
+  };
+  const days = [...byDay.keys()];
+  const modifiers = {
+    ...Object.fromEntries(
+      columns.map((_column, index) => [
+        `season${String(index)}`,
+        days.filter((day) => seasonOf(day) === index).map(dateOf),
+      ]),
+    ),
+    unseasoned: days.filter((day) => seasonOf(day) === -1).map(dateOf),
+  };
+  const modifiersClassNames = {
+    ...Object.fromEntries(
+      columns.map((_column, index) => [`season${String(index)}`, `${seasonTint(index).fill} ${seasonTint(index).ink}`]),
+    ),
+    unseasoned: "bg-muted",
+  };
 
   const dayLabel = (date: Date) => {
     const key = dayKeyOf(date);

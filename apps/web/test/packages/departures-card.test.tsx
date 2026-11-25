@@ -1,4 +1,4 @@
-// The departures calendar: each day in its season's colour with the departure's lowest price and seats, a legend,
+// The departures calendar: each departure's day in its season's colour with its lowest price and seats, a legend,
 // months by arrows, and on a phone the month as a list.
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -25,6 +25,7 @@ async function show(width: "phone" | "wide") {
       seatsFree: 0,
       seatsSold: 40,
     }),
+    calendarDeparture("2026-11-21", { departureId: "0190a000-0000-7000-8000-0000000000d5" }),
     calendarDeparture("2026-11-03", {
       departureId: "0190a000-0000-7000-8000-0000000000d4",
       prices: { ...none },
@@ -65,11 +66,15 @@ describe("DeparturesCard", () => {
     expect(within(day(/^12 Nov/)).queryByText(/₹/)).toBeNull();
   });
 
-  it("colours each day by its season, and the legend lists each season with the same colour", async () => {
+  it("colours only a departure's day, by its season, and the legend lists each season with the same colour", async () => {
     await show("wide");
     const regularDay = (await screen.findByRole("button", { name: /^27 Nov, departure/ })).closest("td");
     expect(regularDay?.className).toContain(seasonTint(0).fill);
     expect(day(/^21 Nov/).closest("td")?.className).toContain(seasonTint(1).fill);
+    // A day with no departure stays plain, in a season or not; a departure no season prices is still marked.
+    expect(day(/^26 Nov/).closest("td")?.className).not.toContain(seasonTint(0).fill);
+    expect(day(/^22 Nov/).closest("td")?.className).not.toContain(seasonTint(1).fill);
+    expect(day(/^3 Nov/).closest("td")?.className).toContain("bg-muted");
     const legend = screen.getByRole("list", { name: "Seasons" });
     const items = within(legend).getAllByRole("listitem");
     expect(items[0]?.textContent).toContain("Regular, all other days");
