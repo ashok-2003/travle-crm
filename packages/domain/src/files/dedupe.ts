@@ -9,6 +9,7 @@ import type { ObjectStorage } from "@travel-crm/integrations/storage";
 import { storageKeyOf } from "./attachment-row.js";
 import { sha256Of } from "./generated.js";
 import { DATA_EXPORT_RECORD_TYPE, IMPORT_FILE_RECORD_TYPE, IMPORT_REPORT_RECORD_TYPE } from "./record-types.js";
+import { LINKS_LAPSED_MS } from "./stored-file-deletions.js";
 
 /** A ready file holding its own bytes. */
 export interface DuplicateCandidate {
@@ -29,9 +30,6 @@ const SHORT_LIVED = [IMPORT_FILE_RECORD_TYPE, IMPORT_REPORT_RECORD_TYPE, DATA_EX
 
 /** Storage lookups at a time. */
 const HEADS_AT_ONCE = 16;
-
-/** Download links last 5 minutes (downloads.ts): after this, none handed out for an object still works. */
-const LINKS_LAPSED_MS = 10 * 60 * 1000;
 
 /** The organizations that keep any file. */
 export async function organizationsWithFiles(tx: OrgTx): Promise<string[]> {

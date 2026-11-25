@@ -4,7 +4,13 @@
 // each run queues the next for its organization's rows left, and the hourly sweep (required) catches what no job will.
 import { ownMessages, type JobData } from "@travel-crm/integrations/jobs";
 import { errorFields } from "@travel-crm/integrations/logging";
-import { deleteQueuedFile, dueFileDeletions, forgetFileDeletion, nextFileDeletionDue } from "../files/index.js";
+import {
+  deleteQueuedAttachment,
+  deleteQueuedFile,
+  dueFileDeletions,
+  forgetFileDeletion,
+  nextFileDeletionDue,
+} from "../files/index.js";
 import { listenerJobId, type JobHandler, type ScheduledJob } from "../jobs/index.js";
 import { isUuid } from "../kernel/index.js";
 import { tombstoneWebhookEvents } from "../webhooks/index.js";
@@ -66,13 +72,18 @@ export async function deleteDueFiles(
     );
     for (const deletion of due) {
       try {
-        if (deletion.attachmentId === null) {
+        const { attachmentId } = deletion;
+        if (attachmentId === null) {
           await services.platformDb.transaction((tx) =>
             tombstoneWebhookEvents(tx, deletion.organizationId, { organizationGone: true }),
           );
+          await deleteQueuedFile(services.storage, deletion);
+          await services.platformDb.transaction((tx) => forgetFileDeletion(tx, deletion.id));
+        } else {
+          await services.platformDb.transaction((tx) =>
+            deleteQueuedAttachment(tx, services.storage, { ...deletion, attachmentId }),
+          );
         }
-        await deleteQueuedFile(services.storage, deletion);
-        await services.platformDb.transaction((tx) => forgetFileDeletion(tx, deletion.id));
         finished += 1;
       } catch (error) {
         failed.push(error);

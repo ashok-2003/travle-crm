@@ -8,6 +8,7 @@ import type { ObjectStorage } from "@travel-crm/integrations/storage";
 import { DomainError } from "../kernel/index.js";
 import { bytesKeyOf, storageKeyOf } from "./attachment-row.js";
 import { isShortLivedRecordType, isSystemOwnedRecordType } from "./record-types.js";
+import { LINKS_LAPSED_MS } from "./stored-file-deletions.js";
 
 /** One record whose files an erasure deletes, e.g. a traveller. */
 export interface FileRecord {
@@ -91,7 +92,12 @@ export async function deleteRecordFiles(
     WHERE organization_id = ${record.organizationId}::uuid
       AND record_type = ${record.recordType} AND record_id = ${record.recordId}::uuid
     FOR UPDATE`;
-  for (const row of rows) if (row.storedAsId === null) await handOverBytes(tx, storage, record, row.id);
+  // A holder that handed its bytes on is deleted once the links its sharers handed out (to its object) have lapsed.
+  const handedOver = new Set<string>();
+  for (const row of rows) {
+    if (row.storedAsId === null && (await handOverBytes(tx, storage, record, row.id))) handedOver.add(row.id);
+  }
+  const later = new Date(now.getTime() + LINKS_LAPSED_MS);
   // A plain DELETE: soft delete refuses Prisma's, and only the platform role has the right to it here.
   const deleted = await tx.$queryRaw<{ id: string }[]>`
     DELETE FROM attachment
@@ -99,7 +105,11 @@ export async function deleteRecordFiles(
       AND record_type = ${record.recordType} AND record_id = ${record.recordId}::uuid
     RETURNING id`;
   await tx.storedFileDeletion.createMany({
-    data: deleted.map((row) => ({ targetOrganizationId: record.organizationId, attachmentId: row.id, dueAt: now })),
+    data: deleted.map((row) => ({
+      targetOrganizationId: record.organizationId,
+      attachmentId: row.id,
+      dueAt: handedOver.has(row.id) ? later : now,
+    })),
   });
   return deleted.length;
 }
@@ -109,10 +119,16 @@ export async function deleteRecordFiles(
  * takes them over: storage copies the object to its own key, it holds the bytes from then on, and the others staying
  * name it. Each copy so survives its source's deletion, as when every copy was stored apart; the old object goes after
  * the commit, through the outbox, so a rollback leaves at most a stray copy under the heir's own key, which its own
- * deletion removes. A holder whose object storage has lost hands on nothing: the files sharing it were unreadable
- * already, and an erasure goes on.
+ * deletion removes. The heir is locked before the copy, so the outbox job, which holds a queued file's row while it
+ * deletes its object, never deletes what the heir is given. A holder whose object storage has lost hands on nothing:
+ * the files sharing it were unreadable already, and an erasure goes on. Returns whether it handed the bytes on.
  */
-async function handOverBytes(tx: OrgTx, storage: ObjectStorage, record: FileRecord, holderId: string): Promise<void> {
+async function handOverBytes(
+  tx: OrgTx,
+  storage: ObjectStorage,
+  record: FileRecord,
+  holderId: string,
+): Promise<boolean> {
   const { organizationId, recordType, recordId } = record;
   const staying = await tx.$queryRaw<{ id: string }[]>`
     SELECT id FROM attachment
@@ -121,11 +137,11 @@ async function handOverBytes(tx: OrgTx, storage: ObjectStorage, record: FileReco
     ORDER BY created_at, id
     FOR UPDATE`;
   const heir = staying[0]?.id;
-  if (heir === undefined) return;
-  await storage.copy(storageKeyOf({ organizationId, id: holderId }), storageKeyOf({ organizationId, id: heir }));
+  if (heir === undefined) return false;
   // The clean-up (dedupe.ts) may have queued the heir's own object, a second copy it stopped needing: now it holds the
   // bytes, so it stays.
   await tx.storedFileDeletion.deleteMany({ where: { targetOrganizationId: organizationId, attachmentId: heir } });
+  await storage.copy(storageKeyOf({ organizationId, id: holderId }), storageKeyOf({ organizationId, id: heir }));
   // It takes the holder's hash too, so the same bytes stored again still find them.
   await tx.$executeRaw`
     UPDATE attachment SET stored_as_id = NULL, content_sha256 = (
@@ -135,6 +151,7 @@ async function handOverBytes(tx: OrgTx, storage: ObjectStorage, record: FileReco
   await tx.$executeRaw`
     UPDATE attachment SET stored_as_id = ${heir}::uuid
     WHERE organization_id = ${organizationId}::uuid AND id = ANY(${staying.slice(1).map((row) => row.id)}::uuid[])`;
+  return true;
 }
 
 /** The organization's files, or one record's, removed ones included, each with a download link for `linkSeconds`. */

@@ -12,9 +12,11 @@ export {
   type FileRecord,
 } from "./purge.js";
 export {
+  deleteQueuedAttachment,
   deleteQueuedFile,
   dueFileDeletions,
   forgetFileDeletion,
+  LINKS_LAPSED_MS,
   nextFileDeletionDue,
   organizationFolder,
   type StoredFileDeletion,

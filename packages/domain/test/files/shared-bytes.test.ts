@@ -9,6 +9,8 @@ import {
   deleteRecordFiles,
   dueFileDeletions,
   exportedFiles,
+  forgetFileDeletion,
+  LINKS_LAPSED_MS,
   storedFiles,
 } from "../../src/files/index.js";
 import { OWNER_ROLE_KEY } from "../../src/identity/index.js";
@@ -69,10 +71,12 @@ describe("a file stored once and shared", () => {
     test.platform.attachment.findUniqueOrThrow({ where: { id } }).then((row) => row.storedAsId);
 
   /** Runs the deletions' outbox for the organization, as the console's job does. */
-  async function emptyOutbox(organizationId: string) {
-    const now = new Date();
+  async function emptyOutbox(organizationId: string, now = new Date()) {
     const due = await platformDb.transaction((tx) => dueFileDeletions(tx, { now, limit: 50, organizationId }));
-    for (const deletion of due) await deleteQueuedFile(test.storage, deletion);
+    for (const deletion of due) {
+      await deleteQueuedFile(test.storage, deletion);
+      await platformDb.transaction((tx) => forgetFileDeletion(tx, deletion.id));
+    }
     return due.map((deletion) => deletion.attachmentId);
   }
 
@@ -138,7 +142,10 @@ describe("a file stored once and shared", () => {
     expect(await platformDb.transaction((tx) => deleteRecordFiles(tx, test.storage, erased, new Date()))).toBe(2);
     expect(await storedAsOf(organizationId, heir.id)).toBeNull();
     expect(await storedAsOf(organizationId, other.id)).toBe(heir.id);
-    expect((await emptyOutbox(organizationId)).sort()).toEqual([holder.id, sameRecord.id].sort());
+    // The copy on the erased record goes at once; the holder's object once links to it have lapsed.
+    expect(await emptyOutbox(organizationId)).toEqual([sameRecord.id]);
+    expect(test.storage.objects.has(keyOf(organizationId, holder.id))).toBe(true);
+    expect(await emptyOutbox(organizationId, new Date(Date.now() + LINKS_LAPSED_MS + 60_000))).toEqual([holder.id]);
     expect(test.storage.objects.has(keyOf(organizationId, holder.id))).toBe(false);
     for (const copy of [heir, other]) {
       const file = await test.files.systemFile(organizationId, ref(copy));

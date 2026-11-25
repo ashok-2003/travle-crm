@@ -136,17 +136,25 @@ describe("the clean-up of files stored more than once", () => {
     );
 
     // Not before the links handed out for them lapse; then the outbox deletes the two objects no file reads any more.
-    expect(await deleteDueFiles(test.services, { now: NOW, organizationId })).toBe(0);
-    expect(await deleteDueFiles(test.services, { now: new Date(NOW.getTime() + 11 * MINUTE_MS), organizationId })).toBe(
+    expect(await deleteDueFiles(test.services, { now: new Date(NOW.getTime() + 19 * MINUTE_MS), organizationId })).toBe(
+      0,
+    );
+    expect(await deleteDueFiles(test.services, { now: new Date(NOW.getTime() + 21 * MINUTE_MS), organizationId })).toBe(
       2,
     );
     expect(test.storage.objects.size).toBe(objects - 2);
-    for (const id of [sentFirst.id, sentAgain.id, copy.id, tripKit.id]) {
-      const file = await test.services.platformDb.transaction(async (tx) => {
-        const row = await tx.attachment.findUniqueOrThrow({ where: { id } });
-        return test.storage.get(keyOf(organizationId, row.storedAsId ?? row.id));
+    expect(test.storage.objects.has(keyOf(organizationId, tripKit.id))).toBe(true);
+    expect(test.storage.objects.has(keyOf(organizationId, sentFirst.id))).toBe(false);
+    expect(test.storage.objects.has(keyOf(organizationId, sentAgain.id))).toBe(false);
+    // Each still reads the same, through the files module (its own key holds nothing now).
+    const files = createFiles({ db: test.services.db, storage: test.storage });
+    for (const row of [sentFirst, sentAgain, copy, tripKit]) {
+      const read = await files.systemFile(organizationId, {
+        recordType: row.recordType,
+        recordId: row.recordId,
+        attachmentId: row.id,
       });
-      expect(new TextDecoder().decode(file ?? new Uint8Array())).toBe("%PDF-spiti");
+      expect(new TextDecoder().decode(read.body)).toBe("%PDF-spiti");
     }
 
     expect(await dedupeStoredFiles(test.services, { apply: true, organizationId }, NOW)).toEqual([
@@ -154,7 +162,6 @@ describe("the clean-up of files stored more than once", () => {
     ]);
 
     // The phone sends it once more: the media job's file finds the holder by its hash and stores nothing.
-    const files = createFiles({ db: test.services.db, storage: test.storage });
     const echo = await files.storeGeneratedFile(systemActor(organizationId), {
       recordType: WHATSAPP_RECORD_TYPE,
       recordId: randomUUID(),
@@ -174,10 +181,50 @@ describe("the clean-up of files stored more than once", () => {
     const erased = { organizationId, recordType: "lead", recordId: lead.recordId };
     await test.services.platformDb.transaction((tx) => deleteRecordFiles(tx, test.storage, erased, NOW));
     expect(await storedAsOf(sent.id)).toBeNull();
-    await deleteDueFiles(test.services, { now: new Date(NOW.getTime() + 11 * MINUTE_MS), organizationId });
+    await deleteDueFiles(test.services, { now: new Date(NOW.getTime() + 21 * MINUTE_MS), organizationId });
     expect(test.storage.objects.has(keyOf(organizationId, lead.id))).toBe(false);
     expect(new TextDecoder().decode((await test.storage.get(keyOf(organizationId, sent.id))) ?? undefined)).toBe(
       "%PDF-manal",
+    );
+  });
+
+  it("skips the storage delete of a queued file that holds its own bytes again, and only forgets the queue's row", async () => {
+    const organizationId = await createTestOrganization(platform, "Holds again agency");
+    const lead = await stored(organizationId, { recordType: "lead", body: "%PDF-tosh", minutesAgo: 60 });
+    await platform.storedFileDeletion.create({
+      data: { targetOrganizationId: organizationId, attachmentId: lead.id, dueAt: NOW },
+    });
+    expect(await deleteDueFiles(test.services, { now: NOW, organizationId })).toBe(1);
+    expect(test.storage.objects.has(keyOf(organizationId, lead.id))).toBe(true);
+    expect(await platform.storedFileDeletion.count({ where: { targetOrganizationId: organizationId } })).toBe(0);
+  });
+
+  it("never deletes the bytes a hand-over is giving a file at that very moment", async () => {
+    const organizationId = await createTestOrganization(platform, "Race agency");
+    const sent = await stored(organizationId, { recordType: WHATSAPP_RECORD_TYPE, body: "%PDF-kasol", minutesAgo: 90 });
+    const lead = await stored(organizationId, { recordType: "lead", body: "%PDF-kasol", minutesAgo: 60 });
+    // The clean-up queued the sent file's own object; the lead is erased while the outbox job runs.
+    await dedupeStoredFiles(test.services, { apply: true, organizationId }, NOW);
+    const held = Promise.withResolvers<undefined>();
+    const handedOver = Promise.withResolvers<undefined>();
+    const erased = { organizationId, recordType: "lead", recordId: lead.recordId };
+    const erasure = test.services.platformDb.transaction(
+      async (tx) => {
+        await deleteRecordFiles(tx, test.storage, erased, NOW);
+        handedOver.resolve(undefined);
+        await held.promise;
+      },
+      { timeout: 20_000 },
+    );
+    await handedOver.promise;
+    const job = deleteDueFiles(test.services, { now: new Date(NOW.getTime() + 60 * MINUTE_MS), organizationId });
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    held.resolve(undefined);
+    await erasure;
+    await job;
+    expect(await storedAsOf(sent.id)).toBeNull();
+    expect(new TextDecoder().decode((await test.storage.get(keyOf(organizationId, sent.id))) ?? undefined)).toBe(
+      "%PDF-kasol",
     );
   });
 });
