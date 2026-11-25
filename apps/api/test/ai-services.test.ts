@@ -289,56 +289,77 @@ describe("the fallback providers (the owner, 2026-11-23: free providers catch wh
   });
 });
 
-describe("the primary model (the owner, 2026-11-24: gpt-5-mini on Azure, medium effort)", () => {
+describe("the reasoning model behind the keys (the owner, 2026-11-25: Gemini first, gpt-5-mini on Azure behind it)", () => {
   const AZURE = "https://example.services.ai.azure.com/openai/v1";
-  const primary = {
+  const MISTRAL = "https://api.mistral.ai/v1";
+  const azure = {
     AI_BASE_URL: GOOGLE,
     AI_CHAT_MODELS: ["gemini-3.5-flash-lite"],
     AI_PRIMARY_BASE_URL: AZURE,
     AI_PRIMARY_API_KEY: "azure-key-0123456789",
     AI_PRIMARY_MODELS: ["our-gpt-5-mini"],
   };
+  const calls = [{ id: "c1", name: "quote", arguments: "{}" }];
+  const roundBy = (writer: string) => [
+    ...messages,
+    { role: "assistant" as const, content: "", model: writer, toolCalls: calls },
+    { role: "tool" as const, content: "₹9,499", toolCallId: "c1" },
+  ];
 
-  it("asks it first for every feature but voice notes and Fill it for me, which go to the keys", async () => {
-    const { asked, fields } = stubFetch();
-    const model = createAiModel(settings(primary), logger);
+  it("leaves every feature to the keys while they answer", async () => {
+    const { asked } = stubFetch();
+    const model = createAiModel(settings(azure), logger);
     const features = ["sales_agent", "agent_image", "score_lead", "chat_summary", "agent_voice", "fill_form"] as const;
     for (const feature of features) await model?.complete({ feature, messages, user: "org" });
-    // The agent's turns go by the Responses API, for the model's reasoning summary in the trace (the owner, 2026-11-25).
-    const responses = { url: `${AZURE}/responses`, model: "our-gpt-5-mini" };
-    const azure = { url: `${AZURE}/chat/completions`, model: "our-gpt-5-mini" };
-    const google = { url: `${GOOGLE}/chat/completions`, model: "gemini-3.5-flash-lite" };
-    expect(asked).toEqual([responses, azure, azure, azure, google, google]);
-    expect(fields[0]?.keys).toEqual(expect.arrayContaining(["max_output_tokens", "reasoning", "prompt_cache_key"]));
-    expect(fields[1]?.keys).toEqual(
-      expect.arrayContaining(["max_completion_tokens", "reasoning_effort", "prompt_cache_key"]),
-    );
-    expect(fields[4]?.keys).toContain("max_tokens");
+    expect(asked).toEqual(features.map(() => ({ url: `${GOOGLE}/chat/completions`, model: "gemini-3.5-flash-lite" })));
   });
 
-  it("falls back to the keys when it can't answer, and sends a Gemini tool round back to Gemini", async () => {
+  it("answers when every key is rate limited, before the free fallbacks, with room to think; voice notes never reach it", async () => {
     const asked: string[] = [];
+    const fields: string[][] = [];
     vi.stubGlobal("fetch", (url: string, init: RequestInit) => {
-      const body = JSON.parse(typeof init.body === "string" ? init.body : "{}") as { model?: string };
-      asked.push(`${url.startsWith(AZURE) ? "azure" : "google"}:${body.model ?? ""}`);
-      const answer = { model: body.model, choices: [{ message: { content: "Hi" }, finish_reason: "stop" }] };
-      return Promise.resolve(
-        url.startsWith(AZURE) ? new Response("", { status: 503 }) : new Response(JSON.stringify(answer)),
-      );
+      const body = JSON.parse(typeof init.body === "string" ? init.body : "{}") as { model?: unknown };
+      const where = url.startsWith(AZURE) ? "azure" : url.startsWith(MISTRAL) ? "mistral" : "google";
+      asked.push(`${where}:${String(body.model)}`);
+      fields.push(Object.keys(body));
+      if (where !== "azure") return Promise.resolve(new Response("", { status: 429 }));
+      const answer = url.endsWith("/responses")
+        ? { output: [{ type: "message", content: [{ type: "output_text", text: "Hi" }] }] }
+        : { model: body.model, choices: [{ message: { content: "Hi" }, finish_reason: "stop" }] };
+      return Promise.resolve(new Response(JSON.stringify(answer)));
     });
-    const model = createAiModel(settings(primary), logger);
-    expect(await model?.complete({ feature: "sales_agent", messages })).toMatchObject({
-      ok: true,
+    const everything = {
+      ...azure,
+      AI_BACKUP_API_KEY: "AIza-second-0123456789",
+      AI_BACKUP_API_KEY_2: "AIza-third-0123456789",
+      AI_FALLBACK_BASE_URL: MISTRAL,
+      AI_FALLBACK_API_KEY: "mistral-fallback-0123456789",
+      AI_FALLBACK_MODELS: ["mistral-small-latest"],
+    };
+    const model = createAiModel(settings(everything), logger);
+    expect(await model?.complete({ feature: "sales_agent", messages, user: "org" })).toMatchObject({ ok: true });
+    const keys = ["google:gemini-3.5-flash-lite", "google:gemini-3.5-flash-lite", "google:gemini-3.5-flash-lite"];
+    expect(asked).toEqual([...keys, "azure:our-gpt-5-mini"]);
+    expect(fields[3]).toEqual(expect.arrayContaining(["max_output_tokens", "reasoning"]));
+
+    asked.length = 0;
+    // A new model: a rate-limited key rests a while unasked.
+    const voice = createAiModel(settings(everything), logger);
+    await voice?.complete({ feature: "agent_voice", messages, user: "org" });
+    expect(asked.slice(0, 3)).toEqual(keys);
+    expect(asked.some((call) => call.startsWith("azure"))).toBe(false);
+  });
+
+  it("sends a tool round back to the model that wrote it: Azure's to Azure, Gemini's to Gemini", async () => {
+    const { asked } = stubFetch();
+    const model = createAiModel(settings(azure), logger);
+    await model?.complete({ feature: "sales_agent", messages: roundBy("our-gpt-5-mini"), model: "our-gpt-5-mini" });
+    await model?.complete({
+      feature: "sales_agent",
+      messages: roundBy("gemini-3.5-flash-lite"),
       model: "gemini-3.5-flash-lite",
     });
-    const calls = [{ id: "c1", name: "quote", arguments: "{}" }];
-    const round = [
-      ...messages,
-      { role: "assistant" as const, content: "", model: "gemini-3.5-flash-lite", toolCalls: calls },
-      { role: "tool" as const, content: "₹9,499", toolCallId: "c1" },
-    ];
-    await model?.complete({ feature: "sales_agent", messages: round, model: "gemini-3.5-flash-lite" });
-    expect(asked).toEqual(["azure:our-gpt-5-mini", "google:gemini-3.5-flash-lite", "google:gemini-3.5-flash-lite"]);
+    expect(asked.map(({ url }) => url)).toEqual([`${AZURE}/responses`, `${GOOGLE}/chat/completions`]);
   });
 });
 
