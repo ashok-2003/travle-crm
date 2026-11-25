@@ -3,9 +3,10 @@
 import { z } from "zod";
 import { recordId } from "../identity/fields.js";
 import { calendarDate } from "../kernel/time.js";
+import { departureStatus } from "../departures/departures.js";
 import { MAX_SEATS } from "../departures/seat-limit.js";
-import { roomPrices } from "../quotes/room-prices.js";
-import { packageFields, savePackageSeasonInput } from "../quotes/packages.js";
+import { roomPrices, roomPricesOutput } from "../quotes/room-prices.js";
+import { packageFields, packageSeason, savePackageSeasonInput } from "../quotes/packages.js";
 import { MAX_QUOTE_DAYS, quoteDay } from "../quotes/quotes.js";
 
 const text = (max: number) => z.string().trim().max(max);
@@ -150,6 +151,26 @@ export type PackageChangeProposal = z.infer<typeof packageChangeProposal>;
 /** The proposal as its run keeps it, with the day the trip's departures were read from (a later stamp reads the same days). */
 export const storedPackageChangeProposal = packageChangeProposal.omit({ runId: true }).extend({ from: calendarDate });
 export type StoredPackageChangeProposal = z.infer<typeof storedPackageChangeProposal>;
+
+/** What an applied run replaced, as its row keeps it for Undo all: every season, the fields it changed, the AI switch,
+ * the departures it (or the schedule it changed) touched, and the departures it made. */
+export const packageChangeRunBefore = z.object({
+  seasons: z.array(packageSeason),
+  fields: z.object({ ...tripFieldValue, notes: packageFields.notes, days: packageFields.days }).partial(),
+  selling: z.boolean().nullable(),
+  departures: z.array(
+    z.object({
+      id: recordId,
+      startDate: calendarDate,
+      status: departureStatus,
+      cancelledReason: z.string().nullable(),
+      seatsTotal: z.int(),
+      ownPrices: roomPricesOutput,
+    }),
+  ),
+  createdDepartureIds: z.array(recordId),
+});
+export type PackageChangeRunBefore = z.infer<typeof packageChangeRunBefore>;
 
 export const applyPackageChangesInput = z.strictObject({
   runId: recordId,

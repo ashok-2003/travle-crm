@@ -2,6 +2,12 @@
 // with no end split around a Christmas season, Friday departures (one cancelled), notes, details and an itinerary.
 import { OPEN_SEASON_END, type RoomPrices } from "@travel-crm/contracts/quotes";
 import type { OrgTx } from "@travel-crm/db";
+import { createMemoryAiModel } from "@travel-crm/integrations/ai";
+import { createMemoryStorage } from "@travel-crm/integrations/storage";
+import { saveAiSettings } from "../../../src/ai/index.js";
+import { proposePackageChanges } from "../../../src/ai/package-changes/propose.js";
+import { createFiles } from "../../../src/files/index.js";
+import type { MemberAccess } from "../../../src/identity/index.js";
 import { parseCalendarDate } from "../../../src/kernel/index.js";
 import { savePackageSeason } from "../../../src/quotes/index.js";
 import type { World } from "../../bookings/support.js";
@@ -83,3 +89,26 @@ export async function aTrip(world: World) {
 }
 
 export type Trip = Awaited<ReturnType<typeof aTrip>>;
+
+/** What Apply and Undo all are told besides the run: today, now, the plan's departures, who hears of kept departures. */
+export const context = { today: TODAY, now: NOW, departuresOnPlan: true, managerUserIds: [] };
+
+/** Turns the AI on in the world and proposes changes to a trip with a scripted answer, as a member would. */
+export async function assistantIn(world: World) {
+  await world.inOrg((tx) =>
+    saveAiSettings(tx, world.manager, { enabled: true, scoring: true }, { providerReady: true, now: NOW }),
+  );
+  const files = createFiles({ db: world.db, storage: createMemoryStorage() });
+  return {
+    propose(trip: Trip, text: string, changes: object[], member: MemberAccess = world.manager) {
+      const model = createMemoryAiModel();
+      model.answer(JSON.stringify({ changes }));
+      return proposePackageChanges(
+        { db: world.db, model, files, prompts: undefined },
+        member,
+        { packageId: trip.packageId, text, attachmentIds: [], answers: [] },
+        NOW,
+      );
+    },
+  };
+}
