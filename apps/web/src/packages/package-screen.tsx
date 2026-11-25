@@ -11,6 +11,7 @@ import { LoadingRows } from "@/components/loading-rows";
 import { BackLink, TextLink } from "@/components/text-link";
 import { refusalOf } from "@/data/api-error";
 import { routes } from "@/lib/routes";
+import { AiChangesCard } from "./ai-changes/ai-changes-card";
 import { PackageHeader } from "./package-header";
 import { sectionAnchors, type SectionKey } from "./package-section";
 import { DeparturesCard } from "./departures-card";
@@ -44,7 +45,7 @@ export function PackageScreen({ packageId }: { packageId: string }) {
               </ul>
             </nav>
             <div className="flex min-w-0 flex-col gap-8">
-              {/* The AI change assistant mounts here, above Prices. */}
+              <AiChangesCard packageId={data.id} />
               {data.kind === "group" ? (
                 <>
                   <PricesCard detail={data} />
