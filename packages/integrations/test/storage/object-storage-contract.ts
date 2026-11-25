@@ -1,5 +1,6 @@
 // The behaviour every ObjectStorage adapter shares, run against each one: the in-memory adapter that other tests
 // rely on is proven to act like S3 where it matters.
+import { createHash } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { ObjectStorage, PresignedUpload } from "../../src/storage/index.js";
 
@@ -12,6 +13,8 @@ export interface StorageUnderTest {
 
 const bytes = (text: string) => new TextEncoder().encode(text);
 const text = (body: Uint8Array | null) => (body ? new TextDecoder().decode(body) : null);
+/** A single-part object's ETag on S3, MinIO and R2: the MD5 of its bytes, in hex. */
+const md5 = (body: string) => createHash("md5").update(body).digest("hex");
 
 /** Every adapter's test calls this once, with a way to start the adapter (and its server, if any). */
 export function describeObjectStorage(name: string, start: () => Promise<StorageUnderTest>): void {
@@ -37,7 +40,11 @@ export function describeObjectStorage(name: string, start: () => Promise<Storage
 
       await subject.upload(upload, bytes("hello"), "application/pdf");
 
-      expect(await subject.storage.head(key)).toEqual({ sizeBytes: 5, contentType: "application/pdf" });
+      expect(await subject.storage.head(key)).toEqual({
+        sizeBytes: 5,
+        contentType: "application/pdf",
+        etag: md5("hello"),
+      });
       expect(text(await subject.storage.get(key))).toBe("hello");
     });
 
@@ -60,7 +67,11 @@ export function describeObjectStorage(name: string, start: () => Promise<Storage
     it("stores a file the server made", async () => {
       const key = freshKey();
       await subject.storage.put({ key, contentType: "application/pdf", body: bytes("%PDF-1.3") });
-      expect(await subject.storage.head(key)).toEqual({ sizeBytes: 8, contentType: "application/pdf" });
+      expect(await subject.storage.head(key)).toEqual({
+        sizeBytes: 8,
+        contentType: "application/pdf",
+        etag: md5("%PDF-1.3"),
+      });
       expect(text(await subject.storage.get(key))).toBe("%PDF-1.3");
     });
 
@@ -195,7 +206,12 @@ export function describeObjectStorage(name: string, start: () => Promise<Storage
       await subject.storage.put({ key: to, contentType: "text/plain", body: bytes("old") });
 
       expect(await subject.storage.copy(from, to)).toBe(true);
-      expect(await subject.storage.head(to)).toEqual({ sizeBytes: 17, contentType: "application/pdf" });
+      // The copy keeps the ETag, which is what tells two stored files' bytes apart without reading them.
+      expect(await subject.storage.head(to)).toEqual({
+        sizeBytes: 17,
+        contentType: "application/pdf",
+        etag: md5("%PDF-1.4 passport"),
+      });
       expect(text(await subject.storage.get(to))).toBe("%PDF-1.4 passport");
       // The original stays, and the copy outlives it.
       await subject.storage.delete(from);

@@ -14,6 +14,11 @@ export interface PresignedUpload {
 export interface StoredObject {
   sizeBytes: number;
   contentType: string | null;
+  /**
+   * Storage's tag for the bytes, unquoted: for a file stored in one piece (every upload and put here), the MD5 of its
+   * bytes in hex, kept by a copy. Equal tags with equal sizes mean the same bytes. Null when storage gives none.
+   */
+  etag: string | null;
 }
 
 export interface ObjectStorage {
@@ -44,7 +49,7 @@ export interface ObjectStorage {
    * holds nothing. The platform's export uses it, to keep an organization's files beside the export (spec 5).
    */
   copy(from: string, to: string): Promise<boolean>;
-  /** The stored file's size and type, or null when nothing is stored under key. */
+  /** The stored file's size, type and ETag, or null when nothing is stored under key. */
   head(key: string): Promise<StoredObject | null>;
   /** The stored file's bytes, or null when nothing is stored under key. */
   get(key: string): Promise<Uint8Array | null>;
