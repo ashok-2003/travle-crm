@@ -4,7 +4,7 @@
 export { addPackageDates } from "./package-dates.js";
 export { packageCalendar } from "./package-calendar.js";
 export { setDeparturePrices, setDepartureSeats } from "./departure-quick-changes.js";
-export { cancelDeparture, reopenCancelledDeparture } from "./departure-changes.js";
+export { cancelDeparture, reopenCancelledDeparture, SCHEDULE_CANCEL_REASON } from "./departure-changes.js";
 export { createDeparture, getDeparture, listDepartures, setDepartureStatus, updateDeparture } from "./departures.js";
 export { DEPARTURE_HOLDS_QUEUE, runDepartureHoldExpiry, type DepartureJobDependencies } from "./due-work.js";
 export {

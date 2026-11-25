@@ -149,6 +149,7 @@ model Organization {
   memberInstalledApps         MemberInstalledApp[]
   whatsappBroadcastTags       WhatsappBroadcastTag[]
   whatsappBroadcastRecipients WhatsappBroadcastRecipient[]
+  packageChangeRuns           PackageChangeRun[]
 
   @@map("organization")
 }
