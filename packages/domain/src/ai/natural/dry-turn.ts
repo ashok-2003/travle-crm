@@ -65,7 +65,7 @@ export function dryLeadView(lead: DryLead): NaturalLeadView {
     stage: lead.stage,
     summary: null,
     teamNotes: [],
-    openTasks: lead.tasks.map((task) => task.text),
+    openTasks: lead.tasks.map((task) => ({ text: task.text, aiKind: task.kind, createdAt: null })),
   };
 }
 

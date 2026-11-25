@@ -42,6 +42,7 @@ import { awaitsPayment, bookChecks, offerChecks, type BookingContext, type Refus
 import { monthWords } from "./find-trips.js";
 import { placeFollowUp } from "./follow-up-time.js";
 import { nextDay, nextMonth } from "./next-date.js";
+import { openTaskRefusal } from "./open-task.js";
 import type { Refused } from "./quote.js";
 import { termsOf, termsWords } from "./terms.js";
 
@@ -475,9 +476,14 @@ function planFollowUp(context: ActionContext, asked: Asked<typeof planFollowUpAr
   );
 }
 
-/** A task; a call-back's time is read on the agency's clock, and must be a real day and time still to come. */
+/**
+ * A task; a call-back's time is read on the agency's clock, and must be a real day and time still to come. One the team
+ * already has open from the AI is refused (open-task.ts).
+ */
 function createTask(context: ActionContext, asked: Asked<typeof createTaskArguments>): StageOutcome {
   const { kind, text } = asked;
+  const open = openTaskRefusal(context.lead.openTasks, { kind, text }, context);
+  if (open !== null) return open;
   let callAt: Date | null = null;
   if (asked.call_at !== undefined) {
     const [day = "", time = ""] = asked.call_at.split("T");
