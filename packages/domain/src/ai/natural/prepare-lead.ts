@@ -9,7 +9,7 @@ import { stageLabel } from "../lite/context/lead-card.js";
 import { typedByPerson } from "../lite/prepare-lead.js";
 import { usableNameOf } from "../lite/prepare.js";
 import type { TypedFields } from "../lite/typed-lock.js";
-import type { NaturalLeadView, TripSheet } from "./types.js";
+import type { NaturalLeadView, OpenTaskView, TripSheet } from "./types.js";
 
 const TEAM_NOTES = 3;
 const OPEN_TASKS = 5;
@@ -76,15 +76,24 @@ async function teamNotesOf(tx: OrgTx, leadId: string): Promise<TeamNoteRead[]> {
     .slice(0, TEAM_NOTES);
 }
 
-/** The lead's open tasks, soonest due first: what someone still has to do for the customer. */
-async function openTasksOf(tx: OrgTx, leadId: string): Promise<string[]> {
+/**
+ * The lead's open tasks, soonest due first: what someone still has to do for the customer. The AI's own carry their kind
+ * (act-task.ts makes a call-back a follow-up, a question a task), so it never opens a second one (open-task.ts).
+ */
+async function openTasksOf(tx: OrgTx, leadId: string): Promise<OpenTaskView[]> {
   const tasks = await tx.task.findMany({
     where: { recordType: "lead", recordId: leadId, doneAt: null, cancelledAt: null },
     orderBy: [{ dueAt: "asc" }, { id: "asc" }],
     take: OPEN_TASKS,
-    select: { title: true },
+    select: { title: true, kind: true, byAi: true, createdAt: true },
   });
-  return tasks.map((task) => task.title).filter((title) => title.trim() !== "");
+  return tasks
+    .filter((task) => task.title.trim() !== "")
+    .map((task) => ({
+      text: task.title,
+      aiKind: task.byAi ? (task.kind === "follow-up" ? "call_back" : "question") : null,
+      createdAt: task.createdAt,
+    }));
 }
 
 /** The lead (`leadId`, null when the customer has no open one) as the turn block shows it, with what a person set. */

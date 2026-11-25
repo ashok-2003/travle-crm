@@ -90,7 +90,14 @@ export interface NaturalLeadView {
   stage: string;
   summary: string | null;
   teamNotes: { at: Date; by: string; text: string }[];
-  openTasks: string[];
+  openTasks: OpenTaskView[];
+}
+
+/** An open task on the lead: its title, and for one the AI made, its kind and when (null where unknown: Try it's). */
+export interface OpenTaskView {
+  text: string;
+  aiKind: NaturalTaskKind | null;
+  createdAt: Date | null;
 }
 
 /** What the read tools work from: the turn's transaction, its trip sheets and labels (label to package id), its day. */

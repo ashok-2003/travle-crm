@@ -199,7 +199,7 @@ describe("the one agent's context", () => {
         lead: {
           ...lead,
           teamNotes: [{ at: now, by: "Amit", text: "Offered ₹500 off" }],
-          openTasks: ["Confirm the pickup point"],
+          openTasks: [{ text: "Confirm the pickup point", aiKind: null, createdAt: now }],
         },
         cameFrom: { source: "Instagram ad", packageId: "package-1" },
       }),

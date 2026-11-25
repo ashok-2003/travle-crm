@@ -18,6 +18,10 @@ export type WhatsappPastCustomerWroteEvent = z.infer<typeof whatsappPastCustomer
 export const whatsappCopyMediaJob = z.strictObject({ organizationId: recordId, messageId: recordId });
 export type WhatsappCopyMediaJob = z.infer<typeof whatsappCopyMediaJob>;
 
+/** whatsapp.media-stored: a message's file (a customer's, or one sent from the phone) is now in our storage. */
+export const whatsappMediaStoredEvent = z.strictObject({ conversationId: recordId, messageId: recordId });
+export type WhatsappMediaStoredEvent = z.infer<typeof whatsappMediaStoredEvent>;
+
 /** whatsapp.message-queued: a staff reply is waiting in the outbox for the worker to send. */
 export const whatsappMessageQueuedEvent = z.strictObject({ conversationId: recordId, messageId: recordId });
 export type WhatsappMessageQueuedEvent = z.infer<typeof whatsappMessageQueuedEvent>;

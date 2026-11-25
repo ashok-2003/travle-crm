@@ -6,7 +6,7 @@ import { SUMMARY_PROMPT_TEXT } from "./prompt-text.js";
 
 export const SUMMARY_PROMPT_NAME = "whatsapp-agent/chat-summary";
 
-export const BUILT_IN_SUMMARY_PROMPT: NaturalPrompt = { version: "built-in-summary-1", text: SUMMARY_PROMPT_TEXT };
+export const BUILT_IN_SUMMARY_PROMPT: NaturalPrompt = { version: "built-in-summary-2", text: SUMMARY_PROMPT_TEXT };
 
 /** The prompt the summary runs on: Langfuse's production one, else the built-in text. */
 export async function summaryPromptOf(prompts: AiPrompts | undefined): Promise<NaturalPrompt> {

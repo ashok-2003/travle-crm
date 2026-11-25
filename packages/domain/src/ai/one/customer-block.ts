@@ -40,7 +40,7 @@ export function customerBlock(input: CustomerBlockInput): string | null {
     lead.pickupCity === null ? null : `joining from ${oneLine(lead.pickupCity)}`,
     lead.room === null ? null : `${roomNames[lead.room]} room`,
   ].filter(isText);
-  const tasks = lead.openTasks.map((task) => oneLine(cutText(task, TASK_CUT)).replace(/[.\s]+$/u, ""));
+  const tasks = lead.openTasks.map((task) => oneLine(cutText(task.text, TASK_CUT)).replace(/[.\s]+$/u, ""));
   // Only the trip they are on (else the ad's): any other the model looks up, and words never pick one (owner, 2026-11-24).
   const theirs = input.indexed ? (trip ?? ad) : undefined;
   const lines = [
