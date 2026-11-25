@@ -29,6 +29,7 @@ export {
 export { bytesStored, type StoredBytesCheck } from "./uploads.js";
 export {
   duplicateCandidates,
+  holderSha256,
   identicalSets,
   organizationsWithFiles,
   shareStoredBytes,

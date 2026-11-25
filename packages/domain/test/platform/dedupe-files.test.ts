@@ -1,13 +1,15 @@
-// The one-off clean-up of files stored more than once: files with the same name, size, type and bytes come to share the
-// oldest one's object (one not on a WhatsApp message first), their own objects are deleted once their links have lapsed,
-// and every one still reads the same. A dry run changes nothing; other bytes, short-lived files and other organizations
-// are left alone; a second run finds nothing.
-import { randomUUID } from "node:crypto";
+// The one-off clean-up of files stored more than once: files with the same size, type and bytes, whatever their names,
+// come to share the oldest one's object (one not on a WhatsApp message first), which keeps the bytes' hash so the same
+// file sent again finds it; their own objects are deleted once their links have lapsed, and every one still reads the
+// same. A dry run changes nothing; other bytes, short-lived files and other organizations are left alone; a second run
+// finds nothing.
+import { createHash, randomUUID } from "node:crypto";
 import { TRIP_KIT_RECORD_TYPE, WHATSAPP_RECORD_TYPE } from "@travel-crm/contracts/files";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { createTestOrganization } from "@travel-crm/db/testing";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
-import { bytesStored, deleteRecordFiles, IMPORT_FILE_RECORD_TYPE } from "../../src/files/index.js";
+import { bytesStored, createFiles, deleteRecordFiles, IMPORT_FILE_RECORD_TYPE } from "../../src/files/index.js";
+import { systemActor } from "../../src/kernel/index.js";
 import { dedupeStoredFiles } from "../../src/platform/index.js";
 import { deleteDueFiles } from "../../src/platform/file-deletions.js";
 import { createTestPlatform, type TestPlatform } from "./test-platform.js";
@@ -73,10 +75,12 @@ describe("the clean-up of files stored more than once", () => {
       body: "%PDF-spiti",
       minutesAgo: 60,
     });
+    // Sent again from a phone, under another name.
     const sentAgain = await stored(organizationId, {
       recordType: WHATSAPP_RECORD_TYPE,
       body: "%PDF-spiti",
       minutesAgo: 30,
+      name: "IMG-20261120-WA0004.pdf",
     });
     // A copy made of one of them since copies share bytes: it comes along, so no copy names a copy.
     const copy = await platform.attachment.create({
@@ -92,7 +96,7 @@ describe("the clean-up of files stored more than once", () => {
         storedAsId: sentAgain.id,
       },
     });
-    // The same name, size and type with other bytes, and short-lived files: left alone.
+    // The same size and type with other bytes, and short-lived files: left alone.
     const otherBytes = await stored(organizationId, {
       recordType: WHATSAPP_RECORD_TYPE,
       body: "%PDF-ladak",
@@ -116,10 +120,14 @@ describe("the clean-up of files stored more than once", () => {
     expect(counted).toEqual([{ organizationId, files: 2, bytes: 20 }]);
     expect(await storedAsOf(sentFirst.id)).toBeNull();
     expect(test.storage.objects.size).toBe(objects);
+    expect((await platform.attachment.findUniqueOrThrow({ where: { id: tripKit.id } })).contentSha256).toBeNull();
 
     const applied = await dedupeStoredFiles(test.services, { apply: true, organizationId }, NOW);
     expect(applied).toEqual(counted);
-    expect(await storedAsOf(tripKit.id)).toBeNull();
+    expect(await platform.attachment.findUniqueOrThrow({ where: { id: tripKit.id } })).toMatchObject({
+      storedAsId: null,
+      contentSha256: createHash("sha256").update("%PDF-spiti").digest("hex"),
+    });
     for (const id of [sentFirst.id, sentAgain.id, copy.id]) expect(await storedAsOf(id)).toBe(tripKit.id);
     expect(await storedAsOf(otherBytes.id)).toBeNull();
     expect(await used(organizationId)).toBe(before - 20);
@@ -144,6 +152,17 @@ describe("the clean-up of files stored more than once", () => {
     expect(await dedupeStoredFiles(test.services, { apply: true, organizationId }, NOW)).toEqual([
       { organizationId, files: 0, bytes: 0 },
     ]);
+
+    // The phone sends it once more: the media job's file finds the holder by its hash and stores nothing.
+    const files = createFiles({ db: test.services.db, storage: test.storage });
+    const echo = await files.storeGeneratedFile(systemActor(organizationId), {
+      recordType: WHATSAPP_RECORD_TYPE,
+      recordId: randomUUID(),
+      fileName: "IMG-20261125-WA0001.pdf",
+      contentType: "application/pdf",
+      body: new TextEncoder().encode("%PDF-spiti"),
+    });
+    expect(await storedAsOf(echo.id)).toBe(tripKit.id);
   });
 
   it("keeps a file's own object when the holder is erased before the outbox deletes it: the file holds the bytes now", async () => {

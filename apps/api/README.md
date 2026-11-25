@@ -129,9 +129,10 @@ when one is wrong), serves nothing, runs no jobs and exits (`src/console-command
   `pnpm services:up` and `pnpm db:migrate`. It prints the organization code and the usernames to sign in with (`asha`
   the Owner, `ravi` in Sales, `meena` in Operations), never a password: theirs is `DEMO_PASSWORD`.
 - **`pnpm --filter @travel-crm/api-server run dedupe-files -- [--apply] [--organization <id>]`** is the one-off
-  clean-up of files stored more than once before a copy shared its holder's bytes (2026-11-25): per organization, ready
-  files with the same name, size, type and ETag come to share the oldest one's object (one not on a WhatsApp message
-  first), and the others' objects go through the deletions' outbox, deleted once their links have lapsed. Without
+  clean-up of files stored more than once before a file shared its holder's bytes (2026-11-25): per organization, ready
+  files with the same size, type and ETag, whatever their names, come to share the oldest one's object (one not on a
+  WhatsApp message first), which keeps the bytes' SHA-256 so the same file sent again finds it, and the others' objects
+  go through the deletions' outbox, deleted once their links have lapsed. Without
   `--apply` it only counts. It prints organization ids, file counts and sizes, never a file's name. Safe to run again.
 
 ## Environment

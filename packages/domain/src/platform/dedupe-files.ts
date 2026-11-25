@@ -1,7 +1,14 @@
 // The one-off clean-up (2026-11-25) of files stored more than once before a copy shared its holder's bytes, for the
 // console's `dedupe-files` command: per organization, the files module finds the files with identical bytes and makes
 // them share one object, and the others' objects go through the deletions' outbox. A dry run only counts.
-import { duplicateCandidates, identicalSets, organizationsWithFiles, shareStoredBytes } from "../files/index.js";
+import {
+  duplicateCandidates,
+  holderSha256,
+  identicalSets,
+  organizationsWithFiles,
+  shareStoredBytes,
+  type DuplicateSet,
+} from "../files/index.js";
 import { deleteFilesAfterCommit } from "./file-deletions.js";
 import type { PlatformServices } from "./services.js";
 
@@ -34,9 +41,7 @@ export async function dedupeStoredFiles(
     const sets = await identicalSets(services.storage, organizationId, groups);
     const count = { organizationId, files: 0, bytes: 0 };
     for (const set of sets) {
-      const shared = options.apply
-        ? await services.platformDb.transaction((tx) => shareStoredBytes(tx, organizationId, set, now))
-        : set.sharerIds.length;
+      const shared = options.apply ? await share(services, organizationId, set, now) : set.sharerIds.length;
       count.files += shared;
       count.bytes += shared * set.sizeBytes;
     }
@@ -44,4 +49,16 @@ export async function dedupeStoredFiles(
     counts.push(count);
   }
   return counts;
+}
+
+/** One set made to share its holder's object, which keeps the bytes' hash: how many files share it now. */
+async function share(
+  services: PlatformServices,
+  organizationId: string,
+  set: DuplicateSet,
+  now: Date,
+): Promise<number> {
+  const contentSha256 = await holderSha256(services.storage, organizationId, set);
+  if (contentSha256 === null) return 0;
+  return services.platformDb.transaction((tx) => shareStoredBytes(tx, organizationId, { ...set, contentSha256 }, now));
 }
