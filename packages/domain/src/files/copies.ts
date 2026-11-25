@@ -31,13 +31,20 @@ export async function copyFileIn(
   from: AttachmentRefInput,
   to: { recordType: string; recordId: string },
 ): Promise<AttachmentSummary> {
-  const source = await tx.attachment.findFirst({
-    where: { id: from.attachmentId, recordType: from.recordType, recordId: from.recordId, status: "ready" },
-    select: attachmentFields,
-  });
-  if (source === null) throw notFound();
+  // Read under a share lock: a deletion handing the bytes on, or the clean-up pointing the source elsewhere, finishes
+  // first, and the copy then names where the bytes are now (or finds the source gone).
+  const [source] = await tx.$queryRaw<AttachmentRow[]>`
+    SELECT organization_id AS "organizationId", id, record_type AS "recordType", record_id AS "recordId",
+      file_name AS "fileName", content_type AS "contentType", size_bytes AS "sizeBytes", sensitive, status,
+      created_at AS "createdAt", stored_as_id AS "storedAsId"
+    FROM attachment
+    WHERE id = ${from.attachmentId}::uuid AND record_type = ${from.recordType} AND record_id = ${from.recordId}::uuid
+      AND status = 'ready' AND deleted_at IS NULL
+    FOR SHARE`;
+  if (source === undefined) throw notFound();
   assertTypeAllowed(to.recordType, source.contentType);
-  const storedAsId = await holderOf(tx, source);
+  // The source's holder: itself, or the one it names (never a chain).
+  const storedAsId = source.storedAsId ?? source.id;
   // The same copy asked for again (the caller names the record by its token, so a retry names the same one) finds the row
   // an earlier try made: a ready one is the answer, and a pending one (the copy in storage of before, which failed)
   // becomes a copy like this one.
@@ -70,18 +77,4 @@ export async function copyFileIn(
         })
       : await tx.attachment.update({ where: { id: earlier.id }, data: shared, select: attachmentFields });
   return toSummary(copy);
-}
-
-/**
- * The attachment whose object holds the source's bytes: the source itself, or the one it names (never a chain). Read
- * under a share lock, so a deletion handing the bytes on, or the clean-up pointing the source elsewhere, finishes first,
- * and the copy then names where the bytes are now (or finds the source gone).
- */
-async function holderOf(tx: OrgTx, source: AttachmentRow): Promise<string> {
-  const [row] = await tx.$queryRaw<{ storedAsId: string | null }[]>`
-    SELECT stored_as_id AS "storedAsId" FROM attachment
-    WHERE organization_id = ${source.organizationId}::uuid AND id = ${source.id}::uuid
-    FOR SHARE`;
-  if (row === undefined) throw notFound();
-  return row.storedAsId ?? source.id;
 }
