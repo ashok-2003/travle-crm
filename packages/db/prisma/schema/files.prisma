@@ -26,7 +26,13 @@ model Attachment {
   deletedAt       DateTime?        @map("deleted_at") @db.Timestamptz(6)
   /// The user id of whoever deleted it; null when the system did.
   deletedBy       String?          @map("deleted_by") @db.Uuid
+  /// The attachment whose stored object holds this file's bytes (a file sent again, stored once); null when it holds its
+  /// own. Only ever a holder: a copy of a copy names the first one's holder.
+  storedAsId      String?          @map("stored_as_id") @db.Uuid
   organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  storedAs        Attachment?      @relation("AttachmentStoredAs", fields: [organizationId, storedAsId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
+  /// The files whose bytes this one holds.
+  sharers         Attachment[]     @relation("AttachmentStoredAs")
   /// Issued documents whose rendered PDF this is.
   issuedDocuments IssuedDocument[]
   /// Imports whose uploaded file this is, and whose report of rows not added.
@@ -39,5 +45,7 @@ model Attachment {
   @@unique([organizationId, id])
   /// A record's files.
   @@index([organizationId, recordType, recordId])
+  /// The files sharing a holder's bytes.
+  @@index([organizationId, storedAsId])
   @@map("attachment")
 }
