@@ -1,10 +1,10 @@
-// The trip's destination picker, in Itinerary: a name the agency's list hasn't got exactly (any case, trimmed) can be
+// The trip's destination picker, in Trip details: a name the agency's list hasn't got exactly (any case, trimmed) can be
 // added, as on the lead form, and saving the section sends it to packages.updatePart, which finds or adds it.
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { messages } from "@/i18n/messages";
-import { ItinerarySection } from "@/packages/section-itinerary";
+import { TripDetailsSection } from "@/packages/section-trip-details";
 import { lastInputTo, renderScreen } from "../leads/screen";
 import { stubApi } from "../support/api-stub";
 import { aPackage } from "./detail";
@@ -14,15 +14,15 @@ const sections = messages.packages.sections;
 const picker = messages.leads.form.destination;
 const addOption = (name: string) => picker.add.replace("{name}", name);
 
-/** Opens Itinerary's editor, and its destination picker over a list holding Kedarnath, and types into its search. */
+/** Opens Trip details' editor, and its destination picker over a list holding Kedarnath, and types into its search. */
 async function typeDestination(typed: string) {
   stubApi({
     "destinations.search": { data: [{ id: "0190a000-0000-7000-8000-0000000000d1", name: "Kedarnath" }] },
     "packages.updatePart": { data: null },
   });
-  renderScreen(<ItinerarySection detail={aPackage()} />, { width: "wide" });
+  renderScreen(<TripDetailsSection detail={aPackage()} />, { width: "wide" });
   await userEvent.click(
-    screen.getByRole("button", { name: sections.editNamed.replace("{section}", sections.itinerary.title) }),
+    screen.getByRole("button", { name: sections.editNamed.replace("{section}", sections.details.title) }),
   );
   await userEvent.click(screen.getByRole("combobox", { name: words.destination }));
   await userEvent.type(await screen.findByPlaceholderText(picker.searchOrAdd), typed);

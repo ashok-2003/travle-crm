@@ -1,9 +1,8 @@
 "use client";
 
-// /packages/<id> (release 7b, one page since easy package editing): a trip's name and status line, a side index, and its
-// four sections, each a short summary with Edit that saves that section alone: Prices & dates (with a group trip's price
-// calendar, seasons and departures), Itinerary, Details & rules, and Page & files (publishing, the AI-sell switch,
-// photos, brochures).
+// /packages/<id> (release 7b, one page since easy package editing, simplified after): a trip's name and status line, a
+// side index, and its sections top to bottom: Prices (a group trip's price table, a custom trip's From price and tiers),
+// Departures (group trips), Trip details, Page and AI (the AI switch, photos, brochures, publishing) and More (closed).
 import { SearchXIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { EmptyState } from "@/components/empty-state";
@@ -14,13 +13,15 @@ import { refusalOf } from "@/data/api-error";
 import { routes } from "@/lib/routes";
 import { PackageHeader } from "./package-header";
 import { sectionAnchors, type SectionKey } from "./package-section";
-import { DetailsSection } from "./section-details";
-import { ItinerarySection } from "./section-itinerary";
+import { DeparturesCard } from "./departures-card";
+import { CustomPricesCard, PricesCard } from "./prices-card";
+import { MoreSection } from "./section-more";
 import { PageSection } from "./section-page";
-import { PricesSection } from "./section-prices";
+import { TripDetailsSection } from "./section-trip-details";
 import { usePackage } from "./use-packages";
 
-const sections: SectionKey[] = ["prices", "itinerary", "details", "page"];
+const sectionsOf = (group: boolean): SectionKey[] =>
+  group ? ["prices", "departures", "details", "page", "more"] : ["prices", "details", "page", "more"];
 
 export function PackageScreen({ packageId }: { packageId: string }) {
   const t = useTranslations("packages.page");
@@ -35,7 +36,7 @@ export function PackageScreen({ packageId }: { packageId: string }) {
           <div className="grid gap-6 lg:grid-cols-[minmax(0,11rem)_minmax(0,1fr)] lg:items-start">
             <nav aria-label={t("index")} className="lg:sticky lg:top-6">
               <ul className="flex flex-wrap gap-x-4 lg:flex-col">
-                {sections.map((section) => (
+                {sectionsOf(data.kind === "group").map((section) => (
                   <li key={section}>
                     <TextLink href={`#${sectionAnchors[section]}`}>{tSections(`${section}.title`)}</TextLink>
                   </li>
@@ -43,10 +44,18 @@ export function PackageScreen({ packageId }: { packageId: string }) {
               </ul>
             </nav>
             <div className="flex min-w-0 flex-col gap-8">
-              <PricesSection detail={data} />
-              <ItinerarySection detail={data} />
-              <DetailsSection detail={data} />
+              {/* The AI change assistant mounts here, above Prices. */}
+              {data.kind === "group" ? (
+                <>
+                  <PricesCard detail={data} />
+                  <DeparturesCard detail={data} />
+                </>
+              ) : (
+                <CustomPricesCard detail={data} />
+              )}
+              <TripDetailsSection detail={data} />
               <PageSection detail={data} />
+              <MoreSection detail={data} />
             </div>
           </div>
         </>

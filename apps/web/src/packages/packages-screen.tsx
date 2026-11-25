@@ -1,7 +1,8 @@
 "use client";
 
 // /packages: the agency's ready trips, each with what it is (a group trip and its departures ahead, a custom trip and its
-// From price, or a quote's plan and price), whether its page is published and whether the AI sells it, and Delete. New
+// From price, or a quote's plan and price), whether its page is published and whether the AI sells it (a trip switched
+// on that the AI cannot sell yet says the first thing it needs, as the trip's own page does), and Delete. New
 // package starts an empty one; a quote's Save as package and the AI's drafts make one too.
 import type { QuotePackage } from "@travel-crm/contracts/quotes";
 import { PackageIcon, Trash2Icon } from "lucide-react";
@@ -37,6 +38,7 @@ function useSummary() {
 export function PackagesScreen() {
   const t = useTranslations("packages.list");
   const tCommon = useTranslations("common");
+  const tReasons = useTranslations("packages.sell.reasons");
   const packages = useQuotePackages();
   const mayEdit = useHolds("quotes:edit");
   const { deletePackage } = useQuoteChanges();
@@ -74,7 +76,10 @@ export function PackagesScreen() {
             </ItemContent>
             {(one.published || one.aiSellable) && (
               <ItemActions>
-                {one.aiSellable && <StatusBadge tone="good">{t("aiSells")}</StatusBadge>}
+                {one.aiSells && <StatusBadge tone="good">{t("aiSells")}</StatusBadge>}
+                {one.aiGap !== null && (
+                  <StatusBadge tone="neutral">{t("aiBlocked", { reason: tReasons(one.aiGap) })}</StatusBadge>
+                )}
                 {one.published && <StatusBadge tone="good">{t("published")}</StatusBadge>}
               </ItemActions>
             )}

@@ -2,8 +2,9 @@
 
 // One section of a trip's page (/packages/<id>): a card with the section's heading and a short read-only summary, and
 // Edit, which swaps the summary for the section's own form. Save sends that section's fields alone (packages.updatePart)
-// and Cancel puts the summary back. The cards that belong to the section (seasons, photos) follow the card inside the
-// same anchor, never inside it (DESIGN.md: no nested cards), so a link to the section lands on all of it.
+// and Cancel puts the summary back. The cards that belong to the section (photos, brochures) follow the card inside the
+// same anchor, never inside it (DESIGN.md: no nested cards), so a link to the section lands on all of it; a card that
+// leads it (the AI switch) goes before.
 import type { UpdatePackagePartInput } from "@travel-crm/contracts/quotes";
 import { useTranslations } from "next-intl";
 import { useEffect, useId, useRef, useState, type ReactNode, type SubmitEventHandler } from "react";
@@ -20,23 +21,29 @@ import { usePackageChanges } from "./use-packages";
 
 /** Where each section starts: the side index and the AI-sell card's gaps link here. */
 export const sectionAnchors = {
-  prices: "prices-and-dates",
-  itinerary: "itinerary",
-  details: "details-and-rules",
-  page: "page-and-files",
+  prices: "prices",
+  departures: "departures",
+  details: "trip-details",
+  page: "page-and-ai",
+  more: "more",
 } as const;
 export type SectionKey = keyof typeof sectionAnchors;
+/** The sections that are a summary with Edit. */
+export type EditableSection = "details" | "page";
 
 export function PackageSection({
   section,
   summary,
   editor,
+  lead,
   children,
 }: {
-  section: SectionKey;
+  section: EditableSection;
   summary: ReactNode;
   /** The section's form, given what closes it: mounted only while editing, so each Edit starts from what is saved. */
   editor: (close: () => void) => ReactNode;
+  /** A card of the section that comes before its summary. */
+  lead?: ReactNode;
   /** The section's own cards, after its summary. */
   children?: ReactNode;
 }) {
@@ -58,6 +65,7 @@ export function PackageSection({
   }, [mode]);
   return (
     <section id={sectionAnchors[section]} aria-labelledby={headingId} className="flex scroll-mt-6 flex-col gap-4">
+      {lead}
       <Card>
         <CardHeader>
           <CardTitle>
@@ -99,7 +107,7 @@ export function PackageSection({
 }
 
 /** A section's save: only its fields go, and once saved (the trip read again) it says so and closes. */
-export function useSectionSave(section: SectionKey, close: () => void) {
+export function useSectionSave(section: EditableSection | "more", close: () => void) {
   const t = useTranslations("packages.sections");
   const { updatePart } = usePackageChanges();
   const save = (input: UpdatePackagePartInput) => {

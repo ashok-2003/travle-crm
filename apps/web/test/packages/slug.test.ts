@@ -1,7 +1,7 @@
 // A package's address from its name: lower-case words joined by hyphens, never longer than the api takes.
 import { packageSlug } from "@travel-crm/contracts/quotes";
 import { describe, expect, it } from "vitest";
-import { slugOf } from "@/packages/section-page";
+import { slugOf } from "@/packages/section-more";
 
 describe("a package's address from its name", () => {
   it("joins the words with hyphens in lower case", () => {
