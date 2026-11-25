@@ -235,6 +235,14 @@ describe("the one agent's loop", () => {
     expect(model.requests).toHaveLength(1);
   });
 
+  it("sends a reply's dashes as commas, in each of its two messages", async () => {
+    model.answer({ text: "Done — brochure bhej diya.\n---\nKab nikalna hai — Dec ya Jan?" });
+    expect(await loop()).toMatchObject({
+      end: "final",
+      messages: ["Done, brochure bhej diya.", "Kab nikalna hai, Dec ya Jan?"],
+    });
+  });
+
   it("ends quiet after stay_quiet without asking the model again", async () => {
     model.answer({ toolCalls: [quietCall] });
     expect(await loop()).toMatchObject({ end: "final", messages: [], callsUsed: 1 });

@@ -8,6 +8,7 @@ import type { FallbackReason, LoopEnd } from "../natural/loop/types.js";
 import { fallbackTask, splitMessages } from "../natural/loop/words.js";
 import type { NaturalTraceBuilder } from "../natural/trace.js";
 import type { OneContext } from "./context.js";
+import { withoutDashes } from "./dashes.js";
 import type { OneRun } from "./tools.js";
 
 /** The reply. Words beside stay_quiet go out and drop it (ruling 11): silence is the costlier mistake. */
@@ -23,7 +24,7 @@ export function oneFinal(
     trace.flag("quiet_with_words");
   }
   trace.staged(staged);
-  return { end: "final", messages: splitMessages(words), staged, quoted: run.quoted, ...answer };
+  return { end: "final", messages: splitMessages(withoutDashes(words)), staged, quoted: run.quoted, ...answer };
 }
 
 /** The fallback: nothing reaches the customer, and the team's task says what they wrote and what wasn't done. */
