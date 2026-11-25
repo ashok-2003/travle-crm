@@ -3,7 +3,7 @@
 // arrives under any name) become copies of one of them, which keeps their SHA-256, and the others' own objects go
 // through the deletions' outbox. In platform transactions (the outbox is the platform role's),
 // naming the organization in every query; the console's `dedupe-files` command runs it.
-import { WHATSAPP_RECORD_TYPE } from "@travel-crm/contracts/files";
+import { AI_INPUT_RECORD_TYPE, WHATSAPP_RECORD_TYPE } from "@travel-crm/contracts/files";
 import type { OrgTx } from "@travel-crm/db";
 import type { ObjectStorage } from "@travel-crm/integrations/storage";
 import { storageKeyOf } from "./attachment-row.js";
@@ -16,6 +16,8 @@ export interface DuplicateCandidate {
   id: string;
   recordType: string;
   sizeBytes: number;
+  /** Removed, and kept only until a purge. */
+  deleted: boolean;
 }
 
 /** Files with the same bytes: the one that keeps them, and those that will share them. */
@@ -44,8 +46,9 @@ export async function organizationsWithFiles(tx: OrgTx): Promise<string[]> {
  */
 export async function duplicateCandidates(tx: OrgTx, organizationId: string): Promise<DuplicateCandidate[][]> {
   const rows = await tx.$queryRaw<(DuplicateCandidate & { contentType: string })[]>`
-    SELECT id, "recordType", "sizeBytes", "contentType" FROM (
-      SELECT id, record_type AS "recordType", size_bytes AS "sizeBytes", content_type AS "contentType", created_at,
+    SELECT id, "recordType", "sizeBytes", deleted, "contentType" FROM (
+      SELECT id, record_type AS "recordType", size_bytes AS "sizeBytes", deleted_at IS NOT NULL AS deleted,
+        content_type AS "contentType", created_at,
         count(*) OVER (PARTITION BY size_bytes, content_type) AS alike
       FROM attachment
       WHERE organization_id = ${organizationId}::uuid AND status = 'ready' AND stored_as_id IS NULL
@@ -64,10 +67,10 @@ export async function duplicateCandidates(tx: OrgTx, organizationId: string): Pr
 /**
  * The sets within these groups whose stored objects are byte-identical: equal ETags (the MD5 of a file stored in one
  * piece, kept by a copy) and the promised size. A file storage holds nothing for, or gives no ETag for, is left alone.
- * The holder is the oldest file not on a WhatsApp message (a record more likely to stay), else the oldest.
+ * The holder is the file likeliest to stay (`holderRank`), the oldest among equals.
  */
 export async function identicalSets(
-  storage: ObjectStorage,
+  storage: Pick<ObjectStorage, "head">,
   organizationId: string,
   groups: readonly DuplicateCandidate[][],
 ): Promise<DuplicateSet[]> {
@@ -84,7 +87,7 @@ export async function identicalSets(
       }
     }
     for (const same of byTag.values()) {
-      const holder = same.find((file) => file.recordType !== WHATSAPP_RECORD_TYPE) ?? same[0];
+      const [holder] = same.toSorted((one, other) => holderRank(one) - holderRank(other));
       if (holder === undefined || same.length < 2) continue;
       const sharerIds = same.filter((file) => file !== holder).map((file) => file.id);
       sets.push({ holderId: holder.id, sharerIds, sizeBytes: holder.sizeBytes });
@@ -104,6 +107,18 @@ export async function holderSha256(
 ): Promise<string | null> {
   const body = await storage.get(storageKeyOf({ organizationId, id: set.holderId }));
   return body === null ? null : sha256Of(body);
+}
+
+/**
+ * Lower keeps the bytes better: a live file (a removed one is only kept until a purge, and new files never match it), on
+ * a record that lasts (an AI input goes after 30 days), not on a WhatsApp message if another will do.
+ */
+function holderRank(file: DuplicateCandidate): number {
+  return (
+    (file.deleted ? 4 : 0) +
+    (file.recordType === AI_INPUT_RECORD_TYPE ? 2 : 0) +
+    (file.recordType === WHATSAPP_RECORD_TYPE ? 1 : 0)
+  );
 }
 
 /**
