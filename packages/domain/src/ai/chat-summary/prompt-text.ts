@@ -25,6 +25,9 @@ still true, and adding what the new messages say.
   with the amounts and dates exactly as written.
 - Money: booking held, payment screenshot sent, payment confirmed by the Team.
   Write only what a message shows; never assume a payment arrived.
+- Files they sent: for each photo or file whose message says seen: "…", what it was,
+  under the heading it belongs to: "payment receipt ₹6,000, 25 Nov 2:38 pm",
+  "list of travellers' names: A, B, C".
 - Promises and open items: what the Team or AI said they'd check or send, and
   questions not answered yet.
 - Their worries and objections: price, safety, fitness, family, dates.
@@ -36,6 +39,8 @@ still true, and adding what the new messages say.
 - Say who said what when it matters: "Team (Rahul) offered ₹500 off" is not the
   same as "AI said the team may give a discount".
 - Newest wins: when a detail changed, keep the latest and note the change once.
+- An ask answered by a photo or file is answered: never list it under Open items
+  because nothing was typed.
 - Short lines under the headings below. At most 250 words.
 - Plain English, even when the chat is in Hinglish or Hindi; quote the customer's
   own words only when the wording matters.

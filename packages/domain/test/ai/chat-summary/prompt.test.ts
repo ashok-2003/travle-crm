@@ -24,7 +24,10 @@ function appendixA(): string {
 describe("the chat summary's prompt", () => {
   it("holds Appendix A's text exactly and fills the agency's name", () => {
     expect(SUMMARY_PROMPT_TEXT).toBe(appendixA());
-    expect(BUILT_IN_SUMMARY_PROMPT).toEqual({ version: "built-in-summary-1", text: SUMMARY_PROMPT_TEXT });
+    expect(BUILT_IN_SUMMARY_PROMPT).toEqual({ version: "built-in-summary-2", text: SUMMARY_PROMPT_TEXT });
+    // What a customer's photo or file showed is kept, and an ask it answered is not open (the owner, 2026-11-25).
+    expect(SUMMARY_PROMPT_TEXT).toContain('whose message says seen: "…", what it was');
+    expect(SUMMARY_PROMPT_TEXT).toContain("An ask answered by a photo or file is answered");
     const text = renderSummaryPrompt(BUILT_IN_SUMMARY_PROMPT, "Sharma Holidays");
     expect(text).toContain("# Chat summary for Sharma Holidays");
     expect(text).not.toMatch(/\{\{/);
