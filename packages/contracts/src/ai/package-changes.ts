@@ -20,6 +20,7 @@ export const proposePackageChangesInput = z.strictObject({
     .max(5)
     .default([]),
 });
+export type ProposePackageChangesInput = z.infer<typeof proposePackageChangesInput>;
 
 /** Why a change starts unticked or carries a warning. */
 export const packageChangeFlags = [
@@ -145,22 +146,30 @@ export const packageChangeProposal = z.object({
   notChanged: z.array(z.string()),
   brochureLeftOut: z.boolean(),
 });
+export type PackageChangeProposal = z.infer<typeof packageChangeProposal>;
+/** The proposal as its run keeps it, with the day the trip's departures were read from (a later stamp reads the same days). */
+export const storedPackageChangeProposal = packageChangeProposal.omit({ runId: true }).extend({ from: calendarDate });
+export type StoredPackageChangeProposal = z.infer<typeof storedPackageChangeProposal>;
 
 export const applyPackageChangesInput = z.strictObject({
   runId: recordId,
   changeIds: z.array(z.string()).min(1).max(60),
 });
+export type ApplyPackageChangesInput = z.infer<typeof applyPackageChangesInput>;
 export const applyPackageChangesOutput = z.object({ applied: z.number().int() });
 
 export const undoPackageChangesInput = z.strictObject({ runId: recordId });
+export type UndoPackageChangesInput = z.infer<typeof undoPackageChangesInput>;
 export const undoPackageChangesOutput = z.object({
   undone: z.number().int(),
   kept: z.array(
     z.object({ departureId: recordId, startDate: calendarDate, reason: z.enum(["has_bookings", "has_holds"]) }),
   ),
 });
+export type UndoPackageChangesResult = z.infer<typeof undoPackageChangesOutput>;
 
 export const latestPackageChangeRunInput = z.strictObject({ packageId: recordId });
 export const latestPackageChangeRunOutput = z
   .object({ runId: recordId, appliedAt: z.date(), applied: z.number().int(), undoable: z.boolean() })
   .nullable();
+export type LatestPackageChangeRun = z.infer<typeof latestPackageChangeRunOutput>;
