@@ -29,6 +29,9 @@ model Attachment {
   /// The attachment whose stored object holds this file's bytes (a file sent again, stored once); null when it holds its
   /// own. Only ever a holder: a copy of a copy names the first one's holder.
   storedAsId      String?          @map("stored_as_id") @db.Uuid
+  /// The SHA-256 of the bytes in hex, on a holder whose bytes the server had (a generated or downloaded file, or one the
+  /// clean-up read), so the same bytes stored again are found and shared; null where nobody computed it.
+  contentSha256   String?          @map("content_sha256")
   organization    Organization     @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   storedAs        Attachment?      @relation("AttachmentStoredAs", fields: [organizationId, storedAsId], references: [organizationId, id], onDelete: Restrict, onUpdate: Restrict)
   /// The files whose bytes this one holds.
@@ -47,5 +50,7 @@ model Attachment {
   @@index([organizationId, recordType, recordId])
   /// The files sharing a holder's bytes.
   @@index([organizationId, storedAsId])
+  /// The holder of these bytes, if the organization already stores them.
+  @@index([organizationId, contentSha256])
   @@map("attachment")
 }
