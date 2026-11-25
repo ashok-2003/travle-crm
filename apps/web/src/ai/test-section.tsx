@@ -1,31 +1,36 @@
 "use client";
 
 // Try it: the owner writes as a customer and the AI agent answers, turn after turn, in a chat laid out as WhatsApp lays
-// one out (the customer's lines on the left, the agent's on the right), with "Why" under each answer. The owner chooses
-// nothing here: each turn sends ai.testOne the chat so far, the state the last turn handed back and the test chat's id,
-// a random one each time the chat starts, which groups its turns' traces. The chat lives only in this screen's state,
-// never stored or in the address; Start again empties it. Nothing is sent to anyone; each answer spends some of the
+// one out (the customer's lines on the left, the agent's on the right), with "Why" under each answer. Each turn sends
+// ai.testOne the chat so far, the state the last turn handed back, the prompt chosen for this chat (the live one or the
+// draft being edited in Langfuse, which each answer keeps for its "Why") and the test chat's id, a random one each time
+// the chat starts, which groups its turns' traces. The chat lives only in this screen's state, never stored or in the
+// address; Start again empties it and keeps the prompt. Nothing is sent to anyone; each answer spends some of the
 // month's AI calls.
 import {
+  oneTestPrompts,
   TEST_CHAT_LINES,
   TEST_LINE_MAX,
   type NaturalTestAnswer,
   type NaturalTestState,
+  type OneTestPrompt,
   type TestAiLine,
 } from "@travel-crm/contracts/ai";
 import { RotateCcwIcon, SendHorizontalIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useId, useState } from "react";
+import { FormField } from "@/components/form-field";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Spinner } from "@/components/ui/spinner";
 import { TestNaturalTurn } from "./test-natural-turn";
 import { useTestOne } from "./use-ai";
 
-type Entry = { from: "customer"; text: string } | { from: "agent"; answer: NaturalTestAnswer };
+type Entry = { from: "customer"; text: string } | { from: "agent"; answer: NaturalTestAnswer; prompt: OneTestPrompt };
 
 /**
  * The chat as the api reads it, its newest lines: the agent's are its answer's history (its messages, then a mark for
@@ -46,6 +51,7 @@ export function TestSection() {
   const [state, setState] = useState<NaturalTestState | null>(null);
   const [chatId, setChatId] = useState(() => crypto.randomUUID());
   const [draft, setDraft] = useState("");
+  const [prompt, setPrompt] = useState<OneTestPrompt>("live");
 
   // A tapped card button is the customer's line "Tapped: <title>" with `tap`, as any turn (a dry run: nothing is booked).
   const send = (line = draft, tap?: "book" | "change") => {
@@ -55,10 +61,10 @@ export function TestSection() {
     setEntries(next);
     setDraft("");
     one.mutate(
-      { messages: linesOf(next), state, chatId, ...(tap === undefined ? {} : { tap }) },
+      { messages: linesOf(next), state, prompt, chatId, ...(tap === undefined ? {} : { tap }) },
       {
         onSuccess: (answer) => {
-          setEntries((shown) => [...shown, { from: "agent", answer }]);
+          setEntries((shown) => [...shown, { from: "agent", answer, prompt }]);
           setState(answer.state);
         },
       },
@@ -81,6 +87,29 @@ export function TestSection() {
         <CardDescription>{t("description")}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
+        <FormField label={t("prompt")} hint={t("draftHint")} className="sm:max-w-xs">
+          {(links) => (
+            <Select
+              value={prompt}
+              disabled={pending}
+              onValueChange={(chosen) => {
+                const found = oneTestPrompts.find((one) => one === chosen);
+                if (found !== undefined) setPrompt(found);
+              }}
+            >
+              <SelectTrigger {...links} className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent position="popper">
+                {oneTestPrompts.map((one) => (
+                  <SelectItem key={one} value={one}>
+                    {t(`prompts.${one}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </FormField>
         {entries.length > 0 && (
           <ol aria-label={t("thread")} className="flex flex-col gap-2 rounded-lg bg-chat-wallpaper p-4">
             {entries.map((entry, index) => {
@@ -91,6 +120,7 @@ export function TestSection() {
                   <TestNaturalTurn
                     key={index}
                     answer={entry.answer}
+                    prompt={entry.prompt}
                     {...(latest
                       ? {
                           onTap: (button: "book" | "change", title: string) => {

@@ -70,7 +70,7 @@ import {
   chatsAnsweredSince,
   aiSettingsOf,
   chatAiOf,
-  onePromptOf,
+  oneTryItPrompt,
   oneTryItTurn,
   resumeChat,
   setChatMode,
@@ -451,8 +451,8 @@ export const aiRouter = router({
     ),
 
   /**
-   * Try it on the one agent: the live prompt (label production), AI_NOT_READY without a model or a tool agent.
-   * Nothing is sent or kept.
+   * Try it on the one agent: the live prompt (label production), or the draft (label draft) when the person chose it,
+   * the live one when there is no draft; AI_NOT_READY without a model or a tool agent. Nothing is sent or kept.
    */
   testOne: freshProcedure
     .requires("ai:manage")
@@ -467,7 +467,7 @@ export const aiRouter = router({
       const chat = {
         messages: input.messages,
         state: input.state,
-        prompt: await onePromptOf(ctx.prompts),
+        prompt: await oneTryItPrompt(ctx.prompts, input.prompt),
         ...(input.tap === undefined ? {} : { tap: input.tap }),
         ...(input.chatId === undefined ? {} : { chatId: input.chatId }),
       };

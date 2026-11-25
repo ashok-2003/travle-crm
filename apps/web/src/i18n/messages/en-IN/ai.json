@@ -143,6 +143,12 @@
     "send": "Send",
     "reset": "Start again",
     "thinking": "The AI agent is answering…",
+    "prompt": "Prompt",
+    "prompts": {
+      "live": "Live (production)",
+      "draft": "Draft"
+    },
+    "draftHint": "Draft tries the prompt being edited in Langfuse, or the live one when there is no draft. Only this test chat uses it.",
     "card": {
       "caption": "Then it would send this card:",
       "tapped": "Tapped: {title}"
@@ -195,6 +201,8 @@
       },
       "why": {
         "prompt": "Prompt version",
+        "draft": "Draft",
+        "noDraft": "The draft couldn't be read, so this turn ran the prompt above.",
         "outcome": "Outcome",
         "fallback": "Fallback reason",
         "restarted": "Started over",

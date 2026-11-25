@@ -1,6 +1,7 @@
 // ai.testOne on the real router is Try it for the one agent: one dry turn of the tool agent on a test chat. It answers
-// AI_NOT_READY without a model or a tool agent, takes no model, temperature or prompt choice nor a state it never
-// handed out, needs ai:manage, and shows what the customer would get.
+// AI_NOT_READY without a model or a tool agent, runs Langfuse's live prompt or the draft when chosen (the live one when
+// there is no draft), takes no model or temperature choice nor a state it never handed out, needs ai:manage, and shows
+// what the customer would get.
 import { TRPCError } from "@trpc/server";
 import { saveAiSettings, type ToolAgent } from "@travel-crm/domain/ai";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -75,11 +76,13 @@ describe("ai.testOne", () => {
     expect(await codeOf(noAgent.ai.testOne({ messages: hi, state: null }))).toBe("AI_NOT_READY");
   });
 
-  it("refuses a model, a temperature or a prompt choice", async () => {
+  it("refuses a model or a temperature choice, and a prompt other than live or draft", async () => {
     const agent = answering();
     const caller = await anAiAgency({ toolAgent: agent.toolAgent });
-    for (const choice of [{ prompt: "draft" }, { model: "flash" }, { temperature: "0.4" }]) {
-      expect(await codeOf(caller.ai.testOne({ messages: hi, state: null, ...choice }))).toBe("BAD_REQUEST");
+    for (const choice of [{ prompt: "latest" }, { model: "flash" }, { temperature: "0.4" }]) {
+      // Each is what a client outside the contract might send: past the type, refused at the input.
+      const input = { messages: hi, state: null, ...choice } as unknown as Parameters<typeof caller.ai.testOne>[0];
+      expect(await codeOf(caller.ai.testOne(input))).toBe("BAD_REQUEST");
     }
     expect(agent.runs).toEqual([]);
   });
@@ -121,13 +124,14 @@ describe("ai.testOne", () => {
     expect(agent.runs[0]?.request).not.toHaveProperty("temperature");
   });
 
-  /** Langfuse's prompts as a fake: a production version, each ask kept. */
-  const langfuse = () => {
+  /** Langfuse's prompts as a fake: a production version, and a draft when `draft` says so; each ask kept. */
+  const langfuse = (draft = false) => {
     const asked: { name: string; label: string; fresh: boolean }[] = [];
     const prompts: NonNullable<Context["prompts"]> = {
       textPrompt: (name, label, request = {}) => {
         asked.push({ name, label, fresh: request.fresh === true });
         if (label === "production") return Promise.resolve({ name, version: 4, label, text: "The live prompt." });
+        if (label === "draft" && draft) return Promise.resolve({ name, version: 5, label, text: "The draft." });
         return Promise.resolve(null);
       },
     };
@@ -147,5 +151,20 @@ describe("ai.testOne", () => {
     const other = await anAiAgency({ toolAgent: answering().toolAgent });
     const builtIn = await other.ai.testOne({ messages: hi, state: null });
     expect(builtIn.trace).toMatchObject({ promptVersion: "built-in-one-3", promptLabel: null });
+  });
+
+  it("runs on Langfuse's draft when chosen, read past the cache, and on the live prompt when there is no draft", async () => {
+    const fake = langfuse(true);
+    const caller = await anAiAgency({ toolAgent: answering().toolAgent, prompts: fake.prompts });
+    const shown = await caller.ai.testOne({ messages: hi, state: null, prompt: "draft" });
+    expect(shown.trace).toMatchObject({ promptVersion: "langfuse:whatsapp-agent/real-agent@5", promptLabel: "draft" });
+    expect(fake.asked).toContainEqual({ name: "whatsapp-agent/real-agent", label: "draft", fresh: true });
+
+    const noDraft = await anAiAgency({ toolAgent: answering().toolAgent, prompts: langfuse().prompts });
+    const live = await noDraft.ai.testOne({ messages: hi, state: null, prompt: "draft" });
+    expect(live.trace).toMatchObject({
+      promptVersion: "langfuse:whatsapp-agent/real-agent@4",
+      promptLabel: "production",
+    });
   });
 });

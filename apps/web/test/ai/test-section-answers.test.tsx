@@ -138,6 +138,7 @@ describe("Try it's answers", () => {
     expect(api.last().input).toEqual({
       messages: [{ from: "customer", text: "Kedarkantha in Dec?" }],
       state: null,
+      prompt: "live",
       chatId: expect.stringMatching(uuid) as unknown,
     });
     const { chatId } = api.last().input as { chatId: string };
@@ -163,17 +164,18 @@ describe("Try it's answers", () => {
     expect((api.last().input as { chatId: string }).chatId).not.toBe(chatId);
   });
 
-  it("names no model, temperature or prompt, and shows which prompt version ran in Why", async () => {
+  it("names no model or temperature, runs the live prompt unless told, and shows which prompt version ran in Why", async () => {
     const api = fakeApi();
     renderWithApi(<TestSection />, client());
     await send("Kedarkantha in Dec?");
     expect(api.last().input).not.toHaveProperty("model");
     expect(api.last().input).not.toHaveProperty("temperature");
-    expect(api.last().input).not.toHaveProperty("prompt");
+    expect(api.last().input).toMatchObject({ prompt: "live" });
     const version = "langfuse:whatsapp-agent/real-agent@4";
     api.last().answer(naturalTurn([reply], { trace: { ...trace, promptVersion: version, promptLabel: "production" } }));
     await userEvent.click(await screen.findByRole("button", { name: words.why.open }));
     expect(screen.getByText(version)).toBeVisible();
+    expect(screen.queryByText(natural.why.noDraft)).toBeNull();
   });
 
   it("shows each message as it was split, its line breaks and blank lines kept", async () => {
@@ -296,6 +298,7 @@ describe("Try it's answers", () => {
         { from: "customer", text: "price for 2?" },
       ],
       state: stateAt(1),
+      prompt: "live",
       chatId: expect.stringMatching(uuid) as unknown,
     });
   });

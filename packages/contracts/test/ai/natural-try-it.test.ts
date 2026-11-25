@@ -66,8 +66,14 @@ describe("Try it on the one agent", () => {
     expect(oneTestInput.safeParse({ ...input, chatId: "+91 98765 43210" }).success).toBe(false);
   });
 
-  it("refuses a model, a temperature or a prompt choice: the agency tests the live agent", () => {
-    for (const extra of [{ model: "flash" }, { temperature: "0.4" }, { prompt: "draft" }]) {
+  it("takes the live prompt unless the draft is chosen, and nothing else", () => {
+    expect(oneTestInput.parse(input).prompt).toBe("live");
+    expect(oneTestInput.parse({ ...input, prompt: "draft" }).prompt).toBe("draft");
+    expect(oneTestInput.safeParse({ ...input, prompt: "latest" }).success).toBe(false);
+  });
+
+  it("refuses a model or a temperature choice: the agency tests the live agent", () => {
+    for (const extra of [{ model: "flash" }, { temperature: "0.4" }]) {
       expect(oneTestInput.safeParse({ ...input, ...extra }).success).toBe(false);
     }
   });
@@ -142,7 +148,7 @@ describe("Try it on the one agent", () => {
     // The Langfuse label the prompt was read at; null is the built-in text.
     const fromDraft = {
       ...answer.trace,
-      promptVersion: "langfuse:whatsapp-agent/natural-system@7",
+      promptVersion: "langfuse:whatsapp-agent/real-agent@7",
       promptLabel: "draft",
     };
     expect(naturalTestAnswer.parse({ ...answer, trace: fromDraft }).trace.promptLabel).toBe("draft");

@@ -1,5 +1,6 @@
-// Try it on the one agent: it sends its turns to ai.testOne with natural's state and the chat's id, with no model,
-// temperature or prompt choice, and shows its answer and its offer card.
+// Try it on the one agent: it sends its turns to ai.testOne with natural's state, the prompt chosen (live, or the draft
+// in Langfuse, which Why says it couldn't read when there was none) and the chat's id, with no model or temperature
+// choice, and shows its answer and its offer card.
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -11,6 +12,12 @@ import { screenIs } from "../organization/render";
 const words = messages.ai.test;
 beforeEach(() => {
   screenIs("wide");
+  // Radix's Select reaches for pointer capture and scrolling, which jsdom lacks.
+  Object.assign(Element.prototype, {
+    hasPointerCapture: () => false,
+    releasePointerCapture: () => undefined,
+    scrollIntoView: () => undefined,
+  });
 });
 
 const state = {
@@ -72,6 +79,7 @@ describe("Try it on the one agent", () => {
     expect(api.last().input).toEqual({
       messages: [{ from: "customer", text: "Kedarkantha in Dec?" }],
       state: null,
+      prompt: "live",
       chatId: expect.any(String) as unknown,
     });
     api.last().answer(answer);
@@ -95,5 +103,20 @@ describe("Try it on the one agent", () => {
     expect(api.last().input).toMatchObject({
       messages: expect.arrayContaining([{ from: "customer", text: "Tapped: Book these seats" }]) as unknown,
     });
+  });
+
+  it("sends the draft prompt once chosen, and says in Why when the draft couldn't be read", async () => {
+    const user = userEvent.setup();
+    const api = fakeApi();
+    renderWithApi(<TestSection />, newQueryClient());
+    await user.click(screen.getByRole("combobox", { name: words.prompt }));
+    await user.click(await screen.findByRole("option", { name: words.prompts.draft }));
+    await user.type(screen.getByLabelText(words.message), "Kedarkantha in Dec?");
+    await user.click(screen.getByRole("button", { name: words.send }));
+    expect(api.last().input).toMatchObject({ prompt: "draft" });
+    // No draft in Langfuse: the turn ran the live prompt, as its label says.
+    api.last().answer(answer);
+    await user.click(await screen.findByRole("button", { name: words.why.open }));
+    expect(screen.getByText(words.natural.why.noDraft)).toBeVisible();
   });
 });

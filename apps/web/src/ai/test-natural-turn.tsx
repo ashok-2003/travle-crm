@@ -3,7 +3,7 @@
 // One answer of the agent in the Try it chat: up to two messages in our green bubbles; then the agency's payment
 // lines, which code (never the model) would send after them, as a bubble of their own under a caption; a line of its own
 // when it would hand the chat over, stay quiet or leave it to the team (a task); and "Why", closed until opened.
-import type { NaturalTestAnswer } from "@travel-crm/contracts/ai";
+import type { NaturalTestAnswer, OneTestPrompt } from "@travel-crm/contracts/ai";
 import { ChevronDownIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState, type ReactNode } from "react";
@@ -110,11 +110,14 @@ function TestCard({
   );
 }
 
+/** `prompt` is the prompt the turn was asked to run, which "Why" holds against the one it ran. */
 export function TestNaturalTurn({
   answer,
+  prompt,
   onTap,
 }: {
   answer: NaturalTestAnswer;
+  prompt: OneTestPrompt;
   onTap?: (button: "book" | "change", title: string) => void;
 }) {
   const t = useTranslations("ai.test");
@@ -144,7 +147,7 @@ export function TestNaturalTurn({
       {answer.card && <TestCard card={answer.card} onTap={onTap} />}
       <NaturalStatus answer={answer} />
       <WhyToggle>
-        <TestNaturalWhy answer={answer} />
+        <TestNaturalWhy answer={answer} prompt={prompt} />
       </WhyToggle>
     </li>
   );
