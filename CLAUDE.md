@@ -168,10 +168,10 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   deliberate exception (the owner, 2026-11-16): prompts and replies go to Langfuse in full, phones and emails masked; the
   Logger's no-personal-data rule is unchanged. Tracing never changes or slows what it traces.
 - **AI prompts** (the owner, 2026-11-16): Langfuse is the source of truth, read through the `AiPrompts` port
-  (`@travel-crm/integrations/prompts`; none without `LANGFUSE_*`). The natural agent's prompt is
-  `whatsapp-agent/natural-system`: live turns read label `production`, Try it's Draft reads `draft`, each generation
-  links to the version used, and the built-in text in code (kept equal to production) is the fallback when Langfuse is
-  slow (2 s) or down. Two messages in a reply are split at a line of only `---`.
+  (`@travel-crm/integrations/prompts`; none without `LANGFUSE_*`). The agent's prompt is `whatsapp-agent/real-agent`:
+  live turns read label `production`, Try it's Draft reads `draft` (the live one when there is none), each generation
+  links to the version used, and the built-in text in code is the fallback when Langfuse is slow (2 s) or down. Two
+  messages in a reply are split at a line of only `---`.
 - **Money and time:** `Money` in integer paise, `indiaGst` for tax, `formatMoney` (₹12,50,000.00), times in UTC shown in
   the organization's zone (`formatDateTime`), departure dates as `CalendarDate`. Never floats, never local time.
 - **Public routes** (`/p/<token>`, `/webhooks/<provider>`) are rate-limited; a new shared record type adds a resolver in
@@ -185,8 +185,9 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   phone, email or message is ever logged. Turnstile sits behind the `BotCheck` port and fails open only when Cloudflare
   can't answer. Offers consent is crm's `person_consent` ledger, behind `features.marketingConsent`.
 - **The one WhatsApp agent** (spec `2026-11-17-one-whatsapp-agent-design.md`, `packages/domain/src/ai/one`):
-  - an agency's `ai_autopilot.agent` is `lite`, `natural` (the default) or `one`, chosen in the console;
-  - `one` runs LangGraph through the `tool-agent` port, on Gemini through Vertex AI (`AI_VERTEX_SERVICE_ACCOUNT`);
+  - it is the only agent (the owner, 2026-11-24): every agency runs it, there is no choice of agent, and the lite and
+    natural agents are gone; the parts of `ai/lite` and `ai/natural` it still uses stay there;
+  - it runs LangGraph through the `tool-agent` port, on Gemini through Vertex AI (`AI_VERTEX_SERVICE_ACCOUNT`);
   - its prompt is Langfuse `whatsapp-agent/real-agent`, and Try it is `ai.testOne`;
   - it sends a brochure by the owner's name and description (`package_brochure`), hears voice notes and sees photos
     (saved on the message), and offers bookings as a card with Book and Change buttons (a tap's id is
