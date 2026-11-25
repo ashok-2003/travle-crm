@@ -36,5 +36,13 @@ export function mergePackagePart(before: PackageRow, part: UpdatePackagePartInpu
   const given = Object.fromEntries(Object.entries(named).filter(([, value]) => value !== undefined));
   // A new destination's name replaces the stored destination, as in a full save.
   const destination = named.newDestinationName === undefined ? {} : { destinationId: null };
-  return updatePackageInput.parse({ ...stored, ...given, ...destination });
+  // A group trip showing its worked-out From has no typed price: made custom, it is on enquiry until one is typed.
+  const untyped =
+    named.kind === "custom" &&
+    named.priceDisplay === undefined &&
+    named.fromPricePaise === undefined &&
+    stored.priceDisplay === "from" &&
+    stored.fromPricePaise === null;
+  const display = untyped ? { priceDisplay: "on_enquiry" } : {};
+  return updatePackageInput.parse({ ...stored, ...given, ...destination, ...display });
 }

@@ -4,6 +4,8 @@
 import { highlightsOf, type PublicPackageRow } from "./rows.js";
 import type { OrgTx } from "@travel-crm/db";
 import { publicDepartures, type PublicDepartureRow } from "../departures/index.js";
+import { groupFromPrices } from "../quotes/index.js";
+import { parseCalendarDate } from "../kernel/index.js";
 import { entitlementsOf, isOnDemoPlan } from "../subscriptions/index.js";
 import { publicPageSettingsOf } from "./settings.js";
 
@@ -11,6 +13,7 @@ export type { PublicPackageRow } from "./rows.js";
 
 const packageColumns = {
   id: true,
+  kind: true,
   name: true,
   slug: true,
   summary: true,
@@ -42,16 +45,19 @@ export async function pagesAreOn(tx: OrgTx, input: { organizationId: string; now
 export async function publishedPackage(
   tx: OrgTx,
   slug: string,
-  when: { organizationId: string; now: Date },
+  when: { organizationId: string; now: Date; today: string },
 ): Promise<PublicPackageRow | null> {
   if (!(await pagesAreOn(tx, when))) return null;
   const row = await tx.quoteTemplate.findFirst({ where: { slug, published: true }, select: packageColumns });
-  return row === null ? null : highlightsOf(row);
+  if (row === null) return null;
+  const from =
+    row.kind === "group" ? (await groupFromPrices(tx, [row.id], parseCalendarDate(when.today))).get(row.id) : null;
+  return highlightsOf(row, from ?? null);
 }
 
 export async function publishedPackages(
   tx: OrgTx,
-  when: { organizationId: string; now: Date },
+  when: { organizationId: string; now: Date; today: string },
 ): Promise<PublicPackageRow[]> {
   if (!(await pagesAreOn(tx, when))) return [];
   const rows = await tx.quoteTemplate.findMany({
@@ -60,7 +66,12 @@ export async function publishedPackages(
     take: 200,
     select: packageColumns,
   });
-  return rows.map(highlightsOf);
+  const from = await groupFromPrices(
+    tx,
+    rows.filter((row) => row.kind === "group").map((row) => row.id),
+    parseCalendarDate(when.today),
+  );
+  return rows.map((row) => highlightsOf(row, from.get(row.id) ?? null));
 }
 
 /** The package's upcoming departures, by words. */

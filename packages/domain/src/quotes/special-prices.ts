@@ -1,5 +1,5 @@
 // Special prices for some dates: the package's seasons around those dates are shortened, split or removed to make room.
-import type { SaveSpecialPricesInput } from "@travel-crm/contracts/quotes";
+import { OPEN_SEASON_END, type SaveSpecialPricesInput } from "@travel-crm/contracts/quotes";
 import type { OrgTx } from "@travel-crm/db";
 import type { MemberAccess } from "../identity/index.js";
 import { addDays, parseCalendarDate, type CalendarDate } from "../kernel/index.js";
@@ -15,13 +15,12 @@ export async function saveSpecialPrices(
   const start = parseCalendarDate(input.startsOn);
   const seasons = await seasonsOf(tx, packageId);
   const covering = seasons.find((season) => season.startsOn <= start && season.endsOn >= start);
-  // With nothing covering the start, "until I change them" stops short of the next season, so that season keeps its prices.
+  // With nothing covering the start, "until I change them" stops short of the next season, so that season keeps its prices; with none it never ends.
   const next = seasons.find((season) => season.startsOn > start);
-  const yearOn = addDays(start, 364);
   const end =
     (input.endsOn === null ? null : parseCalendarDate(input.endsOn)) ??
     covering?.endsOn ??
-    (next !== undefined && next.startsOn <= yearOn ? addDays(next.startsOn, -1) : yearOn);
+    (next === undefined ? parseCalendarDate(OPEN_SEASON_END) : addDays(next.startsOn, -1));
   const save = (season: {
     id?: string;
     label: string;

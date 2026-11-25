@@ -96,6 +96,35 @@ describe("the natural agent's trip sheets", () => {
     expect(onTheDay?.departures.map((one) => one.startsOn)).toEqual(["2026-12-12", "2026-12-19", "2026-12-26"]);
   });
 
+  it("works the From price out as the trip page does: a cheaper season no departure falls in doesn't lower it", async () => {
+    const { inOrg, sheets, kedarkantha } = await world();
+    await inOrg((tx) =>
+      tx.packageSeason.create({
+        data: {
+          templateId: kedarkantha,
+          label: "Spring",
+          startsOn: new Date("2027-03-01T00:00:00Z"),
+          endsOn: new Date("2027-03-31T00:00:00Z"),
+          priceTriplePaise: 500_000n,
+        },
+      }),
+    );
+    expect((await sheets())[0]?.fromPaise).toBe(949_900);
+  });
+
+  it("counts a departure starting today in the From price, as the trip page lists it", async () => {
+    const { inOrg, sheets, kedarkantha } = await world();
+    await inOrg((tx) =>
+      tx.departure.updateMany({
+        where: { templateId: kedarkantha, startDate: new Date("2026-12-05T00:00:00Z") },
+        data: { priceTriplePaise: 800_000n },
+      }),
+    );
+    const [onTheDay] = await sheets(parseCalendarDate("2026-12-05"));
+    expect(onTheDay?.departures.map((one) => one.startsOn)).not.toContain("2026-12-05");
+    expect(onTheDay?.fromPaise).toBe(800_000);
+  });
+
   it("carries each trip's brochures with their words, and its photos, and keeps fileIds as natural reads them", async () => {
     const { inOrg, sheets, kedarkantha } = await world();
     await inOrg(async (tx) => {
@@ -156,12 +185,15 @@ describe("the natural agent's trip sheets", () => {
       return { batch, text: tripInFull(sheet ?? expect.unreachable(), today) };
     }
 
-    it("gives a premium batch its own prices, only the rooms they price, as replacing the season's", async () => {
+    it("gives a premium batch its own price for the rooms it prices, the season's for the rest", async () => {
       const { batch, text } = await withBatch("2026-12-24", { priceTriplePaise: 1_199_900n });
-      expect(batch).toMatchObject({ priceFrom: "departure", perPersonPaise: { triple: 1_199_900 } });
-      expect(batch?.perPersonPaise).not.toHaveProperty("double");
+      expect(batch).toMatchObject({
+        priceFrom: "departure",
+        ownRooms: ["triple"],
+        perPersonPaise: { double: 1_099_900, triple: 1_199_900 },
+      });
       expect(text).toContain(
-        "- Thu 24 Dec: open; this date's own prices replace the season's: triple ₹11,999 per person",
+        "- Thu 24 Dec: open; this date sets its own price for triple, the other rooms keep the season's: double ₹10,999, triple ₹11,999 per person",
       );
       expect(text).toContain("- Sat 12 Dec: open\n");
     });
@@ -172,10 +204,17 @@ describe("the natural agent's trip sheets", () => {
       expect(text).toContain("- Sat 9 Jan 2027: open; no price set for this date");
     });
 
-    it("says no price is set for a batch whose own prices are only on rooms the trip doesn't sell", async () => {
+    it("gives a batch whose own prices are only on rooms the trip doesn't sell the season's prices", async () => {
       const { batch, text } = await withBatch("2026-12-24", { priceQuadPaise: 899_900n });
+      expect(batch).toMatchObject({ priceFrom: "season" });
+      expect(batch).not.toHaveProperty("ownRooms");
+      expect(text).toContain("- Thu 24 Dec: open\n");
+    });
+
+    it("says no price is set for such a batch past the season's end", async () => {
+      const { batch, text } = await withBatch("2027-01-09", { priceQuadPaise: 899_900n });
       expect(batch).toMatchObject({ priceFrom: "none", perPersonPaise: {} });
-      expect(text).toContain("- Thu 24 Dec: open; no price set for this date");
+      expect(text).toContain("- Sat 9 Jan 2027: open; no price set for this date");
     });
 
     it("never lists a full departure", async () => {

@@ -36,11 +36,14 @@ export function MoneyField<Values extends FieldValues>({
   name,
   label,
   hint,
+  placeholder,
 }: {
   control: Control<Values>;
   name: FieldPath<Values>;
   label: string;
   hint?: string;
+  /** What an empty box means, shown inside it (a price that falls back to another). */
+  placeholder?: string;
 }) {
   return (
     <Controller
@@ -60,6 +63,7 @@ export function MoneyField<Values extends FieldValues>({
                   name={field.name}
                   ref={field.ref}
                   value={text}
+                  placeholder={placeholder}
                   inputMode="decimal"
                   autoComplete="off"
                   className="numbers text-right"

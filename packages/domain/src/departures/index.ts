@@ -2,7 +2,9 @@
 // hotels, and what Today shows about them (release 7a). It sits above crm, tasks and notifications, and bookings call it:
 // an accepted quote on a departure turns its hold into the booking there. Seats are worked out, never stored.
 export { addPackageDates } from "./package-dates.js";
-export { cancelDeparture, reopenCancelledDeparture } from "./departure-changes.js";
+export { packageCalendar } from "./package-calendar.js";
+export { setDeparturePrices, setDepartureSeats } from "./departure-quick-changes.js";
+export { cancelDeparture, reopenCancelledDeparture, SCHEDULE_CANCEL_REASON } from "./departure-changes.js";
 export { createDeparture, getDeparture, listDepartures, setDepartureStatus, updateDeparture } from "./departures.js";
 export { DEPARTURE_HOLDS_QUEUE, runDepartureHoldExpiry, type DepartureJobDependencies } from "./due-work.js";
 export {

@@ -77,6 +77,15 @@ export { recordOfferSent } from "./seats/sent.js";
 export { readRateSheet } from "./rates/read-rate-sheet.js";
 export { findTrips } from "./drafts/find-trips.js";
 export { draftPackage } from "./drafts/draft-package.js";
+export {
+  applyPackageChanges,
+  changeRights,
+  latestPackageChangeRun,
+  proposePackageChanges,
+  undoPackageChanges,
+  type ApplyContext,
+  type ChangeRights,
+} from "./package-changes/index.js";
 export { recordRatesApplied } from "./rates/applied.js";
 export { rateSheetSourceLink } from "./rates/source-link.js";
 export type { Spreadsheets } from "@travel-crm/integrations/spreadsheets";

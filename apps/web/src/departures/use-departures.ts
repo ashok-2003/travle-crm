@@ -24,6 +24,21 @@ export function useDeparture(departureId: string) {
   return useQuery(trpc.departures.get.queryOptions({ departureId }));
 }
 
+/** What a trip's departure is priced at on its first day (its own prices, else its season's); nothing for a departure of no trip. */
+export function useDepartureDayPrices(departure: { id: string; templateId: string | null; startDate: string } | null) {
+  const trpc = useTRPC();
+  const linked = departure !== null && departure.templateId !== null;
+  return useQuery({
+    ...trpc.departures.calendar.queryOptions({
+      packageId: departure?.templateId ?? "",
+      from: departure?.startDate ?? "",
+      to: departure?.startDate ?? "",
+    }),
+    enabled: linked,
+    select: (days) => days.find((day) => day.departureId === departure?.id),
+  });
+}
+
 export function useDepartureMoney(departureId: string, enabled: boolean) {
   const trpc = useTRPC();
   return useQuery({ ...trpc.departures.money.queryOptions({ departureId }), enabled });
@@ -55,6 +70,8 @@ export function useRefreshDepartures() {
       queryClient.invalidateQueries({ queryKey: trpc.quotes.pathKey() }),
       queryClient.invalidateQueries({ queryKey: trpc.bookings.pathKey() }),
       queryClient.invalidateQueries({ queryKey: trpc.finance.pathKey() }),
+      // A departure change ends the AI box's Undo all for its trip.
+      queryClient.invalidateQueries({ queryKey: trpc.ai.packageChanges.latest.pathKey() }),
       refreshWork(),
     ]).then(() => undefined);
 }
@@ -75,6 +92,9 @@ export function useDepartureChanges() {
   return {
     addPackageDates: useMutation(trpc.departures.addPackageDates.mutationOptions(withPackages)),
     reopen: useMutation(trpc.departures.reopen.mutationOptions(withPackages)),
+    // Seats and prices show on the trip's calendar and in its "From" price.
+    setSeats: useMutation(trpc.departures.setSeats.mutationOptions(withPackages)),
+    setPrices: useMutation(trpc.departures.setPrices.mutationOptions(withPackages)),
     create: useMutation(trpc.departures.create.mutationOptions(options)),
     update: useMutation(trpc.departures.update.mutationOptions(options)),
     setStatus: useMutation(trpc.departures.setStatus.mutationOptions(options)),

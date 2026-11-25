@@ -276,7 +276,9 @@
       "season-removed": "Removed a package's season",
       "brochure-described": "Named or described a package's brochure",
       "sellable-changed": "Let the AI sell a package, or stopped it",
-      "note-copied": "Copied a line into a package's notes"
+      "note-copied": "Copied a line into a package's notes",
+      "ai-changes-applied": "Applied changes the AI proposed to a package",
+      "ai-changes-undone": "Undid the AI changes applied to a package"
     },
     "ai-agent": {
       "paused": "Paused the AI agent on WhatsApp",

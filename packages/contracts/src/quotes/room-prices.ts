@@ -35,6 +35,15 @@ export const roomPrices = z.strictObject(roomPriceShape);
 /** The same as an output, where unknown keys are stripped. */
 export const roomPricesOutput = z.object(roomPriceShape);
 export type RoomPrices = z.infer<typeof roomPrices>;
+/** No room priced: every room type null. */
+export const noRoomPrices: RoomPrices = Object.freeze({
+  single: null,
+  double: null,
+  triple: null,
+  quad: null,
+  child_bed: null,
+  child_no_bed: null,
+});
 
 /** How many people take rooms of one type. */
 export const roomBooking = z.strictObject({ roomType, people: z.int().min(1).max(MAX_SEATS) });

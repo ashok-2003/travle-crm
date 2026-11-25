@@ -21,22 +21,27 @@ export interface PublicPackageRow {
 const highlightList = (value: unknown): string[] =>
   Array.isArray(value) ? value.filter((line): line is string => typeof line === "string") : [];
 
-export function highlightsOf(row: {
-  id: string;
-  name: string;
-  slug: string | null;
-  summary: string;
-  nights: number | null;
-  destinationId: string | null;
-  highlights: unknown;
-  days: unknown;
-  inclusions: string;
-  exclusions: string;
-  cancellationNotes: string;
-  priceDisplay: string;
-  fromPricePaise: bigint | null;
-  destination: { name: string } | null;
-}): PublicPackageRow {
+/** A group trip's "From" is the one worked out from its departures (`groupFromPrices`), shown unless it chose "Price on enquiry". */
+export function highlightsOf(
+  row: {
+    id: string;
+    kind: string;
+    name: string;
+    slug: string | null;
+    summary: string;
+    nights: number | null;
+    destinationId: string | null;
+    highlights: unknown;
+    days: unknown;
+    inclusions: string;
+    exclusions: string;
+    cancellationNotes: string;
+    priceDisplay: string;
+    fromPricePaise: bigint | null;
+    destination: { name: string } | null;
+  },
+  groupFrom: number | null = null,
+): PublicPackageRow {
   return {
     id: row.id,
     name: row.name,
@@ -50,6 +55,13 @@ export function highlightsOf(row: {
     inclusions: row.inclusions,
     exclusions: row.exclusions,
     cancellationNotes: row.cancellationNotes,
-    fromPricePaise: row.priceDisplay === "from" && row.fromPricePaise !== null ? Number(row.fromPricePaise) : null,
+    fromPricePaise:
+      row.kind === "group"
+        ? row.priceDisplay === "from"
+          ? groupFrom
+          : null
+        : row.priceDisplay === "from" && row.fromPricePaise !== null
+          ? Number(row.fromPricePaise)
+          : null,
   };
 }

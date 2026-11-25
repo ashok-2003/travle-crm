@@ -57,11 +57,14 @@ export function DateField<Values extends FieldValues>({
   name,
   label,
   hint,
+  onValueChange,
 }: {
   control: Control<Values>;
   name: FieldPath<Values>;
   label: string;
   hint?: string;
+  /** Told each new value (a day as yyyy-mm-dd, or the text typed), for a screen that acts on the day at once. */
+  onValueChange?: (value: string) => void;
 }) {
   const t = useTranslations("calendar");
   const { field, fieldState } = useController({ control, name });
@@ -89,7 +92,9 @@ export function DateField<Values extends FieldValues>({
               className="numbers"
               onChange={(event) => {
                 setTyped(event.target.value);
-                field.onChange(parseIndianDate(event.target.value) ?? event.target.value.trim());
+                const next = parseIndianDate(event.target.value) ?? event.target.value.trim();
+                field.onChange(next);
+                onValueChange?.(next);
               }}
               onBlur={() => {
                 // A day typed loosely ("1/2/2027") is written out in full once the person moves on.
@@ -117,6 +122,7 @@ export function DateField<Values extends FieldValues>({
               endMonth={new Date(thisYear + YEARS_AROUND, 11)}
               onSelect={(chosen) => {
                 field.onChange(valueOf(chosen));
+                onValueChange?.(valueOf(chosen));
                 setOpen(false);
               }}
             />

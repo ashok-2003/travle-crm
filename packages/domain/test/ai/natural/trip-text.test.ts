@@ -92,7 +92,7 @@ describe("a trip as the natural agent reads it", () => {
     expect(text).toContain("Winter (Sun 1 Nov–Thu 31 Dec): triple ₹9,499, double ₹10,999 per person");
   });
 
-  it("gives a departure's own prices as replacing the season's, and says when nothing prices a date", () => {
+  it("says which rooms a departure prices itself, and says when nothing prices a date", () => {
     const text = tripInFull(
       {
         ...kedarkantha,
@@ -102,6 +102,7 @@ describe("a trip as the natural agent reads it", () => {
             startsOn: day("2026-12-26"),
             freeSeats: 3,
             priceFrom: "departure",
+            ownRooms: ["triple"],
             perPersonPaise: { triple: 1_199_900 },
           },
           { id: "d09", startsOn: day("2027-01-09"), freeSeats: 20, priceFrom: "none", perPersonPaise: {} },
@@ -110,9 +111,20 @@ describe("a trip as the natural agent reads it", () => {
       today,
     );
     expect(text).toContain(
-      "- Sat 26 Dec: 3 left; this date's own prices replace the season's: triple ₹11,999 per person",
+      "- Sat 26 Dec: 3 left; this date sets its own price for triple, the other rooms keep the season's: triple ₹11,999 per person",
     );
     expect(text).toContain("- Sat 9 Jan 2027: open; no price set for this date");
+  });
+
+  it("reads a season with no end as running onwards", () => {
+    const text = tripInFull(
+      {
+        ...kedarkantha,
+        seasons: [{ name: "Winter", from: day("2027-01-02"), until: day("2099-12-31"), perPersonPaise: { triple: 1 } }],
+      },
+      today,
+    );
+    expect(text).toContain("- Winter (from Sat 2 Jan 2027 onwards):");
   });
 
   it("keeps numbers in the owner's text", () => {

@@ -286,7 +286,7 @@ export const quotesRouter = router({
   /** The agency's ready packages, a quote starts from in a tap. */
   packages: viewer.output(quotePackageList).query(async ({ ctx }) => {
     const today = await agencyToday(ctx);
-    return ctx.db.forOrg(ctx.member.organizationId, (tx) => listPackages(tx, today));
+    return ctx.db.forOrg(ctx.member.organizationId, (tx) => listPackages(tx, ctx.member.organizationId, today));
   }),
 
   /** A new, empty package of either kind, filled in on its own page. */

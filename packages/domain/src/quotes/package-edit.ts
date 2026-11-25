@@ -19,6 +19,7 @@ import { findOrAddDestination } from "../catalog/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { DomainError } from "../kernel/index.js";
 import type { CalendarDate } from "../kernel/index.js";
+import { groupFromPrices } from "./group-from-price.js";
 import { withoutCosts } from "./margin.js";
 import { findPackage, nameTaken, type PackageRow } from "./package-row.js";
 import { seasonsOf } from "./package-seasons.js";
@@ -113,7 +114,13 @@ export async function getPackage(
     summary: row.summary,
     highlights: row.highlights,
     priceDisplay: row.priceDisplay,
-    fromPricePaise: row.fromPricePaise === null ? null : Number(row.fromPricePaise),
+    // A group trip's is worked out from its departures, whatever the owner chose to show.
+    fromPricePaise:
+      row.kind === "group"
+        ? ((await groupFromPrices(tx, [row.id], context.today)).get(row.id) ?? null)
+        : row.fromPricePaise === null
+          ? null
+          : Number(row.fromPricePaise),
     defaultTravellerLevel: row.defaultTravellerLevel,
     cancellationNotes: row.cancellationNotes,
     kind: row.kind,
@@ -146,7 +153,8 @@ export async function getPackage(
 export async function updatePackage(tx: OrgTx, access: MemberAccess, input: UpdatePackageInput): Promise<void> {
   const before = await findPackage(tx, input.packageId);
   const { packageId, newDestinationName, ...fields } = input;
-  if (fields.priceDisplay === "from" && fields.fromPricePaise === null) {
+  // A group trip's From is worked out from its departures, never typed.
+  if (fields.priceDisplay === "from" && fields.fromPricePaise === null && fields.kind !== "group") {
     throw new DomainError("VALIDATION", "FROM_PRICE_REQUIRED", "Enter the price to show, or choose 'Price on enquiry'");
   }
   if (before.published && fields.slug === null) {

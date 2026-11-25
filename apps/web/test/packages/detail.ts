@@ -1,6 +1,6 @@
 // A package as packages.get answers, and one of its departures as departures.list does, for the editor's component tests.
 import type { DepartureSummary } from "@travel-crm/contracts/departures";
-import type { PackageDetail } from "@travel-crm/contracts/quotes";
+import type { PackageDetail, RoomPrices } from "@travel-crm/contracts/quotes";
 
 export function aPackage(changes: Partial<PackageDetail> = {}): PackageDetail {
   return {
@@ -62,4 +62,24 @@ export function aDeparture(startDate: string, changes: Partial<DepartureSummary>
     overbookedBy: 0,
     ...changes,
   };
+}
+
+export const noPrices: RoomPrices = {
+  single: null,
+  double: null,
+  triple: null,
+  quad: null,
+  child_bed: null,
+  child_no_bed: null,
+};
+
+/** A season of a group trip: Regular is two pieces around Christmas (one column), the last with no end. */
+export function aSeason(
+  id: string,
+  label: string,
+  startsOn: string,
+  endsOn: string,
+  prices: Partial<RoomPrices> = {},
+): PackageDetail["seasons"][number] {
+  return { id, label, startsOn, endsOn, prices: { ...noPrices, ...prices } };
 }

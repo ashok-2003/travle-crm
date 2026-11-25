@@ -1,12 +1,13 @@
-// A group package's departures and files, and the room prices on a linked departure's form.
+// A group package's files, and the room prices on a linked departure's form.
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 import { DepartureFormDialog } from "@/departures/departure-form-dialog";
-import { PackageDeparturesCard } from "@/packages/package-departures-card";
 import { PackageFilesCard } from "@/packages/package-files-card";
 import { messages } from "@/i18n/messages";
+import { renderScreen } from "../leads/screen";
 import { fakeApi, newQueryClient, renderWithApi } from "../organization/api";
+import { stubApi } from "../support/api-stub";
 import { screenIs } from "../organization/render";
 import { aPackage } from "./detail";
 
@@ -15,75 +16,6 @@ const none = { single: null, double: null, triple: null, quad: null, child_bed: 
 
 beforeEach(() => {
   screenIs("wide");
-});
-
-describe("PackageDeparturesCard", () => {
-  it("adds a departure of the package, the form starting from the package", async () => {
-    const api = fakeApi();
-    renderWithApi(
-      <PackageDeparturesCard detail={aPackage({ kind: "group", nights: 5, seatsPerDeparture: 20 })} />,
-      newQueryClient(),
-    );
-    await userEvent.click(screen.getByRole("button", { name: messages.packages.packageDepartures.add }));
-    const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByRole<HTMLInputElement>("textbox", { name: messages.departures.form.title }).value).toBe(
-      "Kedarnath 6 days",
-    );
-    expect(
-      within(dialog).getByRole<HTMLInputElement>("textbox", { name: messages.departures.form.seatsTotal }).value,
-    ).toBe("20");
-    await userEvent.type(
-      within(dialog).getByRole("textbox", { name: messages.departures.form.startDate }),
-      "03/11/2027",
-    );
-    await waitFor(() => {
-      expect(
-        within(dialog).getByRole<HTMLInputElement>("textbox", { name: messages.departures.form.endDate }).value,
-      ).toBe("08/11/2027");
-    });
-    await userEvent.click(within(dialog).getByRole("button", { name: messages.departures.form.save }));
-    await waitFor(() => {
-      expect(api.calls.some((call) => call.path === "departures.create")).toBe(true);
-    });
-    expect(api.calls.find((call) => call.path === "departures.create")?.input).toMatchObject({
-      templateId: packageId,
-      title: "Kedarnath 6 days",
-      startDate: "2027-11-03",
-      endDate: "2027-11-08",
-      seatsTotal: 20,
-      pricePaise: null,
-    });
-  });
-
-  it("asks for this package's departures and shows the day, the name and the seats left", async () => {
-    const api = fakeApi();
-    renderWithApi(<PackageDeparturesCard detail={aPackage({ kind: "group" })} />, newQueryClient());
-    await waitFor(() => {
-      expect(api.calls.length).toBe(1);
-    });
-    expect(api.last().path).toBe("departures.list");
-    expect(api.last().input).toEqual({ filter: "upcoming", templateId: packageId });
-    api.last().answer([
-      {
-        id: "0190a000-0000-7000-8000-0000000000d1",
-        title: "Kedarnath, 3 Nov",
-        destinationName: null,
-        startDate: "2027-11-03",
-        endDate: "2027-11-08",
-        pricePaise: null,
-        status: "open",
-        state: "open",
-        seatsTotal: 20,
-        sold: 8,
-        held: 2,
-        free: 10,
-        overbookedBy: 0,
-      },
-    ]);
-    expect(await screen.findByRole("link", { name: "Kedarnath, 3 Nov" })).toBeTruthy();
-    expect(screen.getByText("3 Nov 2027")).toBeTruthy();
-    expect(screen.getByText("10 of 20 seats left")).toBeTruthy();
-  });
 });
 
 describe("PackageFilesCard", () => {
@@ -218,31 +150,19 @@ describe("DepartureFormDialog on a departure of a package", () => {
     expect(sent.prices).toEqual({ ...none, double: 1250000 });
   });
 
-  it("words the prices by the package's GST switch and says the season's prices are not used", async () => {
-    const api = fakeApi();
-    renderWithApi(<DepartureFormDialog departure={linked} trigger={{ label: "Change" }} />, newQueryClient());
-    await userEvent.click(screen.getByRole("button", { name: "Change" }));
-    await waitFor(() => {
-      expect(api.calls.some((call) => call.path === "packages.get")).toBe(true);
+  it.each([
+    { includeGst: false, title: "Prices per person (before GST)" },
+    { includeGst: true, title: "Prices per person (including GST)" },
+  ])("words the prices by the package's GST switch: $title", async ({ includeGst, title }) => {
+    stubApi({
+      "packages.get": { data: aPackage({ pricesIncludeGst: includeGst, roomTypes: ["double"] }) },
+      "departures.calendar": { data: [] },
     });
-    api.calls
-      .find((call) => call.path === "packages.get")
-      ?.answer(aPackage({ pricesIncludeGst: false, roomTypes: ["double"] }));
-    expect(await screen.findByText("Prices per person (before GST)")).toBeTruthy();
-    expect(screen.getByText(/season prices are not used for it/)).toBeTruthy();
-  });
-
-  it("says including GST when the package's prices include it", async () => {
-    const api = fakeApi();
-    renderWithApi(<DepartureFormDialog departure={linked} trigger={{ label: "Change" }} />, newQueryClient());
+    renderScreen(<DepartureFormDialog departure={linked} trigger={{ label: "Change" }} />, { width: "wide" });
     await userEvent.click(screen.getByRole("button", { name: "Change" }));
-    await waitFor(() => {
-      expect(api.calls.some((call) => call.path === "packages.get")).toBe(true);
-    });
-    api.calls
-      .find((call) => call.path === "packages.get")
-      ?.answer(aPackage({ pricesIncludeGst: true, roomTypes: ["double"] }));
-    expect(await screen.findByText("Prices per person (including GST)")).toBeTruthy();
+    expect(await screen.findByText(title)).toBeTruthy();
+    // An empty room is priced from the season, which the hint says.
+    expect(screen.getByText(/priced from the season/)).toBeTruthy();
   });
 
   it("never resends the hidden single price of a linked departure", async () => {

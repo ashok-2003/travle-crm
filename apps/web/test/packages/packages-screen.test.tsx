@@ -25,6 +25,8 @@ const listed = (overrides: Partial<QuotePackage>): QuotePackage => ({
   nights: 5,
   fromPricePaise: null,
   aiSellable: false,
+  aiSells: false,
+  aiGap: null,
   departuresAhead: 0,
   ...overrides,
 });
@@ -47,7 +49,7 @@ describe("PackagesScreen", () => {
 
   it("says what each package is, and which ones the AI sells", async () => {
     await showing([
-      listed({ aiSellable: true, departuresAhead: 3 }),
+      listed({ aiSellable: true, aiSells: true, departuresAhead: 3 }),
       listed({
         id: "0192f3a0-0000-7000-8000-000000000002",
         name: "Kashmir Classic",
@@ -59,6 +61,19 @@ describe("PackagesScreen", () => {
     expect(await screen.findByText("Group trip · 5 nights · 3 departures ahead")).toBeTruthy();
     expect(screen.getByText("Custom trip · 6 nights · From ₹18,000")).toBeTruthy();
     expect(screen.getAllByText(messages.packages.list.aiSells)).toHaveLength(1);
+  });
+
+  it("shows the badge only where the AI sells it, and the first reason where a switched-on trip has a gap", async () => {
+    await showing([
+      listed({ aiSellable: true, aiSells: false, aiGap: "departures" }),
+      listed({ id: "0192f3a0-0000-7000-8000-000000000002", name: "Kashmir Classic", aiSellable: false }),
+    ]);
+    expect(await screen.findByText("Manali Escape")).toBeTruthy();
+    expect(screen.queryByText(messages.packages.list.aiSells)).toBeNull();
+    expect(
+      screen.getByText(messages.packages.list.aiBlocked.replace("{reason}", messages.packages.sell.reasons.departures)),
+    ).toBeTruthy();
+    expect(screen.getAllByText(/AI doesn't sell it/)).toHaveLength(1);
   });
 
   it("asks for a name and a kind, then opens the new package's page", async () => {

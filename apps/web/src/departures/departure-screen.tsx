@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { refusalOf } from "@/data/api-error";
 import { formatCalendarDay } from "@/lib/format";
+import { roomTypes } from "@travel-crm/contracts/quotes";
 import { routes } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 import { useHolds } from "@/session/me-context";
@@ -29,7 +30,30 @@ import { DepartureFormDialog } from "./departure-form-dialog";
 import { DepartureStateBadge } from "./departure-state";
 import { RoomingTab } from "./rooming-tab";
 import { SeatsTab } from "./seats-tab";
-import { useDeparture, useDepartureChanges } from "./use-departures";
+import { useDeparture, useDepartureChanges, useDepartureDayPrices } from "./use-departures";
+
+/** Each room's price for the departure's first day, and whether it is the season's or the departure's own. */
+function RoomPrices({ departure }: { departure: { id: string; templateId: string | null; startDate: string } }) {
+  const t = useTranslations("departures.page");
+  const tRooms = useTranslations("packages.form.roomTypeNames");
+  const day = useDepartureDayPrices(departure).data;
+  if (day === undefined) return null;
+  const prices = roomTypes.flatMap((room) => {
+    const price = day.prices[room];
+    return price === null ? [] : [`${tRooms(room)} ${rupees(price)}`];
+  });
+  if (prices.length === 0) return null;
+  return (
+    <div>
+      <p className="numbers">{t("roomPrices", { prices: prices.join(" · ") })}</p>
+      <p className="text-caption text-muted-foreground">
+        {day.priceSource === "departure" || day.seasonLabel === null
+          ? t("ownPrices")
+          : t("seasonPrices", { season: day.seasonLabel })}
+      </p>
+    </div>
+  );
+}
 
 function SeatStrip({ sold, held, free, total }: { sold: number; held: number; free: number; total: number }) {
   const t = useTranslations("departures.page");
@@ -71,7 +95,9 @@ export function DepartureScreen({ departureId }: { departureId: string }) {
               <>
                 {t("intro", { from: formatCalendarDay(data.startDate), to: formatCalendarDay(data.endDate) })}
                 {data.destinationName === null ? "" : ` · ${data.destinationName}`}
-                {data.pricePaise === null ? "" : ` · ${t("pricePerPerson", { price: rupees(data.pricePaise) })}`}{" "}
+                {data.pricePaise === null || data.templateId !== null
+                  ? ""
+                  : ` · ${t("pricePerPerson", { price: rupees(data.pricePaise) })}`}{" "}
                 <DepartureStateBadge state={data.state} />
               </>
             }
@@ -98,6 +124,7 @@ export function DepartureScreen({ departureId }: { departureId: string }) {
             }
           />
           <RefusalAlert error={changes.setStatus.error} />
+          {data.templateId !== null && <RoomPrices departure={data} />}
           <SeatStrip sold={data.sold} held={data.held} free={data.free} total={data.seatsTotal} />
           {data.overbookedBy > 0 && (
             <Alert variant="destructive">

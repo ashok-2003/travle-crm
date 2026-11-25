@@ -10,11 +10,12 @@ import type { CalendarDate } from "../../../kernel/index.js";
 import {
   brochuresByPackage,
   fromPrices,
+  groupFromPrices,
   packageFilesByPackage,
   priceOn,
   seasonsByPackage,
 } from "../../../quotes/index.js";
-import { lowestAdultPrice, strings, withoutContacts } from "../../lite/lookups/package-reads.js";
+import { strings, withoutContacts } from "../../lite/lookups/package-reads.js";
 import type { PackageIndexEntry } from "../../lite/types.js";
 import { cutText } from "../context/tokens.js";
 import type { PerPersonPrices, TripSheet } from "../types.js";
@@ -92,7 +93,7 @@ export async function tripSheetsOf(
   const limits = textLimits(options.whole !== true);
   const ids = sellable.filter((one) => one.kind === "group").map((one) => one.id);
   if (ids.length === 0) return [];
-  const [rows, departures, seasons, files, words] = await Promise.all([
+  const [rows, departures, seasons, fromPrice, files, words] = await Promise.all([
     tx.quoteTemplate.findMany({
       where: { id: { in: ids } },
       select: {
@@ -118,6 +119,7 @@ export async function tripSheetsOf(
     }),
     openDepartureDetailsByPackage(tx, ids, today, now),
     seasonsByPackage(tx, ids),
+    groupFromPrices(tx, ids, today),
     packageFilesByPackage(tx, ids),
     brochuresByPackage(tx, ids),
   ]);
@@ -163,14 +165,28 @@ export async function tripSheetsOf(
         .filter((season) => hasAny(season.perPersonPaise)),
       pricesIncludeGst: row.pricesIncludeGst,
       taxRateBasisPoints: quoteTaxRate.catch(500).parse(row.taxRateBasisPoints),
-      fromPaise: lowestAdultPrice(ownSeasons, open, today, offered),
+      fromPaise: fromPrice.get(row.id) ?? null,
       advancePerPersonPaise: row.advancePerPersonPaise === null ? null : Number(row.advancePerPersonPaise),
       departures: open.slice(0, MOST_DEPARTURES).map((one) => {
         // The quote's own rule, so the sheet never gives a date a price the quote would refuse or change.
         const priced = priceOn(one.startsOn, ownSeasons, one, offered);
         const perPersonPaise = priced === null ? {} : pricedOnly(priced.prices, offered);
-        const priceFrom = priced === null || !hasAny(perPersonPaise) ? ("none" as const) : priced.source;
-        return { id: one.id, startsOn: one.startsOn, freeSeats: one.freeSeats, priceFrom, perPersonPaise };
+        const ownRooms = roomTypes.filter((type) => offered.includes(type) && one.prices[type] !== null);
+        // Own prices only on rooms the trip doesn't sell leave the season's prices as they are.
+        const priceFrom =
+          priced === null || !hasAny(perPersonPaise)
+            ? ("none" as const)
+            : priced.source === "departure" && ownRooms.length === 0
+              ? ("season" as const)
+              : priced.source;
+        return {
+          id: one.id,
+          startsOn: one.startsOn,
+          freeSeats: one.freeSeats,
+          priceFrom,
+          ...(priceFrom === "departure" ? { ownRooms } : {}),
+          perPersonPaise,
+        };
       }),
       fileIds: [...brochures, ...photos],
       brochures: words.get(row.id) ?? [],

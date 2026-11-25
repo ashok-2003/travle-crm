@@ -97,6 +97,7 @@ import { agencyToday } from "../package-departures-gate.js";
 import { freshProcedure, orgProcedure } from "../procedures.js";
 import { aiDeparturesRouter } from "./ai-departures.js";
 import { aiFillRouter } from "./ai-fill.js";
+import { aiPackageChangesRouter } from "./ai-package-changes.js";
 import { aiPackageDraftsRouter } from "./ai-package-drafts.js";
 import { aiRatesRouter } from "./ai-rates.js";
 import { router } from "../trpc.js";
@@ -113,6 +114,9 @@ export const aiRouter = router({
 
   /** AI on a group package: trips found in the agency's documents, one drafted with its evidence, and the owner's save. */
   packageDrafts: aiPackageDraftsRouter,
+
+  /** AI on one trip: what changed, from the agency's words, photos or PDF, proposed, applied in one go and undone. */
+  packageChanges: aiPackageChangesRouter,
 
   /** Whether the agency has Suggest reply on, for the composer to offer the button. */
   status: orgProcedure
