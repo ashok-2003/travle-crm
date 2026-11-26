@@ -189,7 +189,6 @@ export function shareLinkActions({
           return "feedback";
         }
         default: {
-          if (form.agree !== "yes") return;
           await db.forOrg(organizationId, (tx) =>
             acceptQuoteFromLink(
               tx,
@@ -199,7 +198,6 @@ export function shareLinkActions({
                 name: form.name ?? "",
                 // Only an id is looked up: anything else the form sends means the opened quote.
                 optionId: form.option !== undefined && isUuid(form.option) ? form.option : undefined,
-                tripUpdates: form.tripUpdates === "yes",
               },
               now,
             ),

@@ -2,7 +2,7 @@
 // by UPI; and accepting it there with their name, which the system records as the customer's (publicActor) and which
 // moves the lead to Booking requested. A declined, replaced or unsent quote can't be accepted; accepting twice changes
 // nothing. A replaced quote's link says so, with no prices.
-import type { QuoteAcceptedEvent } from "@travel-crm/contracts/quotes";
+import { upiPayLink, type QuoteAcceptedEvent } from "@travel-crm/contracts/quotes";
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import { advanceLeadStage } from "../crm/index.js";
@@ -10,8 +10,8 @@ import { publishEvent } from "../jobs/index.js";
 import { DomainError, publicActor } from "../kernel/index.js";
 import { assertTakesStandInPayments } from "./placeholder-payments.js";
 import { dayOf, daysOf, findQuoteForSystem, itemsOf, paidOf } from "./quote-rows.js";
-import { coveredInstallments } from "./totals.js";
-import { quoteSettingsOf, upiPayLink } from "./settings.js";
+import { coveredInstallments, payDueNow } from "./totals.js";
+import { quoteSettingsOf } from "./settings.js";
 
 export interface PublicQuote {
   title: string;
@@ -37,6 +37,8 @@ export interface PublicQuote {
   upiId: string;
   /** Opens the customer's UPI app for what is due next (or the balance); null without a UPI id. */
   payLink: string | null;
+  /** The agency verified its UPI QR for this UPI id (paid ₹1 and saw it arrive): only then does the page draw the QR. */
+  upiVerified: boolean;
   payPaise: number;
   /**
    * The other options the agency sent this customer for the same enquiry (a 3-star and a 4-star), this one among them:
@@ -59,17 +61,7 @@ export async function publicQuoteOf(tx: OrgTx, quoteId: string): Promise<PublicQ
     })),
     paidPaise,
   );
-  // What to pay now: the next instalment not yet covered, as much of it as is left; else the balance.
-  let left = paidPaise;
-  let payPaise = balancePaise;
-  for (const due of installments) {
-    if (left >= due.amountPaise) {
-      left -= due.amountPaise;
-      continue;
-    }
-    payPaise = Math.min(balancePaise, due.amountPaise - left);
-    break;
-  }
+  const payPaise = payDueNow(installments, paidPaise, balancePaise);
   const siblings = await tx.quote.findMany({
     where: { leadId: quote.leadId, status: { in: ["sent", "accepted"] } },
     orderBy: { createdAt: "asc" },
@@ -111,6 +103,7 @@ export async function publicQuoteOf(tx: OrgTx, quoteId: string): Promise<PublicQ
     acceptedName: quote.acceptedName,
     installments,
     upiId: settings.upiId,
+    upiVerified: settings.upiVerifiedAt !== null,
     payLink: upiPayLink(settings, { amountPaise: payPaise, note: quote.title }),
     payPaise,
   };
@@ -127,8 +120,6 @@ export async function acceptQuoteFromLink(
     quoteId: string;
     name: string;
     optionId?: string | undefined;
-    /** The box "Send me trip updates on WhatsApp" was ticked. */
-    tripUpdates?: boolean | undefined;
   },
   now: Date,
 ): Promise<void> {
@@ -172,10 +163,10 @@ export async function acceptQuoteFromLink(
     type: "quote.accepted",
     payload: { quoteId: quote.id, leadId: quote.leadId, confirmed: false } satisfies QuoteAcceptedEvent,
   });
-  if (input.tripUpdates === true) await recordTripUpdatesConsent(tx, quote.leadId, now);
+  await recordTripUpdatesConsent(tx, quote.leadId, now);
 }
 
-/** The customer ticked "Send me trip updates on WhatsApp" when accepting: kept in the consent ledger, with the words shown. */
+/** Accepting says yes to trip updates about this booking (never offers): kept in the consent ledger, with the words shown. */
 async function recordTripUpdatesConsent(tx: OrgTx, leadId: string, now: Date): Promise<void> {
   const lead = await tx.lead.findUnique({ where: { id: leadId }, select: { personId: true } });
   if (lead === null) return;
@@ -184,13 +175,14 @@ async function recordTripUpdatesConsent(tx: OrgTx, leadId: string, now: Date): P
       personId: lead.personId,
       purpose: "trip_updates",
       action: "granted",
-      wording: TRIP_UPDATES_WORDING,
-      wordingVersion: 1,
+      wording: ACCEPT_SMALL_PRINT,
+      wordingVersion: 2,
       source: "quote_accept",
       recordedAt: now,
     },
   });
 }
 
-/** The sentence beside the box on the quote page; the ledger keeps exactly this. */
-export const TRIP_UPDATES_WORDING = "Send me trip updates on WhatsApp.";
+/** The small print under the quote page's Accept button; the ledger keeps exactly this. */
+export const ACCEPT_SMALL_PRINT =
+  "By accepting this quote I agree to the terms and cancellation policy, and to get trip updates on WhatsApp.";

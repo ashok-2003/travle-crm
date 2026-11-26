@@ -6,13 +6,25 @@ import {
   QUOTE_DOCUMENT_PREFIX,
   RECEIPT_DOCUMENT_PREFIX,
   type IssueDocumentInput,
+  type IssueQuotationInput,
 } from "@travel-crm/contracts/documents";
+import { upiPayLink, type QuoteSettings } from "@travel-crm/contracts/quotes";
 import type { OrgTx } from "@travel-crm/db";
 import { issueDocument } from "../documents/index.js";
 import type { MemberAccess } from "../identity/index.js";
-import { DomainError, formatMoney, money, type TaxComponent } from "../kernel/index.js";
+import {
+  DomainError,
+  formatMoney,
+  formatRupees,
+  formatDayWithYear,
+  money,
+  parseCalendarDate,
+  type TaxComponent,
+} from "../kernel/index.js";
+import { gstLabel, wholeRupeePrice } from "./whole-rupees.js";
 import { dayOf, daysOf, findQuoteForChange, findQuoteInScope, itemsOf, paidOf } from "./quote-rows.js";
-import { quoteMoney, TOUR_OPERATOR_SAC } from "./totals.js";
+import { quoteSettingsOf } from "./settings.js";
+import { coveredInstallments, payDueNow, quoteMoney, TOUR_OPERATOR_SAC } from "./totals.js";
 
 type Branding = IssueDocumentInput["branding"];
 
@@ -68,25 +80,96 @@ function moneyTotals(quote: Quote, context: DocumentContext) {
   ];
 }
 
-function quotationNotes(quote: Quote): string | undefined {
-  const parts = [
-    quote.startDate === null
-      ? ""
-      : `Travel from ${dayOf(quote.startDate)}, ${String(quote.adults)} adults, ${String(quote.children)} children`,
-    daysOf(quote)
-      .map(
-        (day, index) =>
-          `Day ${String(index + 1)}: ${day.title}${day.description === "" ? "" : ` - ${day.description}`}`,
-      )
-      .join("\n"),
-    quote.inclusions === "" ? "" : `Inclusions:\n${quote.inclusions}`,
-    quote.exclusions === "" ? "" : `Exclusions:\n${quote.exclusions}`,
-    quote.notes,
-  ].filter((part) => part.trim() !== "");
-  return parts.length === 0 ? undefined : cut(parts.join("\n\n"), 2000);
+/** A free-text list as its points, one per line, without a typed bullet (as the customer's page shows it). */
+const pointsOf = (text: string) =>
+  text
+    .split("\n")
+    .map((line) => line.replace(/^\s*[-•*✓✗]\s*/, "").trim())
+    .filter((line) => line !== "");
+
+/** "1 adult, 2 children". */
+function travellersOf(quote: Quote): string {
+  return [
+    quote.adults > 0 ? `${String(quote.adults)} adult${quote.adults === 1 ? "" : "s"}` : "",
+    quote.children > 0 ? `${String(quote.children)} child${quote.children === 1 ? "" : "ren"}` : "",
+  ]
+    .filter(Boolean)
+    .join(", ");
 }
 
-async function issue(tx: OrgTx, access: MemberAccess, input: IssueDocumentInput, prefix: string, now: Date) {
+/**
+ * The quotation in the words its PDF prints, matching the customer's page: whole rupees, dates as words. Nothing is cut
+ * short: the contract's caps are the quote's own limits, so a quote that saves always issues.
+ */
+function quotationContent(quote: Quote, settings: QuoteSettings, agencyName: string) {
+  const day = (date: Date, weekday: boolean) => formatDayWithYear(parseCalendarDate(dayOf(date)), { weekday });
+  const when = [quote.startDate === null ? "" : day(quote.startDate, true), travellersOf(quote)]
+    .filter(Boolean)
+    .join(" · ");
+  const items = itemsOf(quote);
+  const price = wholeRupeePrice(
+    items.map((item) => item.unitPricePaise * item.quantity),
+    Number(quote.totalPaise),
+    Number(quote.taxPaise),
+  );
+  const paidPaise = paidOf(quote);
+  const dueNow = payDueNow(
+    coveredInstallments(
+      quote.installments.map((due) => ({ amountPaise: Number(due.amountPaise), dueOn: dayOf(due.dueOn) })),
+      paidPaise,
+    ),
+    paidPaise,
+    Math.max(0, Number(quote.totalPaise) - paidPaise),
+  );
+  // The same link the customer's button opens, so the QR and the button agree.
+  const link = upiPayLink(settings, { amountPaise: dueNow, note: quote.title });
+  return {
+    title: quote.title,
+    customer: quote.lead.person.name,
+    ...(link === null
+      ? {}
+      : {
+          pay: {
+            // The QR only once the agency has verified it; the id, name and amount print either way.
+            ...(settings.upiVerifiedAt === null ? {} : { link }),
+            upiId: settings.upiId,
+            name: settings.upiName === "" ? agencyName : settings.upiName,
+            amount: formatRupees(dueNow),
+          },
+        }),
+    ...(when === "" ? {} : { when }),
+    lines: items.map((item, index) => ({
+      description: `${item.description} × ${String(item.quantity)}`,
+      ...(item.detail === "" ? {} : { detail: item.detail }),
+      amount: formatRupees(price.linesPaise[index] ?? 0),
+    })),
+    ...(price.gstPaise === null
+      ? {}
+      : { gst: { label: gstLabel(quote.taxRateBasisPoints), amount: formatRupees(price.gstPaise) } }),
+    total: formatRupees(Number(quote.totalPaise)),
+    ...(price.gstPaise === null ? {} : { totalNote: `incl. ${String(quote.taxRateBasisPoints / 100)}% GST` }),
+    dues: quote.installments.map((due) => ({
+      label: due.label,
+      by: day(due.dueOn, false),
+      amount: formatRupees(Number(due.amountPaise)),
+    })),
+    days: daysOf(quote).map((planned) => ({
+      title: planned.title,
+      ...(planned.description.trim() === "" ? {} : { description: planned.description.trim() }),
+    })),
+    inclusions: pointsOf(quote.inclusions),
+    exclusions: pointsOf(quote.exclusions),
+    notes: pointsOf(quote.notes),
+  };
+}
+
+async function issue(
+  tx: OrgTx,
+  access: MemberAccess,
+  input: IssueDocumentInput | IssueQuotationInput,
+  prefix: string,
+  now: Date,
+) {
   const document = await issueDocument(tx, access, { ...input, prefix }, now);
   return { documentId: document.id, number: document.number };
 }
@@ -101,19 +184,12 @@ export async function issueQuotePdf(tx: OrgTx, access: MemberAccess, quoteId: st
     });
     return { documentId: quote.pdfDocumentId, number: kept.number };
   }
-  const notes = quotationNotes(quote);
   const issued = await issue(
     tx,
     access,
     {
-      template: "sample",
-      content: {
-        title: cut(`Quotation: ${quote.title}`, 80),
-        recipient: recipientOf(quote),
-        rows: priceRows(quote),
-        totals: moneyTotals(quote, context),
-        ...(notes === undefined ? {} : { notes }),
-      },
+      template: "quotation",
+      content: quotationContent(quote, await quoteSettingsOf(tx), context.branding.organizationName),
       branding: context.branding,
     },
     QUOTE_DOCUMENT_PREFIX,

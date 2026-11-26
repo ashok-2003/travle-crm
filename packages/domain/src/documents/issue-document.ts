@@ -3,9 +3,10 @@
 // transaction.
 import {
   DEFAULT_DOCUMENT_PREFIX,
-  issueDocumentInput,
+  issuableDocumentInput,
   type DocumentIssuedEvent,
   type IssueDocumentInput,
+  type IssueQuotationInput,
   type IssuedDocumentRenderInput,
   type IssuedDocumentSummary,
 } from "@travel-crm/contracts/documents";
@@ -17,10 +18,10 @@ import { publishEvent } from "../jobs/index.js";
 import { DomainError, formatDateTime, yearIn, type Actor } from "../kernel/index.js";
 import { summaryFields, toSummary } from "./issued-document-row.js";
 
-export interface IssueDocumentOptions extends IssueDocumentInput {
+export type IssueDocumentOptions = (IssueDocumentInput | IssueQuotationInput) & {
   /** 2-5 capital letters before the number. "DOC" unless a module has its own, such as "QT" for quotations. */
   prefix?: string | undefined;
-}
+};
 
 /**
  * Callers decide whether the actor may issue the document; issuing decides its number and freezes it. What is
@@ -36,7 +37,7 @@ export async function issueDocument(
 ): Promise<IssuedDocumentSummary> {
   // The contract is checked here too, before a number is used, and what is frozen is the parsed (trimmed) value: it
   // is what prints. Callers pass user input, and the PDF would otherwise show text the contract never allowed.
-  const checked = issueDocumentInput.safeParse({
+  const checked = issuableDocumentInput.safeParse({
     template: input.template,
     content: input.content,
     branding: input.branding,

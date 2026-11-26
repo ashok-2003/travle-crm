@@ -142,6 +142,12 @@ export const quoteSettings = z.object({
   defaultMarkupBasisPoints: z.int(),
   minMarginBasisPoints: z.int().nullable(),
   minMarginPerPersonPaise: z.int().nullable(),
+  /** When the agency verified its UPI QR (scanned it, paid ₹1, saw it arrive) for the UPI id it has now; null if not, or if the id changed since. */
+  upiVerifiedAt: z.iso.datetime().nullable(),
+  /** Who verified it (a user id); null with the time. */
+  upiVerifiedBy: recordId.nullable(),
+  /** Their name, added by the api; null for a former member. */
+  upiVerifiedByName: z.string().nullable(),
 });
 export type QuoteSettings = z.infer<typeof quoteSettings>;
 

@@ -98,7 +98,7 @@ describe("bookings over HTTP", () => {
     expect(html).toContain("Accepted");
   });
 
-  it("asks at Accept for trip updates on WhatsApp, and keeps the answer in the consent ledger with the words shown", async () => {
+  it("keeps the trip-updates permission accepting gives in the consent ledger, with the words shown", async () => {
     const made = await server.db.forOrg(agency.organizationId, async (tx) => {
       const person = await tx.person.create({
         data: { name: "Meera Iyer", email: `m-${crypto.randomUUID()}@example.test` },
@@ -118,14 +118,19 @@ describe("bookings over HTTP", () => {
       return { personId: person.id, leadId: lead.id, quoteId: quote.id };
     });
     const link = await dataOf<{ path: string }>(await mutate(server, "quotes.share", { quoteId: made.quoteId }, jar));
-    expect((await page(link.path)).html).toContain("Send me trip updates on WhatsApp");
-    const accepted = await post(link.path, { name: "Meera Iyer", agree: "yes", tripUpdates: "yes" });
+    expect((await page(link.path)).html).toContain("and to get trip updates on WhatsApp");
+    const accepted = await post(link.path, { name: "Meera Iyer" });
     expect(accepted.headers.get("location")).toContain("done=accepted");
     const consent = await server.db.forOrg(agency.organizationId, (tx) =>
       tx.personConsent.findMany({ where: { personId: made.personId, purpose: "trip_updates" } }),
     );
     expect(consent).toMatchObject([
-      { action: "granted", source: "quote_accept", wording: "Send me trip updates on WhatsApp." },
+      {
+        action: "granted",
+        source: "quote_accept",
+        wording:
+          "By accepting this quote I agree to the terms and cancellation policy, and to get trip updates on WhatsApp.",
+      },
     ]);
     const events = await server.db.forOrg(agency.organizationId, (tx) =>
       tx.outboxEvent.findMany({ where: { type: "quote.accepted" } }),
