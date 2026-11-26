@@ -1,9 +1,9 @@
 "use client";
 
-// /settings/ai: the agency's own switches for the AI, for scoring leads and for filling them,
+// /settings/ai: the agency's own switches for the AI, for scoring leads and for filling them, how the AI's drafts sound,
 // the documents package drafts are written from, and a way to the AI agent page, where the agent that answers WhatsApp
 // is set up. Off until an Owner or Admin turns it on.
-import type { AiSettings } from "@travel-crm/contracts/ai";
+import { writeStyles, type AiSettings, type WriteStyle } from "@travel-crm/contracts/ai";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -18,6 +18,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { TextLink } from "@/components/text-link";
 import { routes } from "@/lib/routes";
 import { useWriteAccess } from "@/subscription/write-access";
@@ -32,14 +33,19 @@ export function SettingsForm({ saved }: { saved: AiSettings }) {
   const [enabled, setEnabled] = useState(saved.enabled);
   const [scoring, setScoring] = useState(saved.scoring);
   const [fillLeads, setFillLeads] = useState(saved.fillLeads);
-  const changed = enabled !== saved.enabled || scoring !== saved.scoring || fillLeads !== saved.fillLeads;
+  const [writeStyle, setWriteStyle] = useState<WriteStyle>(saved.writeStyle);
+  const changed =
+    writeStyle !== saved.writeStyle ||
+    enabled !== saved.enabled ||
+    scoring !== saved.scoring ||
+    fillLeads !== saved.fillLeads;
   return (
     <form
       noValidate
       className="flex flex-col gap-4"
       onSubmit={(event) => {
         event.preventDefault();
-        save.mutate({ enabled, scoring, fillLeads }, { onSuccess: () => toast.success(t("saved")) });
+        save.mutate({ enabled, scoring, fillLeads, writeStyle }, { onSuccess: () => toast.success(t("saved")) });
       }}
     >
       {!saved.providerReady && (
@@ -70,6 +76,32 @@ export function SettingsForm({ saved }: { saved: AiSettings }) {
           <p className="text-muted-foreground">
             {t("usage", { used: saved.usedThisMonth, limit: saved.monthlyLimit })}
           </p>
+        </CardContent>
+      </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>{t("writeStyleTitle")}</CardTitle>
+          <CardDescription>{t("writeStyleHint")}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            aria-label={t("writeStyle")}
+            value={writeStyle}
+            disabled={save.isPending}
+            onValueChange={(chosen) => {
+              const style = writeStyles.find((one) => one === chosen);
+              if (style !== undefined) setWriteStyle(style);
+            }}
+            className="flex-wrap"
+          >
+            {writeStyles.map((one) => (
+              <ToggleGroupItem key={one} value={one} className="min-h-11 px-4">
+                {t(`writeStyles.${one}`)}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
         </CardContent>
       </Card>
       <RefusalAlert error={save.error} />

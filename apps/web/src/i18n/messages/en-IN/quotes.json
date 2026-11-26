@@ -53,6 +53,7 @@
     "sendWhatsapp": "Send on WhatsApp",
     "actionsLabel": "This quote's actions",
     "liveLink": "Live link",
+    "createLiveLink": "Create live link",
     "copyLink": "Copy link",
     "whatsappWords": "Hi {name}, here is your quote for {title}. You can see the plan, pay by UPI and accept it here: {link}",
     "noPhone": "This customer has no phone number. Copy the link and send it another way.",

@@ -29,7 +29,7 @@ describe("a quote's actions", () => {
     renderScreen(<QuoteActions quote={aQuote()} />, { me: editor, width: "wide" });
     expect(names()).toEqual([
       words.sendWhatsapp,
-      words.liveLink,
+      words.createLiveLink,
       words.pdf,
       words.edit,
       words.markAccepted,
@@ -37,10 +37,13 @@ describe("a quote's actions", () => {
       words.delete,
       words.more,
     ]);
-    await userEvent.click(screen.getByRole("button", { name: words.liveLink }));
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    await userEvent.click(screen.getByRole("button", { name: words.createLiveLink }));
     const link = await screen.findByRole("link", { name: words.liveLink });
     expect(link).toHaveAttribute("href", "/p/token-1");
     expect(link).toHaveAttribute("target", "_blank");
+    expect(open).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: words.createLiveLink })).toBeNull();
     expect(screen.getByRole("button", { name: words.copyLink })).toBeTruthy();
     expect(names()).toEqual([
       words.sendWhatsapp,

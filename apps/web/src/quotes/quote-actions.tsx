@@ -55,6 +55,7 @@ export function QuoteActions({ quote }: { quote: QuoteDetail }) {
   const [deleting, setDeleting] = useState(false);
   const [savingPackage, setSavingPackage] = useState(false);
   const deleteButton = useRef<HTMLButtonElement>(null);
+  const sendButton = useRef<HTMLButtonElement>(null);
   const menuButton = useRef<HTMLButtonElement>(null);
   // A draft below the agency's minimum margin asks first; "Send anyway" goes on (release 7b: it warns, never blocks).
   const [askBelowMinimum, setAskBelowMinimum] = useState<(() => void) | null>(null);
@@ -97,6 +98,7 @@ export function QuoteActions({ quote }: { quote: QuoteDetail }) {
       <div role="group" aria-label={t("actionsLabel")} className="flex flex-wrap items-center gap-3">
         {mayEdit && live && (
           <GlyphButton
+            ref={sendButton}
             variant="send"
             aria-label={t("sendWhatsapp")}
             {...gate}
@@ -123,13 +125,11 @@ export function QuoteActions({ quote }: { quote: QuoteDetail }) {
                 {...gate}
                 disabled={gate.disabled || sharing}
                 onClick={() => {
-                  share(({ path }) => {
-                    window.open(path, "_blank", "noopener");
-                  });
+                  share(() => undefined);
                 }}
               >
                 <LinkIcon aria-hidden="true" />
-                {t("liveLink")}
+                {t("createLiveLink")}
               </Button>
             ) : (
               <>
@@ -292,6 +292,7 @@ export function QuoteActions({ quote }: { quote: QuoteDetail }) {
           if (!next) setAskBelowMinimum(null);
         }}
         title={tMargin("sendTitle")}
+        returnFocusTo={sendButton}
         description={
           seesMargin && quote.margin.marginBasisPoints !== null
             ? tMargin("belowFigures", {

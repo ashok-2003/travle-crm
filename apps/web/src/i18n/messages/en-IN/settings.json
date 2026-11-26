@@ -54,7 +54,7 @@
     "quotes": "Quotes and payments",
     "quotesHint": "Your UPI id, the usual GST rate and the terms under every quote",
     "ai": "AI",
-    "aiHint": "Turn the AI on, and choose lead scores and lead filling",
+    "aiHint": "Turn the AI on, and choose lead scores, lead filling and how the AI's drafts sound",
     "aiAgent": "AI agent",
     "aiAgentHint": "Answers WhatsApp by itself: its setup, what needs you, and Try it",
     "salesAutomation": "Sales automation",

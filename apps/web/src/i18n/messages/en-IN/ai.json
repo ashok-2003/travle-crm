@@ -17,6 +17,14 @@
     "scoringHint": "When a customer pauses after their first messages, then after every 5 new ones: their chance to book, a line on how the lead stands, the next step, and whether it looks fake. Shown on the lead's page.",
     "fillLeads": "Let the AI fill in new WhatsApp leads",
     "fillLeadsHint": "From a new customer's first messages: where, when, how many and the budget, put on the lead as suggestions in violet for your team to confirm. It never changes what a person already wrote. It uses the same AI credit as scoring.",
+    "writeStyleTitle": "How the AI's drafts sound",
+    "writeStyle": "Tone of the AI's drafted days and seat messages",
+    "writeStyleHint": "Sets the tone of the days the AI drafts for a package or quote and of the messages it writes to people who may want a seat. The AI never types a price.",
+    "writeStyles": {
+      "warm": "Warm and friendly",
+      "premium": "Polished and premium",
+      "short": "Short and to the point"
+    },
     "moved": "The AI agent that answers WhatsApp has its own page: its setup, what needs you, and Try it.",
     "openAgent": "Open the AI agent"
   },
