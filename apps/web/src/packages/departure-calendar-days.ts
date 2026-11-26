@@ -10,6 +10,9 @@ import {
   type SeasonColumn,
 } from "@travel-crm/contracts/quotes";
 
+/** A departure with this many seats free, or fewer, is nearly full: the calendar says so in bold. */
+export const FEW_SEATS = 5;
+
 /** A calendar day, yyyy-mm-dd. */
 export type Day = string;
 /** A month, yyyy-mm. */
