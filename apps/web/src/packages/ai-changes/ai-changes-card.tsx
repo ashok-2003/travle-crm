@@ -177,7 +177,7 @@ function Box({ packageId }: { packageId: string }) {
     return (
       <div>
         <Button
-          variant="outline"
+          variant="ai"
           onClick={() => {
             setOpened(true);
           }}

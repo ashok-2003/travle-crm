@@ -24,9 +24,9 @@ export function PackagesTable({
       <TableHeader>
         <TableRow>
           <TableHead>{t("columns.trip")}</TableHead>
-          <TableHead>{t("columns.from")}</TableHead>
+          <TableHead className="text-right">{t("columns.from")}</TableHead>
           <TableHead>{t("columns.next")}</TableHead>
-          <TableHead>{t("columns.departures")}</TableHead>
+          <TableHead className="text-right">{t("columns.departures")}</TableHead>
           <TableHead>{t("columns.status")}</TableHead>
           {mayEdit && (
             <TableHead>
@@ -50,13 +50,15 @@ export function PackagesTable({
                 <span className="text-caption text-muted-foreground">{kind(one)}</span>
               </div>
             </TableCell>
-            <TableCell>
+            <TableCell className="text-right">
               {one.fromPricePaise !== null && <span className="numbers">{rupees(one.fromPricePaise)}</span>}
             </TableCell>
             <TableCell>
               <NextDeparture one={one} />
             </TableCell>
-            <TableCell>{one.kind === "group" && <span className="numbers">{one.departuresAhead}</span>}</TableCell>
+            <TableCell className="text-right">
+              {one.kind === "group" && <span className="numbers">{one.departuresAhead}</span>}
+            </TableCell>
             <TableCell>
               <div className="flex flex-wrap gap-1">
                 <PackageBadges one={one} />

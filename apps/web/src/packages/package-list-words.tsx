@@ -29,8 +29,8 @@ const number = (chunks: ReactNode) => <span className="numbers">{chunks}</span>;
 function Seats({ free }: { free: number }) {
   const t = useTranslations("packages.list");
   if (free === 0) return <>{t("full")}</>;
-  const words = t("seatsLeft", { free });
-  return <span className="numbers">{free <= FEW_SEATS ? <strong>{words}</strong> : words}</span>;
+  const words = t.rich("seatsLeft", { free, number });
+  return free <= FEW_SEATS ? <strong>{words}</strong> : <>{words}</>;
 }
 
 /** "27 Nov · 20 left", or nothing for a trip with no departure ahead (and for an older api that does not say). */
@@ -39,7 +39,7 @@ export function NextDeparture({ one }: { one: QuotePackage }) {
   if (next === null || next === undefined) return null;
   return (
     <>
-      <span className="numbers">{formatCalendarDay(next.startDate)}</span> · <Seats free={next.seatsFree} />
+      {formatCalendarDay(next.startDate)} · <Seats free={next.seatsFree} />
     </>
   );
 }
@@ -56,7 +56,8 @@ export function PhoneLine({ one }: { one: QuotePackage }) {
   const parts: ReactNode[] = [];
   if (one.kind === "group") {
     if (from !== null) parts.push(from);
-    if (next === undefined) parts.push(number(t("departuresAhead", { count: one.departuresAhead })));
+    if (next === undefined)
+      parts.push(<Fragment key="ahead">{t.rich("departuresAhead", { count: one.departuresAhead, number })}</Fragment>);
     else if (next !== null) parts.push(<NextDeparture key="next" one={one} />);
     if (parts.length === 0) parts.push(kind(one));
   } else {

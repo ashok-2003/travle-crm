@@ -1,9 +1,9 @@
 "use client";
 
-// /packages: the agency's ready trips, each with what it is (a group trip and its departures ahead, a custom trip and its
-// From price, or a quote's plan and price), whether its page is published and whether the AI sells it (a trip switched
-// on that the AI cannot sell yet says the first thing it needs, as the trip's own page does), and Delete. New
-// package starts an empty one; a quote's Save as package and the AI's drafts make one too.
+// /packages: the agency's ready trips, a table on a wide screen and a row each on a phone, with each trip's From price,
+// its next departure and seats, and the badges for what needs attention (the AI cannot sell it, or it is off, or a group
+// trip has no departure ahead); its row menu deletes it. New package starts an empty one; a quote's Save as
+// package and the AI's drafts make one too.
 import type { QuotePackage } from "@travel-crm/contracts/quotes";
 import { PackageIcon } from "lucide-react";
 import { useTranslations } from "next-intl";

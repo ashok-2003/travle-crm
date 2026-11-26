@@ -1,5 +1,5 @@
-// /packages: each package says what it is (a group trip and its departures ahead, a custom trip and its From price),
-// marks the ones the AI sells, and New package names a package of either kind and opens its page.
+// /packages: a table on a wide screen and a row each on a phone, with each trip's From price, next departure and seats
+// and the badges for what needs attention; New package names a package of either kind and opens its page.
 import type { QuotePackage } from "@travel-crm/contracts/quotes";
 import userEvent from "@testing-library/user-event";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
@@ -100,7 +100,11 @@ describe("PackagesScreen", () => {
         nextDeparture: { startDate: "2026-11-27", seatsFree: 0 },
       }),
     ]);
-    expect((await screen.findByText("3 left")).tagName).toBe("STRONG");
+    // The count alone has the number font; the bold wraps the words around it.
+    const few = await screen.findByText("3");
+    expect(few.className).toContain("numbers");
+    expect(few.parentElement?.tagName).toBe("STRONG");
+    expect(few.parentElement?.textContent).toBe("3 left");
     expect(screen.getByText(line(`${day} · Full`))).toBeTruthy();
   });
 
