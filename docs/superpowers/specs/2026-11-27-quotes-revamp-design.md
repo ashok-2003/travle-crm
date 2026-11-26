@@ -72,6 +72,14 @@ colour. The customer's link page and the PDF are older than the app's design and
    "Total ₹8,999 (incl. 5% GST)" without paise or the CGST/SGST table (the tax invoice keeps it), what is due, the day
    boxes, inclusions, exclusions, notes, terms.
 
+9. **The public package page** (/a/<agency>/<trip>; owner: "make it better", the design is my call): the agency at the
+   top, the trip's name big with its nights and "From ₹X", its next departures in words (never a seat count: the page
+   shows only what the agency published), an "Ask about this trip" button near the top that goes to the enquiry form,
+   then the photos, highlights, the same blue day boxes, inclusions as green ticks, exclusions as crosses, notes, and the
+   enquiry form and "WhatsApp us" at the end.
+
+Everything above ships in one PR with the Packages revamp (owner: "we will push all these together").
+
 ## Not in this change
 
 The WhatsApp chat's side panel showing the quote or booking (owner: later, with more there); a payment gateway (payment

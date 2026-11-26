@@ -6,8 +6,9 @@
 trip, money and plan stand out, and a customer page and PDF in the same layout.
 
 **Architecture:** PR 1 (branch feat/quotes-revamp, which carries the Packages revamp too: one PR) is the staff side: Task 1 (list, statuses, New quote, lead card) in one
-worktree, Tasks 2 then 3 (a quote's actions, then its body) in another. PR 2 (branch feat/quotes-customer) is Task 4 (the
-customer's page) then Task 5 (the PDF) in a third worktree. Tasks 2 and 3 both touch `quotes/quote-screen.tsx`, so they run
+worktree, Tasks 2 then 3 (a quote's actions, then its body) in another. PR 2's work (branch feat/quotes-customer) is Task 4 (the
+customer's page) then Task 5 (the PDF) in a third worktree; Task 6 (the public package page) follows Task 3. All of it ships
+as one PR (owner). Tasks 2 and 3 both touch `quotes/quote-screen.tsx`, so they run
 one after the other.
 
 **Tech Stack:** Next.js 16.4 (never `next upgrade`), React 19, Tailwind v4, shadcn radix-nova registry, next-intl, tRPC +
@@ -139,3 +140,18 @@ gets must change: the dates as words, no paise), their tests.
 - [ ] Implement; render one quotation to a PNG/PDF in the scratchpad and look at it; run the integrations and domain
   document tests.
 - [ ] Commit `feat(integrations): a simpler quotation pdf in the quote page's layout`.
+
+### Task 6: The public package page in the same style
+
+**Files:** `apps/web/src/package-pages/package-view.tsx` (and `page-frame.tsx`, `enquiry-section.tsx` as needed), its
+messages, tests in `apps/web/test/package-pages/`; reuses Task 3's `components/trip-plan/` parts (they must not need the
+signed-in app's providers).
+
+**Interfaces:** Consumes `DayBoxes` and `PointList` from Task 3.
+
+- [ ] Failing tests: the page reads the agency, the trip's name (h1), its nights and From price, its next departures in
+  words with no seat count, an "Ask about this trip" link to the enquiry form near the top, then photos, highlights, the
+  days as boxes, inclusions as a ticked list, exclusions as a crossed list, notes, the enquiry form and WhatsApp us.
+- [ ] Implement; take phone and desktop shots of a published trip page (the rates-packages audit has one) and fix what
+  they show; run the package-pages tests, typecheck, lint, and the package pages journey.
+- [ ] Commit `feat(web): the public trip page reads like the quote, with its plan in day boxes`.
