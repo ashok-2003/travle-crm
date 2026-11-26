@@ -25,10 +25,13 @@ export function LeadPicker({
   links,
   value,
   onChange,
+  words,
 }: {
   links: FieldLinks;
   value: PickedLead | null;
   onChange: (lead: PickedLead | null) => void;
+  /** Another screen's words for the empty button and for choosing no lead again (none: no way back). */
+  words?: { none: string; unlink?: string };
 }) {
   const t = useTranslations("today.addTask");
   const trpc = useTRPC();
@@ -41,6 +44,7 @@ export function LeadPicker({
       { enabled: search.open && search.searching, placeholderData: keepPreviousData, select: (page) => page.items },
     ),
   );
+  const clearLabel = words === undefined ? t("unlink") : words.unlink;
   return (
     <SearchCombobox
       links={links}
@@ -48,7 +52,7 @@ export function LeadPicker({
       results={found}
       chosen={value}
       words={{
-        none: t("noLead"),
+        none: words?.none ?? t("noLead"),
         search: t("search"),
         hint: t("searchHint"),
         searching: t("searching"),
@@ -64,7 +68,7 @@ export function LeadPicker({
       onChoose={(lead) => {
         onChange(lead === null ? null : { id: lead.id, name: lead.person.name });
       }}
-      clearLabel={t("unlink")}
+      {...(clearLabel !== undefined && { clearLabel })}
     />
   );
 }

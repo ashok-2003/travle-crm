@@ -135,6 +135,7 @@ export function toSummary(row: QuoteRow): QuoteSummary {
     title: row.title,
     startDate: row.startDate === null ? null : dayOf(row.startDate),
     status: row.status,
+    paymentWait: null,
     totals: totalsOf(row),
     updatedAt: row.updatedAt.toISOString(),
   });

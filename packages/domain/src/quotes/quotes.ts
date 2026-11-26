@@ -334,12 +334,28 @@ export async function listLeadQuotes(tx: OrgTx, access: MemberAccess, leadId: st
   return rows.map(toSummary);
 }
 
+/** A name or trip title in any case, or the digits of a phone typed in any form ("+91 98765 43210", "98765"). */
+function searchFilter(search: string | undefined) {
+  const text = search?.trim() ?? "";
+  if (text === "") return {};
+  const digits = /^[+\d\s()-]+$/.test(text) ? text.replace(/\D/g, "") : "";
+  const contains = { contains: text, mode: "insensitive" } as const;
+  return {
+    OR: [
+      { title: contains },
+      { lead: { person: { name: contains } } },
+      ...(digits === "" ? [] : [{ lead: { person: { phoneE164: { contains: digits } } } }]),
+    ],
+  };
+}
+
 /** The member's quotes (or the agency's, for a role that sees all), recently changed first, 200 at most. */
 export async function listQuotes(tx: OrgTx, access: MemberAccess, input: ListQuotesInput): Promise<QuoteSummary[]> {
   const rows = await tx.quote.findMany({
     where: {
       lead: scopeFilter(access, "quotes:view", "ownerUserId"),
       ...(input.status === undefined ? {} : { status: input.status }),
+      ...searchFilter(input.search),
     },
     orderBy: { updatedAt: "desc" },
     take: 200,

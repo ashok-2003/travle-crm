@@ -4,70 +4,22 @@
 // New quote starts one blank from what the lead already says (where, when, who), or from one of the agency's ready
 // packages in a tap (sales execution, fast quoting), and opens it.
 import type { LeadDetail } from "@travel-crm/contracts/crm";
-import { PlusIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useRef, useState } from "react";
 import { LoadFailedAlert } from "@/components/load-failed-alert";
 import { LoadingRows } from "@/components/loading-rows";
-import { RefusalAlert } from "@/components/refusal-alert";
 import { TextLink } from "@/components/text-link";
 import { rupees } from "@/components/forms/money-field";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
-import { Spinner } from "@/components/ui/spinner";
 import { LeadCard } from "@/leads/lead/lead-card";
+import { mayBeMissing } from "@/lib/older-api";
 import { quoteRoute } from "@/lib/routes";
-import { useHolds } from "@/session/me-context";
-import { useWriteAccess } from "@/subscription/write-access";
-import { MakeQuotesDialog } from "./make-quotes-dialog";
+import { NewQuoteMenu } from "./new-quote-menu";
 import { QuoteStatusBadge } from "./quote-status";
-import { useLeadQuotes, useQuoteChanges, useQuotePackages, useQuoteSettings } from "./use-quotes";
+import { useLeadQuotes } from "./use-quotes";
 
 export function LeadQuotesCard({ lead }: { lead: LeadDetail }) {
   const t = useTranslations("quotes.lead");
-  const router = useRouter();
-  const mayCreate = useHolds("quotes:create");
-  const access = useWriteAccess("change");
   const quotes = useLeadQuotes(lead.id);
-  const settings = useQuoteSettings();
-  const { create } = useQuoteChanges();
-  const packages = useQuotePackages();
-  const menuButton = useRef<HTMLButtonElement>(null);
-  const [making, setMaking] = useState<{ id: string; name: string } | null>(null);
-  const busy = create.isPending;
-  const { trip } = lead;
-  const start = () => {
-    create.mutate(
-      {
-        leadId: lead.id,
-        title: trip.destination === null ? t("defaultTitle") : t("titleFor", { place: trip.destination.name }),
-        startDate: trip.when.kind === "dates" ? trip.when.from : null,
-        adults: trip.adults ?? 2,
-        children: trip.childrenAges.length,
-        days: [],
-        items: [],
-        inclusions: "",
-        exclusions: "",
-        notes: "",
-        taxRateBasisPoints: settings.data?.defaultTaxRateBasisPoints ?? 500,
-        placeOfSupply: null,
-      },
-      {
-        onSuccess: (quote) => {
-          router.push(quoteRoute(quote.id));
-        },
-      },
-    );
-  };
   const body = () => {
     if (quotes.data === undefined) {
       return quotes.isError ? (
@@ -92,7 +44,7 @@ export function LeadQuotesCard({ lead }: { lead: LeadDetail }) {
               </ItemDescription>
             </ItemContent>
             <ItemActions>
-              <QuoteStatusBadge status={quote.status} />
+              <QuoteStatusBadge status={quote.status} paymentWait={mayBeMissing(quote.paymentWait)} />
             </ItemActions>
           </Item>
         ))}
@@ -100,50 +52,8 @@ export function LeadQuotesCard({ lead }: { lead: LeadDetail }) {
     );
   };
   return (
-    <LeadCard
-      title={t("title")}
-      action={
-        mayCreate && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button ref={menuButton} variant="outline" disabled={busy || !access.allowed}>
-                {busy ? <Spinner aria-hidden="true" /> : <PlusIcon aria-hidden="true" />}
-                {t("new")}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="min-w-60">
-              <DropdownMenuItem onSelect={start}>{t("blank")}</DropdownMenuItem>
-              {(packages.data ?? []).length > 0 && <DropdownMenuSeparator />}
-              {(packages.data ?? []).length > 0 && <DropdownMenuLabel>{t("fromPackage")}</DropdownMenuLabel>}
-              {(packages.data ?? []).map((one) => (
-                <DropdownMenuItem
-                  key={one.id}
-                  onSelect={() => {
-                    setMaking({ id: one.id, name: one.name });
-                  }}
-                >
-                  {one.name}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )
-      }
-    >
-      <RefusalAlert error={create.error} />
+    <LeadCard title={t("title")} action={<NewQuoteMenu lead={lead} />}>
       {body()}
-      {making !== null && (
-        <MakeQuotesDialog
-          lead={lead}
-          packageId={making.id}
-          packageName={making.name}
-          open
-          onOpenChange={(next) => {
-            if (!next) setMaking(null);
-          }}
-          returnFocusTo={menuButton}
-        />
-      )}
     </LeadCard>
   );
 }

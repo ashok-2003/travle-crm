@@ -9,6 +9,7 @@ export type { AiPrompts } from "@travel-crm/integrations/prompts";
 export type { ToolAgent } from "@travel-crm/integrations/tool-agent";
 export type { AiTracing } from "@travel-crm/integrations/tracing";
 export { aiAllowed } from "./allowed.js";
+export { paymentWaitsOf } from "./quote-payment-wait.js";
 export { withdrawAiParts } from "./erasure.js";
 export { recordDraftSent } from "./drafts.js";
 export { withIncidentReports } from "./reported-model.js";

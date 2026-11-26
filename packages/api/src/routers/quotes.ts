@@ -29,7 +29,7 @@ import {
   updateQuoteInput,
 } from "@travel-crm/contracts/quotes";
 import { z } from "zod";
-import { quoteSaved, recordFillApplied } from "@travel-crm/domain/ai";
+import { paymentWaitsOf, quoteSaved, recordFillApplied } from "@travel-crm/domain/ai";
 import { assertPdfCanBeMade, getIssuedDocument } from "@travel-crm/domain/documents";
 import type { MemberAccess } from "@travel-crm/domain/identity";
 import { calendarDateIn, DomainError } from "@travel-crm/domain/kernel";
@@ -65,6 +65,7 @@ import {
 } from "@travel-crm/domain/quotes";
 import { createShareLink } from "@travel-crm/domain/share-links";
 import { ratesOnDate as ratesOnDateOf } from "@travel-crm/domain/suppliers";
+import type { OrgTx } from "@travel-crm/db";
 import type { Context } from "../context.js";
 import { agencyToday } from "../package-departures-gate.js";
 import { freshProcedure, orgProcedure } from "../procedures.js";
@@ -72,6 +73,16 @@ import { router } from "../trpc.js";
 import { currentLogo } from "./logo.js";
 
 type MemberContext = Pick<Context, "db" | "files" | "identity" | "profiles"> & { member: MemberAccess };
+
+/** The quotes with what the AI's bookings make them wait for (the ai module sees both, the quotes module cannot). */
+async function withPaymentWaits<T extends { id: string }>(tx: OrgTx, quotes: T[]) {
+  const waits = await paymentWaitsOf(
+    tx,
+    quotes.map((quote) => quote.id),
+    new Date(),
+  );
+  return quotes.map((quote) => ({ ...quote, paymentWait: waits.get(quote.id) ?? null }));
+}
 
 const viewer = orgProcedure.requires("quotes:view");
 const maker = orgProcedure.requires("quotes:create");
@@ -115,20 +126,29 @@ export const quotesRouter = router({
   list: viewer
     .input(listQuotesInput)
     .output(quoteList)
-    .query(({ ctx, input }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => listQuotes(tx, ctx.member, input))),
+    .query(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, async (tx) =>
+        withPaymentWaits(tx, await listQuotes(tx, ctx.member, input)),
+      ),
+    ),
 
   forLead: viewer
     .input(leadQuotesInput)
     .output(quoteList)
     .query(({ ctx, input }) =>
-      ctx.db.forOrg(ctx.member.organizationId, (tx) => listLeadQuotes(tx, ctx.member, input.leadId)),
+      ctx.db.forOrg(ctx.member.organizationId, async (tx) =>
+        withPaymentWaits(tx, await listLeadQuotes(tx, ctx.member, input.leadId)),
+      ),
     ),
 
   get: viewer
     .input(quoteIdInput)
     .output(quoteDetail)
     .query(({ ctx, input }) =>
-      ctx.db.forOrg(ctx.member.organizationId, (tx) => getQuote(tx, ctx.member, input.quoteId)),
+      ctx.db.forOrg(ctx.member.organizationId, async (tx) => {
+        const quote = await getQuote(tx, ctx.member, input.quoteId);
+        return (await withPaymentWaits(tx, [quote]))[0] ?? quote;
+      }),
     ),
 
   create: maker
