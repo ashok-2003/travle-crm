@@ -21,9 +21,10 @@ export type ActGateInput = Pick<
 /** For a reply, whether a newer customer line came: its own turn answers it, and this one writes nothing. */
 export async function assertNewest(tx: OrgTx, input: ActGateInput): Promise<void> {
   if (input.kind !== "reply") return;
-  // The newest line as the reply job reads it before the turn: one that came while the model wrote has its own turn.
+  // The newest line as the reply job reads it before the turn: one that came while the model wrote has its own turn. A
+  // line deleted for everyone is skipped there too, so it never stops the reply to the line before it.
   const newest = await tx.whatsappMessage.findFirst({
-    where: { conversationId: input.conversationId, direction: "in" },
+    where: { conversationId: input.conversationId, direction: "in", revokedAt: null },
     orderBy: { occurredAt: "desc" },
     select: { id: true },
   });
