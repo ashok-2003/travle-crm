@@ -459,8 +459,6 @@
     "previousMonth": "Previous month",
     "nextMonth": "Next month",
     "panelDescription": "What this day holds and what you can change.",
-    "pickDay": "Day of the departure",
-    "close": "Close",
     "season": "Season: {label}",
     "seasonNone": "No season covers this day, so it has no price.",
     "seasonOpen": "all other days",

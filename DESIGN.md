@@ -47,6 +47,7 @@ typography:
   body: { family: "Figtree", size: 15px, weight: 400, lineHeight: 22px, tracking: "0" }
   label: { family: "Figtree", size: 13px, weight: 500, lineHeight: 18px, tracking: "0" }
   caption: { family: "Figtree", size: 12px, weight: 400, lineHeight: 16px, tracking: "0.01em" }
+  micro: { family: "Figtree", size: 11px, weight: 400, lineHeight: 14px, tracking: "0" }
   number:
     { family: "IBM Plex Mono", size: 14px, weight: 400, lineHeight: 20px, tracking: "0", features: "tabular-nums" }
   number-lg:
@@ -138,6 +139,7 @@ Status vocabulary (extend, do not reinvent):
 | Body               | Figtree                       | 15 / 22                     | 400    |
 | Label              | Figtree                       | 13 / 18                     | 500    |
 | Caption            | Figtree                       | 12 / 16                     | 400    |
+| Micro              | Figtree                       | 11 / 14                     | 400    |
 | Number             | IBM Plex Mono, `tabular-nums` | 14 / 20                     | 400    |
 | Number large (KPI) | IBM Plex Mono, `tabular-nums` | 24 / 30                     | 500    |
 
@@ -145,7 +147,7 @@ Rules:
 
 - **Garamond for page titles only.** One per screen (`h1`). Never in cards, buttons, tables or dialogs. Dialog titles use Figtree 600.
 - **Every number is mono with tabular-nums**: money, counts, percentages, ids (e.g. `Q-1042`), phone numbers, and dates in tables. Dates inside running prose may stay Figtree.
-- Minimum text size is 12px; body on mobile is never below 15px (inputs are 16px to stop iOS zoom).
+- Minimum text size is 12px, except micro (11px), only for a calendar day's details on a phone; body on mobile is never below 15px (inputs are 16px to stop iOS zoom).
 - shadcn/ui components keep their own text sizes (`text-sm`, 14px, in buttons, items, cards, the sidebar); the 15px body is for running text outside them. (Proposed, for the owner to confirm.)
 - Body line length 65-75ch. `text-wrap: balance` on titles, `pretty` on prose.
 - No uppercase tracked eyebrows, no gradient text, no letter-spacing tighter than -0.02em.

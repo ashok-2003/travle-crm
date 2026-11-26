@@ -52,6 +52,8 @@ export function DeparturesCard({ detail }: { detail: PackageDetail }) {
     setMonth(to);
     setSelected(null);
   };
+  // A month that did not load, whichever of the shown ones: the days that did load stay out of reach until it does.
+  const failed = [calendar, ...(wide ? [next] : [])].find((month) => month.isError && month.data === undefined) ?? null;
   const loading =
     calendar.data === undefined ||
     calendar.isPlaceholderData ||
@@ -94,8 +96,8 @@ export function DeparturesCard({ detail }: { detail: PackageDetail }) {
             ))}
           </ul>
         )}
-        {calendar.isError && calendar.data === undefined ? (
-          <LoadFailedAlert message={t("loadFailed")} error={calendar.error} onRetry={() => void calendar.refetch()} />
+        {failed !== null ? (
+          <LoadFailedAlert message={t("loadFailed")} error={failed.error} onRetry={() => void failed.refetch()} />
         ) : wide ? (
           <>
             {months}

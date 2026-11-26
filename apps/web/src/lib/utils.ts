@@ -4,6 +4,6 @@
 import { createCn } from "cn/config";
 
 /** The theme's type sizes: globals.css's --text-* tokens, DESIGN.md's type scale. */
-const typeSizes = ["title", "title-mobile", "section", "body", "label", "caption", "number", "number-lg"];
+const typeSizes = ["title", "title-mobile", "section", "body", "label", "caption", "micro", "number", "number-lg"];
 
 export const cn = createCn({ extend: { theme: { text: typeSizes } } });

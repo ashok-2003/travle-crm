@@ -8,34 +8,45 @@ import { seasonTint } from "@/packages/season-colours";
 import { newQueryClient, renderWithApi } from "../organization/api";
 import { screenIs } from "../organization/render";
 import { member } from "../support/members";
-import { answerNext, calendarDeparture, detail, fakeBatchApi } from "./departures-support";
+import { stubApi, type Answer } from "../support/api-stub";
+import { calendarDeparture, detail } from "./departures-support";
 
 const none = { single: null, double: null, triple: null, quad: null, child_bed: null, child_no_bed: null };
 const day = (text: RegExp) => screen.getByRole("button", { name: text });
 
-async function show(width: "phone" | "wide") {
+const NOVEMBER = [
+  calendarDeparture("2026-11-27"),
+  calendarDeparture("2026-11-29", { departureId: "0190a000-0000-7000-8000-0000000000d2", status: "cancelled" }),
+  calendarDeparture("2026-11-30", { departureId: "0190a000-0000-7000-8000-0000000000d3", seatsFree: 0, seatsSold: 40 }),
+  calendarDeparture("2026-11-21", { departureId: "0190a000-0000-7000-8000-0000000000d5" }),
+  calendarDeparture("2026-11-03", {
+    departureId: "0190a000-0000-7000-8000-0000000000d4",
+    prices: { ...none },
+    priceSource: "none",
+    seasonLabel: null,
+  }),
+];
+
+type Month = "2026-11" | "2026-12" | "2027-01";
+/** Renders the card; each month's days (or a refusal) are answered by the month asked, and every ask is kept. */
+function show(width: "phone" | "wide", months: Partial<Record<Month, Answer>> = {}) {
   screenIs(width);
-  const api = fakeBatchApi();
+  const asked: { packageId: string; from: string; to: string }[] = [];
+  const answers: Record<Month, Answer> = {
+    "2026-11": { data: NOVEMBER },
+    "2026-12": { data: [calendarDeparture("2026-12-04")] },
+    "2027-01": { data: [] },
+    ...months,
+  };
+  stubApi({
+    "departures.calendar": (input) => {
+      const ask = input as (typeof asked)[number];
+      asked.push(ask);
+      return answers[ask.from.slice(0, 7) as Month];
+    },
+  });
   renderWithApi(<DeparturesCard detail={detail} />, newQueryClient(), member({ isOwner: true }));
-  const input = await answerNext(api, "departures.calendar", [
-    calendarDeparture("2026-11-27"),
-    calendarDeparture("2026-11-29", { departureId: "0190a000-0000-7000-8000-0000000000d2", status: "cancelled" }),
-    calendarDeparture("2026-11-30", {
-      departureId: "0190a000-0000-7000-8000-0000000000d3",
-      seatsFree: 0,
-      seatsSold: 40,
-    }),
-    calendarDeparture("2026-11-21", { departureId: "0190a000-0000-7000-8000-0000000000d5" }),
-    calendarDeparture("2026-11-03", {
-      departureId: "0190a000-0000-7000-8000-0000000000d4",
-      prices: { ...none },
-      priceSource: "none",
-      seasonLabel: null,
-    }),
-  ]);
-  // A wide screen reads the next month too.
-  if (width === "wide") await answerNext(api, "departures.calendar", [calendarDeparture("2026-12-04")]);
-  return { api, input };
+  return { asked };
 }
 
 describe("DeparturesCard", () => {
@@ -48,22 +59,20 @@ describe("DeparturesCard", () => {
   });
 
   it("reads the month's days from the api", async () => {
-    const { api, input } = await show("wide");
-    expect(input).toEqual({ packageId: detail.id, from: "2026-11-01", to: "2026-11-30" });
-    expect(api.calls.map((call) => call.input)).toContainEqual({
-      packageId: detail.id,
-      from: "2026-12-01",
-      to: "2026-12-31",
-    });
+    const { asked } = show("wide");
+    await screen.findByRole("button", { name: /^4 Dec, departure/ });
+    expect(asked).toContainEqual({ packageId: detail.id, from: "2026-11-01", to: "2026-11-30" });
+    expect(asked).toContainEqual({ packageId: detail.id, from: "2026-12-01", to: "2026-12-31" });
   });
 
   it("reads one month on a phone", async () => {
-    const { api } = await show("phone");
-    expect(api.calls.filter((call) => call.path === "departures.calendar")).toHaveLength(1);
+    const { asked } = show("phone");
+    await screen.findByRole("button", { name: /^27 Nov, departure/ });
+    expect(asked).toHaveLength(1);
   });
 
   it("shows a departure's lowest price and seats, and marks cancelled and full days", async () => {
-    await show("wide");
+    show("wide");
     const open = await screen.findByRole("button", { name: /^27 Nov, departure/ });
     expect(within(open).getByText("₹5,999")).toBeTruthy();
     expect(within(open).getByText("32 left")).toBeTruthy();
@@ -72,14 +81,14 @@ describe("DeparturesCard", () => {
   });
 
   it("shows no price on a day no season covers, or on a day with no departure", async () => {
-    await show("wide");
+    show("wide");
     const uncovered = await screen.findByRole("button", { name: /^3 Nov, departure/ });
     expect(within(uncovered).queryByText(/₹/)).toBeNull();
     expect(within(day(/^12 Nov/)).queryByText(/₹/)).toBeNull();
   });
 
   it("colours only a departure's day, by its season, and the legend lists each season with the same colour", async () => {
-    await show("wide");
+    show("wide");
     const regularDay = (await screen.findByRole("button", { name: /^27 Nov, departure/ })).closest("td");
     expect(regularDay?.className).toContain(seasonTint(0).fill);
     expect(day(/^21 Nov/).closest("td")?.className).toContain(seasonTint(1).fill);
@@ -99,7 +108,7 @@ describe("DeparturesCard", () => {
   });
 
   it("shows two months side by side with the day's panel under them, and the arrows move by one month", async () => {
-    const { api } = await show("wide");
+    const { asked } = show("wide");
     expect(await screen.findAllByRole("grid")).toHaveLength(2);
     expect(screen.getByText("November 2026")).toBeTruthy();
     expect(screen.getByText("December 2026")).toBeTruthy();
@@ -111,7 +120,7 @@ describe("DeparturesCard", () => {
     expect(grids.every((grid) => grid.compareDocumentPosition(panel) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
     await userEvent.click(screen.getByRole("button", { name: "Next month" }));
     await waitFor(() => {
-      expect(api.calls.map((call) => call.input)).toContainEqual({
+      expect(asked).toContainEqual({
         packageId: detail.id,
         from: "2027-01-01",
         to: "2027-01-31",
@@ -120,16 +129,22 @@ describe("DeparturesCard", () => {
     expect(screen.getByText("January 2027")).toBeTruthy();
   });
 
+  it("says when the next month did not load, with Try again, and does not wait on it for ever", async () => {
+    show("wide", { "2026-12": { status: 500 } });
+    expect(await screen.findByText("The departures didn't load.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Try again" })).toBeTruthy();
+  });
+
   describe("on a phone", () => {
     it("shows the month as a grid of days, not a list", async () => {
-      await show("phone");
+      show("phone");
       expect(await screen.findByRole("grid")).toBeTruthy();
       expect(screen.queryByRole("list", { name: /^Departures in/ })).toBeNull();
       expect(screen.getAllByRole("grid")).toHaveLength(1);
     });
 
     it("reads a day's date, price and seats; few seats in bold", async () => {
-      await show("phone");
+      show("phone");
       const open = await screen.findByRole("button", { name: /^27 Nov, departure/ });
       expect(open.textContent).toContain("27");
       expect(open.textContent).toContain("5,999");
@@ -138,19 +153,20 @@ describe("DeparturesCard", () => {
     });
 
     it("bolds 5 or fewer seats left", async () => {
-      screenIs("phone");
-      const api = fakeBatchApi();
-      renderWithApi(<DeparturesCard detail={detail} />, newQueryClient(), member({ isOwner: true }));
-      await answerNext(api, "departures.calendar", [
-        calendarDeparture("2026-11-27", { seatsFree: 5, seatsSold: 35 }),
-        calendarDeparture("2026-11-28", { departureId: "0190a000-0000-7000-8000-0000000000d6", seatsFree: 6 }),
-      ]);
+      show("phone", {
+        "2026-11": {
+          data: [
+            calendarDeparture("2026-11-27", { seatsFree: 5, seatsSold: 35 }),
+            calendarDeparture("2026-11-28", { departureId: "0190a000-0000-7000-8000-0000000000d6", seatsFree: 6 }),
+          ],
+        },
+      });
       expect((await screen.findByText("5 left")).className).toContain("font-bold");
       expect(screen.getByText("6 left").className).not.toContain("font-bold");
     });
 
     it("strikes the price of a full day and the word on a cancelled one, and says so in their names", async () => {
-      await show("phone");
+      show("phone");
       const full = await screen.findByRole("button", { name: /^30 Nov, departure/ });
       expect(within(full).getByText("Full")).toBeTruthy();
       expect(within(full).getByText(/5,999/).className).toContain("line-through");
@@ -161,7 +177,7 @@ describe("DeparturesCard", () => {
     });
 
     it("says No price, with no season fill, for a departure no season covers", async () => {
-      await show("phone");
+      show("phone");
       const bare = await screen.findByRole("button", { name: /^3 Nov, departure/ });
       expect(within(bare).getByText("No price")).toBeTruthy();
       expect(bare.getAttribute("aria-label")).toBe("3 Nov, departure, no price, 32 left");
@@ -169,7 +185,7 @@ describe("DeparturesCard", () => {
     });
 
     it("opens the sheet on a departure's panel, and on an empty day to add one", async () => {
-      await show("phone");
+      show("phone");
       await userEvent.click(await screen.findByRole("button", { name: /^27 Nov, departure/ }));
       const sheet = await screen.findByRole("dialog");
       expect(await within(sheet).findByText("Open departure", { exact: false })).toBeTruthy();

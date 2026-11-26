@@ -94,7 +94,7 @@ export function DeparturesMonth({
               // A box that grows with its words, not the registry's square or round day, and never wider than its column.
               "h-full min-h-14 min-w-0 aspect-auto items-center justify-start gap-0.5 rounded-md p-0.5 text-inherit [&>span]:text-caption [&>span]:opacity-100",
               // A phone's day is about 46px wide (41px at 360px): its words must fit that, so they shrink a little.
-              compact ? "[&>span]:text-[0.6875rem] [&>span]:tracking-tight" : "items-start p-1.5 text-left",
+              compact ? "[&>span]:text-micro" : "items-start p-1.5 text-left",
             )}
           >
             {props.children}

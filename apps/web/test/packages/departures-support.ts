@@ -1,9 +1,8 @@
 // What the departures calendar's tests share: a group trip with two seasons, a calendar entry, and answering a call.
 import type { CalendarDeparture } from "@travel-crm/contracts/departures";
 import { waitFor } from "@testing-library/react";
-import { expect, vi } from "vitest";
+import { expect } from "vitest";
 import type { fakeApi, PendingCall } from "../organization/api";
-import { wantsStream, wireResponse, type WireItem } from "../support/trpc-wire";
 import { aPackage } from "./detail";
 
 const none = { single: null, double: null, triple: null, quad: null, child_bed: null, child_no_bed: null };
@@ -59,43 +58,4 @@ export async function answerNext(api: ReturnType<typeof fakeApi>, path: string, 
   answered.add(call);
   call.answer(data);
   return call.input;
-}
-
-/** Like `fakeApi`, but a batch (two months read at once) is answered call by call, each its own entry in `calls`. */
-export function fakeBatchApi(): ReturnType<typeof fakeApi> {
-  const calls: PendingCall[] = [];
-  vi.stubGlobal(
-    "fetch",
-    vi.fn((url: string, init: { body?: string; headers?: unknown }) => {
-      const paths = new URL(url, "http://localhost").pathname.replace("/api/trpc/", "").split(",");
-      const body = JSON.parse(init.body ?? "{}") as Record<string, unknown>;
-      const items = paths.map(
-        (path, index) =>
-          new Promise<WireItem>((resolve, reject) => {
-            calls.push({
-              path,
-              input: body[String(index)],
-              answer: (data) => {
-                resolve({ result: { data } });
-              },
-              fail: () => {
-                reject(new TypeError("Failed to fetch"));
-              },
-              refuse: () => {
-                throw new Error("the batch fake only answers");
-              },
-            });
-          }),
-      );
-      return Promise.all(items).then((answers) => wireResponse(answers, wantsStream(init)));
-    }),
-  );
-  return {
-    calls,
-    last: () => {
-      const call = calls.at(-1);
-      if (!call) throw new Error("the app has made no call yet");
-      return call;
-    },
-  };
 }
