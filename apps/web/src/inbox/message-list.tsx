@@ -17,6 +17,7 @@ import { ShowMoreButton } from "@/components/show-more-button";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatDay, formatPhoneNumber } from "@/lib/format";
+import { mayBeMissing } from "@/lib/older-api";
 import { useMe } from "@/session/me-context";
 import { ChatJumpContext } from "./chat-jump";
 import { useChatScroll } from "./chat-scroll";
@@ -198,11 +199,13 @@ function Loaded({
         message={message}
         senderName={message.sentBy === null ? null : (people[message.sentBy] ?? null)}
         quotedSender={
-          message.quoted?.direction === "out"
-            ? message.quoted.sentBy === null
-              ? t("reply.teammate")
-              : (people[message.quoted.sentBy] ?? t("reply.teammate"))
-            : customerName
+          message.quoted?.direction !== "out"
+            ? customerName
+            : mayBeMissing(message.quoted.byAi) === true
+              ? t("reply.ai")
+              : message.quoted.sentBy === null
+                ? t("reply.teammate")
+                : (people[message.quoted.sentBy] ?? t("reply.teammate"))
         }
         first={newDay || previous.kind !== "message" || previous.message.direction !== message.direction}
         showSender={newDay || previous.kind !== "message" || !sameSender(previous.message, message)}

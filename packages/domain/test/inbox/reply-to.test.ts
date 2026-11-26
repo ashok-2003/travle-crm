@@ -128,10 +128,41 @@ describe("reply-to", () => {
       messageId: first.id,
       direction: "in",
       body: "Goa in December?",
+      byAi: false,
     });
     expect(items.find((message) => message.body === "And this?")?.quoted).toMatchObject({
       messageId: null,
       body: null,
+    });
+  });
+
+  it("says the AI wrote the original when a customer answers the AI's menu", async () => {
+    const { connection, customerNumber, conversation, messages } = await chat();
+    const menu = `wamid.${randomUUID()}`;
+    await test.db.forOrg(connection.organizationId, (tx) =>
+      tx.whatsappMessage.create({
+        data: {
+          conversationId: conversation.id,
+          direction: "out",
+          origin: "automation",
+          kind: "text",
+          body: "Pick a trip, we'll send its plan.",
+          clientToken: `ai:${randomUUID()}`,
+          wamid: menu,
+          status: "sent",
+          occurredAt: new Date(testNow.getTime() + HOUR),
+        },
+      }),
+    );
+    await deliver(
+      test,
+      fromCustomer(connection, { customerNumber, text: "Jaisalmer", replyMsgId: menu }),
+      new Date(testNow.getTime() + 2 * HOUR),
+    );
+    const { items } = await messages();
+    expect(items.find((message) => message.body === "Jaisalmer")?.quoted).toMatchObject({
+      body: "Pick a trip, we'll send its plan.",
+      byAi: true,
     });
   });
 });

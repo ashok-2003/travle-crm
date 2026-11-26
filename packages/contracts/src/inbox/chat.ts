@@ -197,6 +197,8 @@ export const chatMessage = z.object({
       direction: z.enum(["in", "out"]).nullable(),
       /** The staff member who wrote it, for one of ours. */
       sentBy: recordId.nullable(),
+      /** The AI wrote it (its menu, its reply): the quote names the AI. */
+      byAi: z.boolean(),
       kind: whatsappMessageKind.nullable(),
       /** Its words, or its caption. */
       body: z.string().nullable(),

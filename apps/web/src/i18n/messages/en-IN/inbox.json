@@ -300,9 +300,7 @@
       "progress": "How much has played",
       "speed": "Speed {speed}x. Change it"
     },
-    "cardButtons": "Buttons: {titles}",
-    "cardList": "List: {titles}",
-    "tapped": "Tapped: {text}",
+    "choices": "Choices offered",
     "tappedNoWords": "Tapped a button",
     "aiText": {
       "heard": "Heard: {text}",
@@ -348,7 +346,8 @@
       "cancel": "Stop replying to this message",
       "youName": "You",
       "sentWithoutQuote": "Sent without the quote",
-      "teammate": "A teammate"
+      "teammate": "A teammate",
+      "ai": "The AI"
     },
     "infoAction": "Message info",
     "discard": "Discard",
