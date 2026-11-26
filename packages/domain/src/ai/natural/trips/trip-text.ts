@@ -2,6 +2,7 @@
 // money is in rupees with lakh grouping, and seats read "open" or "N left".
 import { OPEN_SEASON_END, adultRoomTypes, roomTypes, type RoomType } from "@travel-crm/contracts/quotes";
 import { formatRupees, formatShortDay, type CalendarDate } from "../../../kernel/index.js";
+import { fenced } from "../../fenced.js";
 import type { PerPersonPrices, TripSheet } from "../types.js";
 
 /** Seats are counted only this few or fewer; above it a departure is "open", so a 500-seat placeholder never shows. */
@@ -155,9 +156,10 @@ export function tripIndexEntry(sheet: TripSheet, today: CalendarDate, dates?: re
     .join("\n");
 }
 
-/** The way on when a lookup names no trip: "the trips are T1, T2", or "the trips are T1–T40" for many. */
-export function tripsAre(labels: readonly string[]): string {
-  if (labels.length === 0) return "the agency has no trips listed";
-  const list = labels.length <= 3 ? labels.join(", ") : `${labels[0] ?? ""}–${labels.at(-1) ?? ""}`;
-  return `the trips are ${list}`;
+/** The way on when a lookup names no trip, by name: "the trips are A, B, C", the first 5 and how many more for many. */
+export function tripsAre(sheets: readonly TripSheet[]): string {
+  if (sheets.length === 0) return "the agency has no trips listed";
+  const names = sheets.slice(0, 5).map((sheet) => fenced(sheet.title));
+  const more = sheets.length > 5 ? ` and ${String(sheets.length - 5)} more` : "";
+  return `the trips are ${names.join(", ")}${more}`;
 }

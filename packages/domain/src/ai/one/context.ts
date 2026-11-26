@@ -23,6 +23,8 @@ export interface OneContext {
   messages: AiMessage[];
   /** Label to package id. */
   labels: ReadonlyMap<string, string>;
+  /** Package id to trip title: the team's task names a dropped trip by it, never by its label. */
+  titles: ReadonlyMap<string, string>;
   /** This turn's trip and brochure labels (T1, B1...): the reply may never show one. */
   codes: readonly string[];
   newLines: NaturalChatLine[];
@@ -88,6 +90,7 @@ export function buildOneContext(input: OneContextInput): OneContext {
       { role: "user", content: turn },
     ],
     labels,
+    titles: new Map(input.sheets.map((sheet) => [sheet.packageId, sheet.title])),
     codes: [...labels.keys(), ...brochureLabels],
     media,
     newLines,

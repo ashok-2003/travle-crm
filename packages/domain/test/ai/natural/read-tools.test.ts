@@ -118,7 +118,9 @@ describe("the natural agent's read tools", () => {
         'none of the trips matching "kedarkantha" leaves in January 2027; their next dates:\n' +
           fenced(tripIndexEntry(kedarkantha, today)),
       );
-      expect(await answer("March")).toBe("no trip leaves in March 2027; the trips are T1, T2");
+      expect(await answer("March")).toBe(
+        "no trip leaves in March 2027; the trips are Kedarkantha Trek, Brahmatal Trek",
+      );
       // "may" is a month only written "May".
       expect(findTrips(await sheets(), "treks families may like", today).months).toEqual([]);
       expect(findTrips(await sheets(), "May treks", today).months).toEqual(["2027-05"]);
@@ -168,7 +170,7 @@ describe("the natural agent's read tools", () => {
           ].join("\n\n"),
       );
       expect((await read("find_trips", { query: "family trips" })).result).toBe(
-        'no title, place, stop or pickup says "family"; the trips are T1, T2',
+        'no title, place, stop or pickup says "family"; the trips are Kedarkantha Trek, Brahmatal Trek',
       );
     });
 
@@ -386,7 +388,7 @@ describe("the natural agent's read tools", () => {
           quoteFor(context, { ...terms, packageId: "0190f5a0-0000-7000-8000-000000000000" }),
         ),
       ).toEqual({
-        refused: "refused: that trip isn't on sale now; the trips are T1, T2",
+        refused: "refused: that trip isn't on sale now; the trips are Kedarkantha Trek, Brahmatal Trek",
       });
     });
   });

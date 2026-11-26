@@ -76,6 +76,10 @@ function contextOf(): OneContext {
       ["T1", "package-1"],
       ["T2", "package-2"],
     ]),
+    titles: new Map([
+      ["package-1", "Kedarkantha Trek"],
+      ["package-2", "Brahmatal Trek"],
+    ]),
     codes: ["T1", "T2", "B1", "B2"],
     newLines: [
       { id: "line-1", from: "customer", at: new Date(START - 60_000), kind: "text", text: "Kedarkantha ka rate?" },
@@ -377,7 +381,7 @@ describe("the one agent's loop", () => {
       staged: new Map([["update_lead", staging.update_lead]]),
       task:
         `The AI took too many steps without a reply it could send, so nothing went to the customer. ` +
-        `They wrote: "Kedarkantha ka rate?". Not done: the AI meant to offer T1 for 2 on Sat 19 Dec, total ₹18,998. ` +
+        `They wrote: "Kedarkantha ka rate?". Not done: the AI meant to offer Kedarkantha Trek for 2 on Sat 19 Dec, total ₹18,998. ` +
         "Why on this turn shows what it tried.",
       draft: null,
     });
@@ -428,7 +432,9 @@ describe("the one agent's loop", () => {
     const fallback = await loop({ forced: [handOver, brochure] });
     expect(fallback).toMatchObject({ end: "fallback", reason: "model" });
     expect(stagedOf(fallback)).toEqual(["hand_over"]);
-    expect(fallback.end === "fallback" && fallback.task).toContain("Not done: the AI meant to send T1's brochure.");
+    expect(fallback.end === "fallback" && fallback.task).toContain(
+      "Not done: the AI meant to send Kedarkantha Trek's brochure.",
+    );
   });
 
   it("traces each call, each tool with its refusals, and the staged actions", async () => {
