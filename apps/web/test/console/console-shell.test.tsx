@@ -119,7 +119,9 @@ describe("ConsoleShell", () => {
     await vi.waitFor(() => {
       expect(loadPage).toHaveBeenCalledWith("/sign-in");
     });
-    expect(queryClient.getQueryCache().getAll()).toEqual([]);
+    // The page load is a stub, so the shell stays on screen and may build its switched-off push-key query again, holding
+    // nothing: what matters is that no data is left.
+    expect(queryClient.getQueryCache().findAll({ predicate: (query) => query.state.data !== undefined })).toEqual([]);
     await vi.waitFor(() => {
       expect(api.calls).toContain("auth/sign-out");
     });
