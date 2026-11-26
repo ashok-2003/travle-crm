@@ -8,7 +8,7 @@ import type { OrgTx } from "@travel-crm/db";
 import { getLead } from "../../crm/index.js";
 import type { MemberAccess } from "../../identity/index.js";
 import { DomainError } from "../../kernel/index.js";
-import { withoutTypedAmounts } from "../write-up/tokens.js";
+import { withoutTypedAmounts } from "../typed-amounts.js";
 import type { DraftFacts } from "./draft-days-prompt.js";
 
 /** A longer trip is split into two quotes: a single draft this long would be shallow. */

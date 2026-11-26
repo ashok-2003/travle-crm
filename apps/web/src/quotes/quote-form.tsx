@@ -194,7 +194,7 @@ export function QuoteForm({
           }}
         />
       )}
-      <form noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-6">
+      <form id="quote-form" noValidate onSubmit={(event) => void submit(event)} className="flex flex-col gap-6">
         <div className="flex flex-wrap items-center gap-2">
           <FillWithAi target="quote" subjectId={quote.id} marks={marks} />
           <FillWithAi target="quote_days" subjectId={quote.id} marks={marks} withUndo={false} />
