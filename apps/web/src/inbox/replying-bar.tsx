@@ -37,9 +37,11 @@ export function ReplyingBar({
   const ours = message.direction === "out";
   const name = !ours
     ? customerName
-    : message.sentBy === me
-      ? t("reply.youName")
-      : (nameOf(message.sentBy) ?? t("reply.teammate"));
+    : message.byAi
+      ? t("reply.ai")
+      : message.sentBy === me
+        ? t("reply.youName")
+        : (nameOf(message.sentBy) ?? t("reply.teammate"));
   const words = message.tapped && message.body === null ? t("tappedNoWords") : (message.body ?? message.caption);
   const kind: KindWord | "unsupported" = isKindWord(message.kind) ? kindWord[message.kind] : "unsupported";
   return (

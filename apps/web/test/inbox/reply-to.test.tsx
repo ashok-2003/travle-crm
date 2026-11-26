@@ -186,6 +186,29 @@ describe("replying with a quote", () => {
     expect(within(bar as HTMLElement).getByText("Tapped a button")).toBeInTheDocument();
   });
 
+  it("names the AI when replying to a message it sent", async () => {
+    answerApi({});
+    renderWithApi(
+      <ReplyingProvider conversationId={chatId}>
+        {bubble(
+          message({
+            id: ours,
+            direction: "out",
+            origin: "automation",
+            byAi: true,
+            status: "sent",
+            body: "Pick a trip",
+          }),
+        )}
+        <Composer header={header} windowOpenUntil="2099-01-01T00:00:00.000Z" onNote={null} />
+      </ReplyingProvider>,
+      newQueryClient(),
+    );
+    await userEvent.click(screen.getByRole("button", { name: "More for this message" }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Reply" }));
+    expect(screen.getByText("Replying to The AI")).toBeInTheDocument();
+  });
+
   it("drops the quote when its cross is pressed", async () => {
     const api = answerApi({ "inbox.send": { messageId: ours, status: "queued" } });
     chatWithBox();

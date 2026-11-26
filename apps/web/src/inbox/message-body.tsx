@@ -7,6 +7,7 @@ import type { ChatMessage } from "@travel-crm/contracts/inbox";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import { InfoHint } from "@/components/info-hint";
+import { Separator } from "@/components/ui/separator";
 import { mayBeMissing } from "@/lib/older-api";
 import { LocationCard } from "./media/location-card";
 import { MessageMedia } from "./media/message-media";
@@ -64,19 +65,33 @@ function MessageContent({ message, after }: { message: ChatMessage; after?: Reac
   switch (message.kind) {
     case "text":
     case "template": {
-      if (message.tapped)
-        return ended(message.body === null ? t("tappedNoWords") : t("tapped", { text: message.body }));
+      // A tap shows the button's or row's words, as WhatsApp does; the quote above it shows what it answers.
+      if (message.tapped && message.body === null) return ended(t("tappedNoWords"));
       if (message.body === null) return ended(null);
-      // A card's buttons, or a list's rows (the AI's trip menu).
-      const titles = (message.buttons ?? message.list?.rows ?? null)?.map((choice) => choice.title).join(" · ");
-      if (titles === undefined) return <WhatsAppText text={message.body} after={after} />;
+      // A card's buttons, or a list's rows (the AI's trip menu): every choice on its own line, so the team sees what was offered.
+      const choices: { id: string; title: string; description?: string }[] | null =
+        message.buttons ?? message.list?.rows ?? null;
+      if (choices === null) return <WhatsAppText text={message.body} after={after} />;
       return (
         <div className="flex flex-col gap-2">
           <WhatsAppText text={message.body} />
-          <span className="text-caption text-muted-foreground">
-            {t(message.buttons === null ? "cardList" : "cardButtons", { titles })}
-            {after}
-          </span>
+          <Separator />
+          <ul aria-label={t("choices")} className="flex flex-col gap-1.5">
+            {choices.map((choice, index) => (
+              <li key={choice.id} className="flex flex-col">
+                <span>
+                  {choice.title}
+                  {choice.description === undefined && index === choices.length - 1 && after}
+                </span>
+                {choice.description !== undefined && (
+                  <span className="text-caption text-muted-foreground">
+                    {choice.description}
+                    {index === choices.length - 1 && after}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
         </div>
       );
     }

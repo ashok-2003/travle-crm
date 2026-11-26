@@ -15,6 +15,10 @@ import { visibleConversation } from "./views.js";
 
 type MessageRow = Awaited<ReturnType<OrgTx["whatsappMessage"]["findMany"]>>[number];
 
+/** The AI wrote and sent it by itself: an automation's message whose token is the AI's. */
+const sentByAi = (row: { origin: string; clientToken: string | null }) =>
+  row.origin === "automation" && row.clientToken?.startsWith("ai:") === true;
+
 /** Message rows of one chat as the chat shows them, each quote resolved to its original. Shared with the media gallery. */
 export async function chatMessagesOf(tx: OrgTx, conversationId: string, page: MessageRow[]) {
   // What each message quotes: a customer's reply names the original by WhatsApp's id, ours by our own.
@@ -30,6 +34,8 @@ export async function chatMessagesOf(tx: OrgTx, conversationId: string, page: Me
       wamid: true,
       direction: true,
       sentBy: true,
+      origin: true,
+      clientToken: true,
       kind: true,
       body: true,
       caption: true,
@@ -49,6 +55,7 @@ export async function chatMessagesOf(tx: OrgTx, conversationId: string, page: Me
         messageId: null,
         direction: null,
         sentBy: null,
+        byAi: false,
         kind: null,
         body: null,
         fileName: null,
@@ -59,6 +66,7 @@ export async function chatMessagesOf(tx: OrgTx, conversationId: string, page: Me
       messageId: target.id,
       direction: target.direction,
       sentBy: target.sentBy,
+      byAi: sentByAi(target),
       kind: whatsappMessageKind.catch("unsupported").parse(target.kind),
       body: target.body ?? target.caption,
       fileName: target.fileName,
@@ -69,7 +77,7 @@ export async function chatMessagesOf(tx: OrgTx, conversationId: string, page: Me
     id: row.id,
     direction: row.direction,
     origin: row.origin,
-    byAi: row.origin === "automation" && row.clientToken?.startsWith("ai:") === true,
+    byAi: sentByAi(row),
     kind: whatsappMessageKind.catch("unsupported").parse(row.kind),
     body: row.body,
     caption: row.caption,

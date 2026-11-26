@@ -1,7 +1,7 @@
 // The chat's message list (audit 8, 10): "N unread messages" above the first one the member had not read when the chat opened,
 // with the read mark sent only once the list is fresh; a quote that points past what is loaded fetches older pages and scrolls
 // to the original; a voice note and a place show their own cards.
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LocationCard } from "@/inbox/media/location-card";
@@ -255,8 +255,14 @@ describe("a voice note and a place", () => {
       },
     });
     renderWithApi(<MessageList conversationId={chatId} />, newQueryClient());
-    expect(await screen.findByText("Buttons: Book these seats · Change something")).toBeInTheDocument();
-    expect(screen.getByText("Tapped: Book these seats")).toBeInTheDocument();
+    // Each button on its own line under the words; the customer's tap shows just its words, as WhatsApp does.
+    const choices = await screen.findByRole("list", { name: "Choices offered" });
+    const rows = within(choices).getAllByRole("listitem");
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toHaveTextContent("Book these seats");
+    expect(rows[1]).toHaveTextContent("Change something");
+    expect(screen.getAllByText("Book these seats")).toHaveLength(2);
+    expect(screen.queryByText(/Tapped/)).not.toBeInTheDocument();
     expect(api.calls.length).toBeGreaterThan(0);
   });
 
@@ -267,7 +273,21 @@ describe("a voice note and a place", () => {
       "inbox.markRead": null,
       "inbox.messages": {
         items: [
-          aMessage({ id: id(2), body: "Manali", tapped: true }),
+          aMessage({
+            id: id(2),
+            body: "Manali",
+            tapped: true,
+            quoted: {
+              messageId: id(1),
+              direction: "out",
+              sentBy: null,
+              byAi: true,
+              kind: "text",
+              body: "Pick a trip, we'll send its plan.",
+              fileName: null,
+              mediaState: "none",
+            },
+          }),
           aMessage({
             id: id(1),
             direction: "out",
@@ -289,8 +309,17 @@ describe("a voice note and a place", () => {
       },
     });
     renderWithApi(<MessageList conversationId={chatId} />, newQueryClient());
-    expect(await screen.findByText("List: Manali · Spiti")).toBeInTheDocument();
-    expect(screen.getByText("Tapped: Manali")).toBeInTheDocument();
+    // Every row on its own line, a row's line under it; the pick shows as its words.
+    const choices = await screen.findByRole("list", { name: "Choices offered" });
+    const rows = within(choices).getAllByRole("listitem");
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toHaveTextContent("Manali");
+    expect(rows[0]).toHaveTextContent("2 trips · from ₹5,999");
+    expect(rows[1]).toHaveTextContent("Spiti");
+    expect(screen.getAllByText("Manali")).toHaveLength(2);
+    expect(screen.queryByText(/Tapped/)).not.toBeInTheDocument();
+    // The pick quotes the AI's menu: the quote names the AI, never "A teammate".
+    expect(screen.getByRole("button", { name: "Go to the message from The AI" })).toBeInTheDocument();
   });
 
   it("shows a tap with no words as a tap", async () => {
