@@ -220,7 +220,9 @@ export function createLangfuseTracing(options: LangfuseTracingOptions): AiTracin
             ...(start.model === undefined ? {} : { model: start.model }),
             ...(start.modelParameters === undefined ? {} : { modelParameters: start.modelParameters }),
             ...(start.metadata === undefined ? {} : { metadata: start.metadata }),
-            ...linkedPrompt(),
+            ...(start.prompt === undefined
+              ? linkedPrompt()
+              : { prompt: { name: start.prompt.name, version: start.prompt.version, isFallback: false } }),
           },
           { asType: "generation" },
         );

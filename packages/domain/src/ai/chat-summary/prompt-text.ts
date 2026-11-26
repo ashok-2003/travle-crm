@@ -53,3 +53,6 @@ Money:
 Open items:
 Worries:
 Stands:`;
+
+/** What the prompt upload puts into Langfuse when it has none of this name yet (see ../managed-prompt.ts). */
+export const MANAGED_PROMPTS = [{ name: "whatsapp-agent/chat-summary", text: SUMMARY_PROMPT_TEXT }] as const;

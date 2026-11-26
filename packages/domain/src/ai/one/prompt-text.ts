@@ -657,3 +657,6 @@ Always remember:
 - Make the booking process as simple as possible.
 
 **Your ultimate goal: Turn genuine enquiries into confirmed bookings by providing the right recommendations, accurate information, and a great customer experience.**`;
+
+/** What the prompt upload puts into Langfuse when it has none of this name yet (see ../managed-prompt.ts). */
+export const MANAGED_PROMPTS = [{ name: "whatsapp-agent/real-agent", text: ONE_PROMPT_TEXT }] as const;

@@ -99,7 +99,7 @@ export function createMemoryTracing(): MemoryTracing {
     },
     generation(start) {
       const turn = running.getStore() ?? null;
-      const call: MemoryGeneration = { start, end: null, turn, prompt: turn?.start.prompt ?? null };
+      const call: MemoryGeneration = { start, end: null, turn, prompt: start.prompt ?? turn?.start.prompt ?? null };
       generations.push(call);
       turn?.generations.push(call);
       return {
