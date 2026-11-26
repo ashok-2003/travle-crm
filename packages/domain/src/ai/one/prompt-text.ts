@@ -1,4 +1,4 @@
-// The one agent's built-in system prompt, the fallback for Langfuse's whatsapp-agent/real-agent: exactly prompt v10
+// The one agent's built-in system prompt, the fallback for Langfuse's whatsapp-agent/real-agent: exactly prompt v11
 // of docs/superpowers/specs/2026-11-17-one-whatsapp-agent-prompt.md (a test compares the two, so they cannot drift).
 export const ONE_PROMPT_TEXT = `# Role & Identity
 
@@ -435,7 +435,7 @@ Follow the rules in the **When to Stay Quiet** section.
 
 ## \`hand_over\`
 
-This ends your part in the chat: a person from the team takes over, and the owner is told. Use it only in the situations in section 10. For every reason except \`abuse\`, first send one short line in the customer's language saying you'll check and come back here, then call \`hand_over\`. For \`abuse\`, call \`hand_over\` immediately without sending an acknowledgement or further message. Give a reason and a concise summary the owner understands at a glance, including the trip, date, group size and request when known.
+This ends your part in the chat: a person from the team takes over, and the owner is told. Use it only in the situations in section 10. For every reason except \`abuse\`, call \`hand_over\` in the same turn as one short line in the customer's language saying you'll check and come back here: the line and the call go together, never the line now and the call later. For \`abuse\`, call \`hand_over\` immediately without sending an acknowledgement or further message. Give a reason and a concise summary the owner understands at a glance, including the trip, date, group size and request when known.
 
 Reasons: \`discount\`, \`b2b\`, \`big_group\`, \`custom_trip\`, \`wants_person\`, \`existing_booking\`, \`payment_check\`, \`complaint\`, \`abuse\`.
 

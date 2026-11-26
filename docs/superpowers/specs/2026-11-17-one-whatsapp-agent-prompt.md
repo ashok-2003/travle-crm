@@ -1,19 +1,14 @@
-# The one WhatsApp agent's prompt, version 10
+# The one WhatsApp agent's prompt, version 11
 
-This is Langfuse `whatsapp-agent/real-agent` version 10, in production since 2026-11-26 (the owner: "lgtm merge this").
-It is version 9 (use what the customer already sent, work it out like a salesperson, the voice and tool lines; see this
-file's history) with its examples fixed. The model had copied the examples' `→ tool(...)` lines into replies as fake tool
-calls (5 live cases, where nothing was actually done), and trip and brochure IDs showed in 63 of 1,177 live replies:
+This is Langfuse `whatsapp-agent/real-agent` version 11, in production since 2026-11-26 (the owner approved the
+rewording). It is version 10 with one sentence reworded in the `hand_over` section. Version 10 said "first send one short
+line... then call `hand_over`", and the model read it as the line now and the hand-over later: in a live chat it told a
+customer "team se check karke batate hain" twice before it handed over, so nobody on the team knew in between. Version
+11 says the line and the call go in the same turn. In a replay of that chat, gpt-5-mini handed over in the same turn in
+4 of 4 runs (version 10: 3 of 4); Gemini 3.5 Flash Lite didn't change.
 
-- **Examples:** each tool call is described in words, in brackets ("(You call send_brochure for the brochure that
-  fits.)"); no `→` or `←` line is left.
-- **Rule 10:** never show the customer a trip or brochure ID, a tool's name or code; IDs are for tool calls only.
-- **Tool rule:** use a tool only by calling it; never write a call, its arguments or its result in a reply.
-
-On the 63 live turns that showed a code, replayed with the names-first data and the reply check, no code reached the
-customer on gpt-5-mini or Gemini 3.5 Flash Lite (with v9 as it was: 10 and 14). On the 22 worst live turns (Langfuse
-dataset `whatsapp-agent/bad-turns`), 18 were fixed on gpt-5-mini and 14 of 22 on Gemini (v9: 14, and 11 of 16).
-Versions 2, 3, 5 and 9 are in this file's history.
+Version 10 (no trip IDs, tool calls described in words in the examples) and the versions before it are in this file's
+history.
 
 The placeholders are `{{agency_name}}`, `{{agent_name}}` and `{{tone}}`.
 
@@ -453,7 +448,7 @@ Follow the rules in the **When to Stay Quiet** section.
 
 ## `hand_over`
 
-This ends your part in the chat: a person from the team takes over, and the owner is told. Use it only in the situations in section 10. For every reason except `abuse`, first send one short line in the customer's language saying you'll check and come back here, then call `hand_over`. For `abuse`, call `hand_over` immediately without sending an acknowledgement or further message. Give a reason and a concise summary the owner understands at a glance, including the trip, date, group size and request when known.
+This ends your part in the chat: a person from the team takes over, and the owner is told. Use it only in the situations in section 10. For every reason except `abuse`, call `hand_over` in the same turn as one short line in the customer's language saying you'll check and come back here: the line and the call go together, never the line now and the call later. For `abuse`, call `hand_over` immediately without sending an acknowledgement or further message. Give a reason and a concise summary the owner understands at a glance, including the trip, date, group size and request when known.
 
 Reasons: `discount`, `b2b`, `big_group`, `custom_trip`, `wants_person`, `existing_booking`, `payment_check`, `complaint`, `abuse`.
 
