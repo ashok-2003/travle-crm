@@ -3,7 +3,7 @@
 // The other half of Trip details (/packages/<id>): what the trip includes and leaves out, its pickup points with where
 // it starts (a group trip), its notes and its cancellation notes (printed on a quote made from it). The form and its
 // save are section-trip-details.tsx's.
-import type { PackageDetail } from "@travel-crm/contracts/quotes";
+import { pointsOf, type PackageDetail } from "@travel-crm/contracts/quotes";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import type { Control } from "react-hook-form";
@@ -11,7 +11,7 @@ import type { Detail } from "@/components/details";
 import { TextField } from "@/components/forms/text-field";
 import { cardTints } from "@/components/card-tints";
 import { DayBoxes } from "@/components/trip-plan/day-boxes";
-import { PointList, pointsOf } from "@/components/trip-plan/point-list";
+import { PointList } from "@/components/trip-plan/point-list";
 import { cn } from "@/lib/utils";
 import { NoteField } from "@/leads/form/note-field";
 import type { TripDetailsValues } from "./trip-details-values";

@@ -2,6 +2,7 @@
 import { render, screen, within } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { describe, expect, it } from "vitest";
+import { cardTints } from "@/components/card-tints";
 import { DayBoxes } from "@/components/trip-plan/day-boxes";
 import { PointList } from "@/components/trip-plan/point-list";
 import { locale, messages } from "@/i18n/messages";
@@ -34,6 +35,11 @@ describe("day boxes", () => {
     expect(arrows[0]?.closest("[aria-hidden=true]")).not.toBeNull();
   });
 
+  it("tints every box in the plan's sky, as the customer's page and the PDF do", () => {
+    inIntl(<DayBoxes days={[{ title: "Manali", description: "" }]} />);
+    expect(screen.getByRole("listitem").className).toContain(cardTints.sky);
+  });
+
   it("draws nothing for no days", () => {
     const { container } = inIntl(<DayBoxes days={[]} />);
     expect(container.firstChild).toBeNull();
@@ -57,6 +63,14 @@ describe("point lists", () => {
     expect(document.querySelectorAll("[data-mark=tick]")).toHaveLength(2);
     expect(document.querySelectorAll("[data-mark=cross]")).toHaveLength(1);
     for (const mark of document.querySelectorAll("[data-mark]")) expect(mark.getAttribute("aria-hidden")).toBe("true");
+    // An exclusion is plain: its cross in muted ink, never a status colour.
+    expect(document.querySelector("[data-mark=cross]")?.getAttribute("class")).toContain("text-muted-foreground");
+  });
+
+  it("keeps a minus that starts a point, taking off only a bullet a space follows", () => {
+    inIntl(<PointList tone="plain" text={"-5% early bird\n- Stay"} />);
+    const points = within(screen.getByRole("list")).getAllByRole("listitem");
+    expect(points.map((point) => point.textContent)).toEqual(["-5% early bird", "Stay"]);
   });
 
   it("draws nothing for empty text", () => {

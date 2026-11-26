@@ -3,7 +3,9 @@
 // name, and WhatsApp us (the agency's main WhatsApp number). Plain HTML with the device's fonts and no script; the only
 // form posts back to the same link.
 import { brand } from "@travel-crm/brand";
+import { pointsOf } from "@travel-crm/contracts/quotes";
 import type { PublicTrip } from "@travel-crm/domain/bookings";
+import { formatDayWithYear, parseCalendarDate } from "@travel-crm/domain/kernel";
 import { ACCEPT_SMALL_PRINT, gstLabel, wholeRupeePrice, type PublicQuote } from "@travel-crm/domain/quotes";
 import { qrSvg } from "@travel-crm/integrations/qr";
 import { randomBytes } from "node:crypto";
@@ -11,7 +13,6 @@ import {
   dayOf,
   escapeHtml,
   paragraphs,
-  weekdayDayOf,
   wholeRupees,
   securityHeaders,
   styles,
@@ -38,22 +39,16 @@ export interface QuotePageExtras {
   whatsapp: string | null;
 }
 
-/** The lines of a free-text list (inclusions, exclusions, notes), one point each, without a typed bullet. */
-const pointsOf = (text: string) =>
-  text
-    .split("\n")
-    .map((line) => line.replace(/^\s*[-•*✓✗]\s*/, "").trim())
-    .filter((line) => line !== "");
 const list = (className: string, text: string) =>
   `<ul class="${className}">${pointsOf(text)
     .map((point) => `<li>${escapeHtml(point)}</li>`)
     .join("")}</ul>`;
 
-/** The page's own look: the day boxes in the trip's sky tint, inclusions green, exclusions red; the brand's tokens only. */
+/** The page's own look: the day boxes in the trip's sky tint, inclusions green, exclusions plain; the brand's tokens only. */
 function quoteStyles(): string {
   const { colours } = brand;
   const sky = colours.avatar.sky;
-  const { good, bad } = colours.status;
+  const { good } = colours.status;
   return `
 header .agency{font-size:.95rem}
 .when{font-size:1.05rem;color:${colours.ink};margin-top:.25rem}
@@ -66,7 +61,7 @@ header .agency{font-size:.95rem}
 ul.ticks,ul.crosses{list-style:none;padding:0;margin:0}
 ul.ticks li,ul.crosses li{display:flex;gap:.6rem;margin:0 0 .4rem}
 ul.ticks li::before{content:"\\2713";color:${good.ink};background:${good.fill};font-weight:700;border-radius:999px;flex:none;width:1.4rem;height:1.4rem;line-height:1.4rem;text-align:center}
-ul.crosses li::before{content:"\\2715";color:${bad.ink};background:${bad.fill};font-weight:700;border-radius:999px;flex:none;width:1.4rem;height:1.4rem;line-height:1.4rem;text-align:center}
+ul.crosses li::before{content:"\\2715";color:${colours.muted};font-weight:700;flex:none;width:1.4rem;height:1.4rem;line-height:1.4rem;text-align:center}
 ul.points{margin:0;padding-left:1.2rem}
 .pay{display:flex;flex-wrap:wrap;gap:1rem;align-items:center}
 .qr{flex:none;width:10rem;height:10rem}
@@ -154,7 +149,7 @@ export function quotePage(
 </head>
 <body><main>
 <header><p class="agency">${escapeHtml(agencyName)}</p><p>To: ${escapeHtml(quote.customerName)}</p><h1>${escapeHtml(quote.title)}</h1>
-<p class="when">${[quote.startDate === null ? "" : escapeHtml(weekdayDayOf(quote.startDate)), escapeHtml(travellers)].filter(Boolean).join(" · ")}</p></header>
+<p class="when">${[quote.startDate === null ? "" : escapeHtml(formatDayWithYear(parseCalendarDate(quote.startDate), { weekday: true })), escapeHtml(travellers)].filter(Boolean).join(" · ")}</p></header>
 ${notice === "accepted" ? `<section class="notice"><h2>Thank you, your acceptance is recorded</h2></section>` : ""}
 ${notice === "claimed" ? `<section class="notice"><h2>Thank you, we'll check your payment</h2><p>${escapeHtml(agencyName)} will mark it received once it shows in their account.</p></section>` : ""}
 ${notice === "refused" && view.why?.startsWith("CLAIM") === true ? `<section class="notice"><h2>That didn't go through</h2><p>Check the amount and add your UPI reference or a screenshot, then try again.</p></section>` : notice === "refused" ? `<section class="notice"><h2>We couldn't record your acceptance</h2><p>${escapeHtml(refusalWords(quote, agencyName))}</p></section>` : ""}

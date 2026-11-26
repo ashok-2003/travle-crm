@@ -8,7 +8,7 @@ import {
   type IssueDocumentInput,
   type IssueQuotationInput,
 } from "@travel-crm/contracts/documents";
-import { upiPayeeName, upiPayLink, type QuoteSettings } from "@travel-crm/contracts/quotes";
+import { pointsOf, upiPayeeName, upiPayLink, type QuoteSettings } from "@travel-crm/contracts/quotes";
 import type { OrgTx } from "@travel-crm/db";
 import { issueDocument, unchangedDocument } from "../documents/index.js";
 import type { MemberAccess } from "../identity/index.js";
@@ -79,13 +79,6 @@ function moneyTotals(quote: Quote, context: DocumentContext) {
     { label: "Total", amount: rupees(worked.totalPaise), emphasis: true },
   ];
 }
-
-/** A free-text list as its points, one per line, without a typed bullet (as the customer's page shows it). */
-const pointsOf = (text: string) =>
-  text
-    .split("\n")
-    .map((line) => line.replace(/^\s*[-•*✓✗]\s*/, "").trim())
-    .filter((line) => line !== "");
 
 /** "1 adult, 2 children". */
 function travellersOf(quote: Quote): string {

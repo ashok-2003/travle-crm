@@ -1,5 +1,6 @@
 // The customer's quote page at /p/<token>: reads in the owner's order, accepts with a name alone (no tick boxes) and keeps what
 // the two ticks kept, shows what to pay once accepted, carries no script and fits a 360px phone.
+import { brand } from "@travel-crm/brand";
 import { qrSvg } from "@travel-crm/integrations/qr";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { CookieJar } from "./support/cookie-jar.js";
@@ -118,6 +119,20 @@ describe("the customer's quote page", () => {
     expect(html).not.toMatch(/CGST|SGST/);
     expect(html).not.toContain("<script");
     expect(response.headers.get("content-security-policy")).not.toContain("script-src");
+  });
+
+  it("ticks inclusions in green and crosses exclusions in plain muted ink, keeping a minus that starts a point", async () => {
+    const { path, quoteId } = await aQuote();
+    await server.db.forOrg(agency.organizationId, (tx) =>
+      tx.quote.update({ where: { id: quoteId }, data: { inclusions: "-5% early bird\n- Breakfast" } }),
+    );
+    const { html } = await page(path);
+    expect(html).toContain("<li>-5% early bird</li>");
+    expect(html).toContain("<li>Breakfast</li>");
+    const cross = /ul\.crosses li::before\{([^}]*)\}/.exec(html)?.[1] ?? "";
+    expect(cross).toContain(`color:${brand.colours.muted}`);
+    expect(cross).not.toContain(brand.colours.status.bad.ink);
+    expect(cross).not.toContain(brand.colours.status.bad.fill);
   });
 
   it("shows no GST row on a quote without tax", async () => {

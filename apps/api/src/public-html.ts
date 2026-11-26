@@ -16,13 +16,6 @@ export const paragraphs = (text: string) => escapeHtml(text).replaceAll("\n", "<
 const dayWords = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 const shortDayWords = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", timeZone: "UTC" });
 export const dayOf = (day: string) => escapeHtml(dayWords.format(new Date(`${day}T00:00:00Z`)));
-const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-/** "Fri 4 Dec 2026": a calendar day as a customer reads it at the top of a quote. */
-export function weekdayDayOf(day: string): string {
-  const date = new Date(`${day}T00:00:00Z`);
-  return `${weekdays[date.getUTCDay()] ?? ""} ${String(date.getUTCDate())} ${months[date.getUTCMonth()] ?? ""} ${String(date.getUTCFullYear())}`;
-}
 export const shortDayOf = (day: string) => escapeHtml(shortDayWords.format(new Date(`${day}T00:00:00Z`)));
 
 /** A link is shown only when it is an http(s) address; anything else (javascript:) is dropped. */

@@ -1,15 +1,9 @@
 // Stored free text as points, one a line: included ones ticked in green, excluded ones crossed, the rest bulleted. Shared
-// by the opened quote and the trip page (and later the public package page); it has no words of its own.
+// by the opened quote, the trip page and the public package page; it has no words of its own.
+import { pointsOf } from "@travel-crm/contracts/quotes";
 import { CheckIcon, XIcon } from "lucide-react";
 
 type Tone = "included" | "excluded" | "plain";
-
-/** The lines of stored text that say something, without a typed bullet mark. */
-export const pointsOf = (text: string): string[] =>
-  text
-    .split(/\r?\n/)
-    .map((line) => line.replace(/^\s*[-•*]\s+/, "").trim())
-    .filter((line) => line !== "");
 
 export function PointList({ text, tone }: { text: string; tone: Tone }) {
   const points = pointsOf(text);

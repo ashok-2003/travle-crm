@@ -4,13 +4,13 @@
 // delete): its priced lines with the GST and total first, then the plan as day boxes, the inclusions ticked in green,
 // the exclusions crossed and the notes as points. The trip's name, date and people are the page header's.
 import { gstStates } from "@travel-crm/contracts/kernel";
-import type { QuoteDetail } from "@travel-crm/contracts/quotes";
+import { pointsOf, type QuoteDetail } from "@travel-crm/contracts/quotes";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import { cardTints } from "@/components/card-tints";
 import { rupees } from "@/components/forms/money-field";
 import { DayBoxes } from "@/components/trip-plan/day-boxes";
-import { PointList, pointsOf } from "@/components/trip-plan/point-list";
+import { PointList } from "@/components/trip-plan/point-list";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableFooter, TableRow } from "@/components/ui/table";
 
