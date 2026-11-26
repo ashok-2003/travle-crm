@@ -2,6 +2,7 @@
 // connection, checked before anything uses it. The console process and its one-off commands start the same way.
 import { checkPlatformConnection, createPlatformServices, type PlatformServices } from "@travel-crm/domain/platform";
 import { createSheetsHashes } from "@travel-crm/domain/sheets";
+import { renderPlatformInvoice } from "@travel-crm/integrations/pdf";
 import { WHATSAPP_WEBHOOK_HEADER } from "@travel-crm/integrations/whatsapp";
 import type { ConsolePublicRoutes } from "./console-app.js";
 import { loadConsoleSettings, type ConsoleSettings } from "./console-environment.js";
@@ -41,6 +42,8 @@ export async function startConsolePlatform({ environment, services, logger }: Pr
     pushPublicKey: environment.VAPID_PUBLIC_KEY,
     // The invite program's links are the web app's.
     appUrl: environment.APP_URL,
+    // The console's invoices, rendered once when created (React-PDF, through the integrations port).
+    renderInvoice: renderPlatformInvoice,
     aiPrices:
       environment.AI_PRICE_INPUT_PAISE_PER_MILLION === undefined ||
       environment.AI_PRICE_OUTPUT_PAISE_PER_MILLION === undefined
