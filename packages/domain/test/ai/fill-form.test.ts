@@ -6,6 +6,8 @@ import { randomUUID } from "node:crypto";
 import { AI_INPUT_RECORD_TYPE } from "@travel-crm/contracts/files";
 import { createPlatformDatabase, type PlatformDatabase } from "@travel-crm/db/platform";
 import { createMemoryAiModel } from "@travel-crm/integrations/ai";
+import { createMemoryPrompts } from "@travel-crm/integrations/prompts";
+import { FILL_FORM_PROMPT_TEXT } from "../../src/ai/fill/prompt-text.js";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import {
   MONTHLY_AI_LIMIT,
@@ -80,6 +82,29 @@ describe("fill it for me", () => {
     const calls = async () => (await inOrg((tx) => tx.aiUsage.findFirst()))?.calls ?? 0;
     return { organizationId, owner, inOrg, model, fill, calls, dependencies };
   }
+
+  it("runs on Langfuse's fill-form/system when it has one, linking the call to it; else on the built-in text", async () => {
+    const { model, dependencies, owner } = await agency();
+    model.answer(leadJson);
+    const request = { target: "lead" as const, source: { kind: "text" as const, text: "Rahul Manali 4" } };
+    await fillForm(
+      {
+        ...dependencies,
+        prompts: createMemoryPrompts([
+          { name: "fill-form/system", version: 7, label: "production", text: "LANGFUSE FILL RULES" },
+        ]),
+      },
+      owner,
+      request,
+      NOW,
+    );
+    expect(model.requests[0]?.messages[0]).toEqual({ role: "system", content: "LANGFUSE FILL RULES" });
+    expect(model.requests[0]?.prompt).toEqual({ name: "fill-form/system", version: 7 });
+    model.answer(leadJson);
+    await fillForm({ ...dependencies, prompts: createMemoryPrompts() }, owner, request, NOW);
+    expect(model.requests[1]?.messages[0]).toEqual({ role: "system", content: FILL_FORM_PROMPT_TEXT });
+    expect(model.requests[1]?.prompt).toBeUndefined();
+  });
 
   it("is off until the agency turns it on, and asks the AI nothing while off", async () => {
     const { fill, model, calls } = await agency({ aiOn: false });
