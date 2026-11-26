@@ -11,6 +11,7 @@ import {
 } from "@travel-crm/contracts/ai";
 import type { Database, OrgTx } from "@travel-crm/db";
 import type { AiModel } from "@travel-crm/integrations/ai";
+import type { AiPrompts } from "@travel-crm/integrations/prompts";
 import { findDeparture, nameOf, rosterOf, type RosterTraveller } from "../../departures/index.js";
 import { organizationTimeZone, type MemberAccess } from "../../identity/index.js";
 import { jsonObjectIn } from "../fill/json.js";
@@ -18,7 +19,9 @@ import { refuse, modelRefusal } from "../refusals.js";
 import { aiEnabled } from "../settings.js";
 import { MONTHLY_AI_LIMIT, recordTokens, releaseAiCall, reserveAiCall, usedThisMonth } from "../usage.js";
 import { requestHash } from "./applied.js";
-import { roomRequestsPrompt, type RoomingBooking } from "./prompt.js";
+import { managedPrompt } from "../managed-prompt.js";
+import { ROOMING_PROMPT_NAME, roomRequestsPrompt, type RoomingBooking } from "./prompt.js";
+import { ROOMING_PROMPT_TEXT } from "./prompt-text.js";
 
 /** The most travellers read in one call, and the notes kept for each booking's lead. */
 const TRAVELLERS_MAX = 80;
@@ -154,7 +157,7 @@ function suggestionsOf(text: string, byRef: Prepared["byRef"]): RoomRequestSugge
  * are the router's.
  */
 export async function readRoomRequests(
-  { db, model }: { db: Database; model: AiModel },
+  { db, model, prompts }: { db: Database; model: AiModel; prompts?: AiPrompts | undefined },
   access: MemberAccess,
   input: ReadRoomRequestsInput,
   now: Date,
@@ -163,9 +166,13 @@ export async function readRoomRequests(
   if (!model.configured) throw refuse("AI_NOT_READY", "The AI isn't set up on this server yet");
   const prepared = await db.forOrg(organizationId, (tx) => prepare(tx, access, input, now));
   const giveBack = () => db.forOrg(organizationId, (tx) => releaseAiCall(tx, now, prepared.timeZone));
+  const instructions = await managedPrompt(prompts, ROOMING_PROMPT_NAME, ROOMING_PROMPT_TEXT);
   const result = await model.complete({
     feature: "read_requests",
-    messages: roomRequestsPrompt(prepared.bookings),
+    messages: roomRequestsPrompt(prepared.bookings, instructions.text),
+    ...(instructions.source === undefined
+      ? {}
+      : { prompt: { name: instructions.source.name, version: instructions.source.version } }),
     json: true,
     maxTokens: 1500,
     // Opaque: the agency's id, never a person's.
