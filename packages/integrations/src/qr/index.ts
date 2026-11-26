@@ -1,9 +1,9 @@
 // A link drawn as a QR code: dark squares as one path, for the customer's page (an inline SVG) and the PDF (vector).
 import { encode } from "uqr";
 
-/** The code's modules as one path of 1x1 squares, in a `size` x `size` box that already holds a quiet border. */
+/** The code's modules as one path of 1x1 squares, in a `size` x `size` box that holds the spec's 4-module quiet zone. */
 export function qrSquares(value: string): { size: number; path: string } {
-  const { data, size } = encode(value, { ecc: "M", border: 2 });
+  const { data, size } = encode(value, { ecc: "M", border: 4 });
   const path = data
     .flatMap((row, y) => row.flatMap((dark, x) => (dark ? [`M${String(x)} ${String(y)}h1v1h-1z`] : [])))
     .join("");
