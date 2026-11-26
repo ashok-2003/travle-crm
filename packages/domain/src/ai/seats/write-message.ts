@@ -6,6 +6,7 @@
 import type { SeatMessage, WriteSeatMessageInput } from "@travel-crm/contracts/ai";
 import type { Database, OrgTx } from "@travel-crm/db";
 import type { AiModel } from "@travel-crm/integrations/ai";
+import type { AiPrompts } from "@travel-crm/integrations/prompts";
 import type { RoomType } from "@travel-crm/contracts/quotes";
 import {
   countsOf,
@@ -24,7 +25,9 @@ import { hashOf } from "../suggest.js";
 import { MONTHLY_AI_LIMIT, recordTokens, releaseAiCall, reserveAiCall, usedThisMonth } from "../usage.js";
 import { withoutTypedAmounts } from "../write-up/tokens.js";
 import { assertOfferable, offerableLeads, type Candidate } from "./interested.js";
-import { reachOutPrompt, type ReachOutFacts } from "./prompt.js";
+import { managedPrompt } from "../managed-prompt.js";
+import { reachOutPrompt, REACH_OUT_PROMPT_NAME, type ReachOutFacts } from "./prompt.js";
+import { REACH_OUT_PROMPT_TEXT } from "./prompt-text.js";
 import { withoutSeatCounts } from "./seat-words.js";
 
 const MAX_CHARS = 1200;
@@ -143,15 +146,17 @@ export async function writeSeatMessage(
   model: AiModel,
   access: MemberAccess,
   input: WriteSeatMessageInput,
-  context: { agencyName: string; now: Date },
+  context: { agencyName: string; now: Date; prompts?: AiPrompts | undefined },
 ): Promise<SeatMessage> {
   const { organizationId } = access;
   if (!model.configured) throw refuse("AI_NOT_READY", "The AI isn't set up on this server yet");
   const prepared = await db.forOrg(organizationId, (tx) => prepare(tx, access, input, context));
   const giveBack = () => db.forOrg(organizationId, (tx) => releaseAiCall(tx, context.now, prepared.timeZone));
+  const prompt = await managedPrompt(context.prompts, REACH_OUT_PROMPT_NAME, REACH_OUT_PROMPT_TEXT);
   const result = await model.complete({
     feature: "reach_out",
-    messages: reachOutPrompt(prepared.facts),
+    messages: reachOutPrompt(prepared.facts, prompt.text),
+    ...(prompt.source ? { prompt: { name: prompt.source.name, version: prompt.source.version } } : {}),
     maxTokens: 400,
     // Opaque: the agency's id, never a person's.
     user: organizationId,

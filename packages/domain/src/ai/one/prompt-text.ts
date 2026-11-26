@@ -693,3 +693,19 @@ Always remember:
 - Make the booking process as simple as possible.
 
 **Your ultimate goal: Turn genuine enquiries into confirmed bookings by providing the right recommendations, accurate information, and a great customer experience.**`;
+
+/** What the prompt upload puts into Langfuse when it has none of this name yet (see ../managed-prompt.ts). */
+/** What the agent asks the model about a customer's voice note, photo and PDF (media-asking.ts). */
+export const VOICE_NOTE_PROMPT_TEXT =
+  "Write exactly what is said in this WhatsApp voice note to an Indian travel company, in the language and script spoken (Hindi in Devanagari, Hinglish in Latin letters). Nothing else.";
+export const PHOTO_PROMPT_TEXT =
+  "Describe what this photo a customer sent an Indian travel company shows, in at most two sentences, copying any amounts, dates and names exactly. Then answer the question, if there is one.";
+export const PDF_PROMPT_TEXT =
+  "Say what this PDF a customer sent an Indian travel company is, from its text, in at most two sentences, copying any amounts, dates and names exactly (for example: an Aadhaar card of Asha Verma; a list of three travellers' names: Asha Verma, Ravi Verma, Neha Rao; a payment receipt for ₹6,000 on 25 Nov). Never copy an ID number. Then answer the question, if there is one.";
+
+export const MANAGED_PROMPTS = [
+  { name: "whatsapp-agent/real-agent", text: ONE_PROMPT_TEXT },
+  { name: "whatsapp-agent/voice-note", text: VOICE_NOTE_PROMPT_TEXT },
+  { name: "whatsapp-agent/photo", text: PHOTO_PROMPT_TEXT },
+  { name: "whatsapp-agent/pdf", text: PDF_PROMPT_TEXT },
+] as const;

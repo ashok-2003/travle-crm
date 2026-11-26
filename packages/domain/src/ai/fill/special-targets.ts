@@ -9,11 +9,12 @@ import type { MemberAccess } from "../../identity/index.js";
 import { DomainError } from "../../kernel/index.js";
 import { getQuote } from "../../quotes/index.js";
 import { gatherDraftFacts, resolveDraftDays } from "./draft-days.js";
-import { draftDaysPrompt } from "./draft-days-prompt.js";
+import { DRAFT_DAYS_PROMPT_NAME, draftDaysPrompt } from "./draft-days-prompt.js";
 import { jsonObjectIn } from "./json.js";
 import type { Resolved } from "./resolve.js";
 import { resolveTravellers } from "./travellers-resolve.js";
-import { travellersPrompt } from "./travellers-prompt.js";
+import { DRAFT_DAYS_PROMPT_TEXT, FILL_TRAVELLERS_PROMPT_TEXT } from "./prompt-text.js";
+import { TRAVELLERS_PROMPT_NAME, travellersPrompt } from "./travellers-prompt.js";
 
 type Special = Extract<AiFillInput["target"], "quote_days" | "travellers">;
 
@@ -23,7 +24,10 @@ export interface SpecialPrepared {
   subject: { type: "lead" | "quote"; id: string };
   feature: AiFeature;
   maxTokens: number;
-  messages(attachments: readonly AiPart[], words: string): AiMessage[];
+  /** The managed prompt it runs on: its Langfuse name, and the built-in text when Langfuse has none. */
+  prompt: { name: string; builtIn: string };
+  /** `instructions` is the system message the engine read (Langfuse's, else the built-in text). */
+  messages(instructions: string, attachments: readonly AiPart[], words: string): AiMessage[];
   /** Turns the model's text into fields and questions, in the same transaction that writes the fill's row. */
   resolve(text: string, from: AiFillField["from"]): Resolved;
 }
@@ -48,7 +52,8 @@ async function prepareDays(
     subject: { type: "quote", id: quote.id },
     feature: "draft_days",
     maxTokens: 3000,
-    messages: () => draftDaysPrompt(gathered.facts),
+    prompt: { name: DRAFT_DAYS_PROMPT_NAME, builtIn: DRAFT_DAYS_PROMPT_TEXT },
+    messages: (instructions) => draftDaysPrompt(gathered.facts, instructions),
     resolve(text) {
       const json = jsonObjectIn(text);
       const answer = draftAnswer.parse(json ?? {});
@@ -96,7 +101,8 @@ async function prepareTravellers(
     subject: { type: "lead", id: booking.leadId },
     feature: "fill_form",
     maxTokens: 2500,
-    messages: (attachments, words) => travellersPrompt({ today, text: words, attachments }),
+    prompt: { name: TRAVELLERS_PROMPT_NAME, builtIn: FILL_TRAVELLERS_PROMPT_TEXT },
+    messages: (instructions, attachments, words) => travellersPrompt({ today, text: words, attachments }, instructions),
     resolve(text, from) {
       const answer = travellersAnswer.parse(jsonObjectIn(text) ?? {});
       return { ...resolveTravellers(answer, { today, rows, mayReadIds, from }), removedAmounts: false };

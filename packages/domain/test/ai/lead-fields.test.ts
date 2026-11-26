@@ -3,6 +3,7 @@
 // lead is complete or the agency turned it off); a field edited since ends its own tint; a person confirms or dismisses.
 import { randomUUID } from "node:crypto";
 import { createMemoryAiModel } from "@travel-crm/integrations/ai";
+import { createMemoryPrompts, type AiPrompts } from "@travel-crm/integrations/prompts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   aiFilledLeadIds,
@@ -11,6 +12,7 @@ import {
   scoreLead,
   suggestedFieldsOf,
 } from "../../src/ai/index.js";
+import { LEAD_SCORING_PROMPT_TEXT } from "../../src/ai/prompt-text.js";
 import { findOrAddDestination } from "../../src/catalog/index.js";
 import { lockLead } from "../../src/crm/index.js";
 import { systemActor } from "../../src/kernel/index.js";
@@ -122,15 +124,52 @@ describe("a new WhatsApp lead that arrives filled in", () => {
       ),
     );
     const model = createMemoryAiModel();
-    const score = () =>
+    const score = (prompts?: AiPrompts) =>
       scoreLead(
-        { db: test.db, ai: model, subscriptions: { entitlementsOf: () => Promise.resolve(entitlements) } },
+        { db: test.db, ai: model, subscriptions: { entitlementsOf: () => Promise.resolve(entitlements) }, prompts },
         { organizationId, conversationId: chat.id, messageId: newest.id },
         testNow,
       );
     const leadNow = () => inOrg((tx) => tx.lead.findUniqueOrThrow({ where: { id: lead.id } }));
     return { organizationId, inOrg, owner, lead, manali, model, score, leadNow };
   }
+
+  it("runs on Langfuse's lead-scoring/system, its {{tripFields}} filled only while the lead may be filled in", async () => {
+    const prompts = createMemoryPrompts([
+      { name: "lead-scoring/system", version: 7, label: "production", text: "Langfuse scoring rules{{tripFields}}." },
+    ]);
+    const filling = await agency();
+    filling.model.answer(answer());
+    await filling.score(prompts);
+    const [first] = filling.model.requests;
+    expect(first?.prompt).toEqual({ name: "lead-scoring/system", version: 7 });
+    expect(first?.messages[0]?.content).toMatch(/^Langfuse scoring rules, "trip": \{"destination": the place[^]*\.$/);
+
+    const scoringOnly = await agency({ fillLeads: false });
+    scoringOnly.model.answer(answer());
+    await scoringOnly.score(prompts);
+    expect(scoringOnly.model.requests[0]?.messages[0]).toEqual({ role: "system", content: "Langfuse scoring rules." });
+  });
+
+  it("runs on the built-in scoring rules, with no prompt link, when Langfuse has none", async () => {
+    const filling = await agency();
+    filling.model.answer(answer());
+    await filling.score(createMemoryPrompts());
+    const [request] = filling.model.requests;
+    expect(request?.prompt).toBeUndefined();
+    const system = request?.messages[0]?.content ?? "";
+    expect(system.startsWith(LEAD_SCORING_PROMPT_TEXT.split("{{tripFields}}")[0] ?? "")).toBe(true);
+    expect(system).not.toContain("{{tripFields}}");
+    expect(system).toContain('"trip": {"destination"');
+
+    const scoringOnly = await agency({ fillLeads: false });
+    scoringOnly.model.answer(answer());
+    await scoringOnly.score();
+    expect(scoringOnly.model.requests[0]?.messages[0]).toEqual({
+      role: "system",
+      content: LEAD_SCORING_PROMPT_TEXT.replace("{{tripFields}}", ""),
+    });
+  });
 
   it("fills the empty fields from the customer's words, as suggestions with their excerpts, in the same call as the score", async () => {
     const { model, score, leadNow, inOrg, lead, manali } = await agency();

@@ -4,6 +4,9 @@
 // rate writes in one transaction, audited as drafted by AI, approved by the member, with what the member changed.
 import { AI_INPUT_RECORD_TYPE } from "@travel-crm/contracts/files";
 import { createMemoryAiModel } from "@travel-crm/integrations/ai";
+import { createMemoryPrompts } from "@travel-crm/integrations/prompts";
+import { rateSheetInstructions } from "../../src/ai/rates/prompt.js";
+import { RATE_SHEET_PROMPT_TEXT } from "../../src/ai/rates/prompt-text.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   confirmAiInput,
@@ -158,6 +161,34 @@ describe("reading a supplier's rate sheet", () => {
     expect(JSON.stringify(fill)).not.toContain("Deluxe");
     const catalog = await inOrg((tx) => supplierRates(tx, supplier.id));
     expect(catalog.seasons).toEqual([]);
+  });
+
+  it("reads on Langfuse's rate-sheets/read when it has one (placeholders filled), linking the call; else on the built-in text", async () => {
+    const { upload, sheet, model, dependencies, supplier, owner } = await agency();
+    const id = await upload(XLSX, sheet([["Deluxe room", "MAP", "4,500"]]));
+    const input = { supplierId: supplier.id, attachmentIds: [id] };
+    model.answer(answer);
+    const prompts = createMemoryPrompts([
+      {
+        name: "rate-sheets/read",
+        version: 7,
+        label: "production",
+        text: "LANGFUSE RATES: at most {{max_rates}} rows, plans {{meal_plans}}",
+      },
+    ]);
+    await readRateSheet({ ...dependencies, prompts }, owner, input, NOW);
+    const own = model.requests[0]?.messages[0]?.content ?? "";
+    expect(own).toMatch(/^LANGFUSE RATES: at most \d+ rows, plans ""[^\n]*"MAP"/);
+    expect(own).not.toContain("{{");
+    expect(model.requests[0]?.prompt).toEqual({ name: "rate-sheets/read", version: 7 });
+    model.answer(answer);
+    await readRateSheet(dependencies, owner, input, NOW);
+    expect(model.requests[1]?.messages[0]).toEqual({
+      role: "system",
+      content: rateSheetInstructions(RATE_SHEET_PROMPT_TEXT),
+    });
+    expect(model.requests[1]?.messages[0]?.content).not.toContain("{{");
+    expect(model.requests[1]?.prompt).toBeUndefined();
   });
 
   it("reads a PDF by its text", async () => {

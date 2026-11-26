@@ -93,6 +93,7 @@ function startCall(tracing: AiTracing, request: AiRequest): TracedGeneration {
       input: request.messages.map(tracedMessage),
       ...(request.model === undefined ? {} : { model: request.model }),
       ...(Object.keys(modelParameters).length === 0 ? {} : { modelParameters }),
+      ...(request.prompt === undefined ? {} : { prompt: request.prompt }),
       metadata: {
         feature: request.feature,
         ...(request.user === undefined ? {} : { organizationId: request.user }),

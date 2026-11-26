@@ -6,6 +6,8 @@
 import { randomUUID } from "node:crypto";
 import { createBookingFromQuote, saveTravellersByStaff } from "../../src/bookings/index.js";
 import { createMemoryAiModel } from "@travel-crm/integrations/ai";
+import { createMemoryPrompts } from "@travel-crm/integrations/prompts";
+import { DRAFT_DAYS_PROMPT_TEXT, FILL_TRAVELLERS_PROMPT_TEXT } from "../../src/ai/fill/prompt-text.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { confirmAiInput, fillForm, recordFillApplied, requestAiInput, saveAiSettings } from "../../src/ai/index.js";
 import { aQuote } from "../bookings/support.js";
@@ -183,6 +185,30 @@ describe("draft the days and read the travellers", () => {
       expect(prompt).not.toContain("The agency's own plans");
     });
 
+    it("drafts on Langfuse's draft-days/system when it has one, linking the call to it; else on the built-in text", async () => {
+      const a = await agency();
+      const quoteId = await tripOn(a);
+      const input = { target: "quote_days" as const, subjectId: quoteId, source: { kind: "none" as const } };
+      a.model.answer(six());
+      await fillForm(
+        {
+          ...a.dependencies,
+          prompts: createMemoryPrompts([
+            { name: "draft-days/system", version: 7, label: "production", text: "LANGFUSE DAYS RULES" },
+          ]),
+        },
+        a.owner,
+        input,
+        NOW,
+      );
+      expect(a.model.requests[0]?.messages[0]).toEqual({ role: "system", content: "LANGFUSE DAYS RULES" });
+      expect(a.model.requests[0]?.prompt).toEqual({ name: "draft-days/system", version: 7 });
+      a.model.answer(six());
+      await fillForm(a.dependencies, a.owner, input, NOW);
+      expect(a.model.requests[1]?.messages[0]).toEqual({ role: "system", content: DRAFT_DAYS_PROMPT_TEXT });
+      expect(a.model.requests[1]?.prompt).toBeUndefined();
+    });
+
     it("takes the trip's length from the note, then refuses a trip of unknown or too great length without a call", async () => {
       const a = await agency();
       const quoteId = await tripOn(a, { dates: null });
@@ -316,6 +342,34 @@ describe("draft the days and read the travellers", () => {
       const prompt = a.model.requests[0]?.messages.map((message) => message.content).join("\n") ?? "";
       expect(prompt).toContain("<data>Ramesh 12 June 1980");
       expect(a.model.requests[0]?.feature).toBe("fill_form");
+    });
+
+    it("reads on Langfuse's fill-form/travellers when it has one, linking the call to it; else on the built-in text", async () => {
+      const a = await agency();
+      const { bookingId } = await bookingFor(a);
+      const input = {
+        target: "travellers" as const,
+        subjectId: bookingId,
+        source: { kind: "text" as const, text: "Ramesh" },
+      };
+      a.model.answer(said);
+      await fillForm(
+        {
+          ...a.dependencies,
+          prompts: createMemoryPrompts([
+            { name: "fill-form/travellers", version: 7, label: "production", text: "LANGFUSE TRAVELLERS RULES" },
+          ]),
+        },
+        a.owner,
+        input,
+        NOW,
+      );
+      expect(a.model.requests[0]?.messages[0]).toEqual({ role: "system", content: "LANGFUSE TRAVELLERS RULES" });
+      expect(a.model.requests[0]?.prompt).toEqual({ name: "fill-form/travellers", version: 7 });
+      a.model.answer(said);
+      await fillForm(a.dependencies, a.owner, input, NOW);
+      expect(a.model.requests[1]?.messages[0]).toEqual({ role: "system", content: FILL_TRAVELLERS_PROMPT_TEXT });
+      expect(a.model.requests[1]?.prompt).toBeUndefined();
     });
 
     it("hashes nothing of the proposal: the same people hash alike whatever they are", async () => {

@@ -2,6 +2,8 @@
 // matches places to existing destinations without creating any, offers parts first when the documents are long, and gives the call back
 // when nothing usable came.
 import { createMemoryAiModel } from "@travel-crm/integrations/ai";
+import { createMemoryPrompts } from "@travel-crm/integrations/prompts";
+import { MAX_FOUND_TRIPS } from "@travel-crm/contracts/ai";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { findTrips, saveAiSettings } from "../../src/ai/index.js";
 import { anAgency, createTestImports, memberOf, type TestImports } from "../imports/support/test-imports.js";
@@ -49,6 +51,29 @@ describe("finding the trips in an agency's documents", () => {
       { name: "Manali 4 Nights 5 Days", place: "Manali", nights: 4, lines: ["P1.L2"] },
       { name: "Spiti 7 Nights 8 Days", place: "Spiti", nights: 7, lines: ["P2.L1", "P9.L9"] },
     ],
+  });
+
+  it("finds on Langfuse's package-drafts/find-trips when it has one (placeholders filled), linking the call; else on the built-in text", async () => {
+    const { model, owner } = await agency();
+    model.answer(answer);
+    const prompts = createMemoryPrompts([
+      {
+        name: "package-drafts/find-trips",
+        version: 7,
+        label: "production",
+        text: "LANGFUSE TRIPS, at most {{max_trips}}",
+      },
+    ]);
+    await findTrips({ db: test.db, model, prompts }, owner, {}, NOW);
+    expect(model.requests[0]?.messages[0]?.content).toMatch(/^LANGFUSE TRIPS, at most \d+$/);
+    expect(model.requests[0]?.prompt).toEqual({ name: "package-drafts/find-trips", version: 7 });
+    model.answer(answer);
+    await findTrips({ db: test.db, model }, owner, {}, NOW);
+    const builtIn = model.requests[1]?.messages[0]?.content ?? "";
+    expect(builtIn).toMatch(/^FIND_TRIPS\. You work for a travel agency/);
+    expect(builtIn).toContain(`- At most ${String(MAX_FOUND_TRIPS)} trips.`);
+    expect(builtIn).not.toContain("{{");
+    expect(model.requests[1]?.prompt).toBeUndefined();
   });
 
   it("finds Manali twice and Spiti once, each with its lines, and saves nothing but the fill", async () => {

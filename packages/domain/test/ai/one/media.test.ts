@@ -3,8 +3,10 @@
 import { randomUUID } from "node:crypto";
 import { WHATSAPP_RECORD_TYPE } from "@travel-crm/contracts/files";
 import { createMemoryAiModel, type MemoryAiModel } from "@travel-crm/integrations/ai";
+import { createMemoryPrompts } from "@travel-crm/integrations/prompts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { lookAtImage, readArrivedFile, transcribeVoiceNote } from "../../../src/ai/one/media.js";
+import { PDF_PROMPT_TEXT, PHOTO_PROMPT_TEXT, VOICE_NOTE_PROMPT_TEXT } from "../../../src/ai/one/prompt-text.js";
 import { countedModel } from "../../../src/ai/natural/counted-model.js";
 import { systemActor } from "../../../src/kernel/index.js";
 import { aConnectedAgency, createTestInbox, testNow, type TestInbox } from "../../inbox/support.js";
@@ -334,5 +336,101 @@ describe("the one agent reads a voice note or a photo", () => {
     const result = await transcribeVoiceNote(deps, { conversationId: chat.id, messageId: next });
     expect(JSON.stringify(result)).toContain("this month's AI credits are used up");
     expect(model.requests).toHaveLength(2);
+  });
+});
+
+describe("the agent's file readings run on Langfuse's prompts", () => {
+  let test: TestInbox;
+  beforeAll(() => {
+    test = createTestInbox();
+  });
+  afterAll(() => test.close());
+
+  async function reading() {
+    const { organizationId, connectionId } = await aConnectedAgency(test);
+    const inOrg = <T>(work: Parameters<typeof test.db.forOrg<T>>[1]) => test.db.forOrg(organizationId, work);
+    const chat = await inOrg((tx) =>
+      tx.whatsappConversation.create({
+        data: { connectionId, phoneE164: `+9199${String(Math.floor(Math.random() * 1e8)).padStart(8, "0")}` },
+        select: { id: true },
+      }),
+    );
+    const model: MemoryAiModel = createMemoryAiModel();
+    const call = countedModel(model, { db: test.db, organizationId, now: testNow, timeZone: ZONE });
+    const file = async (kind: string, contentType: string) => {
+      const row = await inOrg((tx) =>
+        tx.whatsappMessage.create({
+          data: {
+            conversationId: chat.id,
+            direction: "in",
+            origin: "customer",
+            kind,
+            wamid: randomUUID(),
+            status: "received",
+            occurredAt: testNow,
+            mediaState: "stored",
+          },
+          select: { id: true },
+        }),
+      );
+      await test.files.storeGeneratedFile(systemActor(organizationId), {
+        recordType: WHATSAPP_RECORD_TYPE,
+        recordId: row.id,
+        fileName: "file",
+        contentType,
+        body: BYTES,
+        attachmentId: row.id,
+      });
+      return { conversationId: chat.id, messageId: row.id };
+    };
+    const base = { db: test.db, files: test.files, call, organizationId };
+    return { model, file, base };
+  }
+
+  const langfuse = createMemoryPrompts([
+    { name: "whatsapp-agent/voice-note", version: 2, label: "production", text: "Langfuse voice words" },
+    { name: "whatsapp-agent/photo", version: 3, label: "production", text: "Langfuse photo words" },
+    { name: "whatsapp-agent/pdf", version: 4, label: "production", text: "Langfuse pdf words" },
+  ]);
+  const readText = () => Promise.resolve("Asha Verma");
+  const photoAnswer = JSON.stringify({ description: "A receipt.", answer: "" });
+
+  it("uses Langfuse's voice-note, photo and pdf text and links each call to its version", async () => {
+    const { model, file, base } = await reading();
+    model.answer("Namaste");
+    await transcribeVoiceNote({ ...base, prompts: langfuse }, await file("audio", "audio/ogg"));
+    model.answer(photoAnswer);
+    await readArrivedFile({ ...base, prompts: langfuse }, { ...(await file("image", "image/jpeg")), kind: "image" });
+    model.answer(photoAnswer);
+    await readArrivedFile(
+      { ...base, readText, prompts: langfuse },
+      { ...(await file("document", "application/pdf")), kind: "document" },
+    );
+    expect(model.requests.map((asked) => asked.messages[0])).toEqual([
+      { role: "system", content: "Langfuse voice words" },
+      { role: "system", content: "Langfuse photo words" },
+      { role: "system", content: "Langfuse pdf words" },
+    ]);
+    expect(model.requests.map((asked) => asked.prompt)).toEqual([
+      { name: "whatsapp-agent/voice-note", version: 2 },
+      { name: "whatsapp-agent/photo", version: 3 },
+      { name: "whatsapp-agent/pdf", version: 4 },
+    ]);
+  });
+
+  it("uses the built-in texts, with no prompt link, when Langfuse has none or is off", async () => {
+    const { model, file, base } = await reading();
+    model.answer("Namaste");
+    await transcribeVoiceNote({ ...base, prompts: createMemoryPrompts() }, await file("audio", "audio/ogg"));
+    model.answer(photoAnswer);
+    await readArrivedFile({ ...base }, { ...(await file("image", "image/jpeg")), kind: "image" });
+    model.answer(photoAnswer);
+    await readArrivedFile({ ...base, readText }, { ...(await file("document", "application/pdf")), kind: "document" });
+    expect(model.requests.map((asked) => asked.messages[0])).toEqual([
+      { role: "system", content: VOICE_NOTE_PROMPT_TEXT },
+      { role: "system", content: PHOTO_PROMPT_TEXT },
+      { role: "system", content: PDF_PROMPT_TEXT },
+    ]);
+    expect(model.requests.every((asked) => asked.prompt === undefined)).toBe(true);
   });
 });

@@ -1,7 +1,16 @@
 // What the model is asked about a customer's file (media.ts): a voice note heard, a photo seen, a PDF said in a line from
 // its words. A PDF with no words (a scan) is kept as such with no call: nothing here turns a page into a picture.
 import { audioFormatOf, type AiFeature, type AiPart } from "@travel-crm/integrations/ai";
+import type { AiPrompts } from "@travel-crm/integrations/prompts";
 import { fenced } from "../fenced.js";
+import type { NaturalPrompt } from "../natural/prompt.js";
+import { managedPrompt } from "../managed-prompt.js";
+import { PDF_PROMPT_TEXT, PHOTO_PROMPT_TEXT, VOICE_NOTE_PROMPT_TEXT } from "./prompt-text.js";
+
+/** The Langfuse prompts (label production) the three readings run on; their built-in texts are in prompt-text.ts. */
+export const VOICE_NOTE_PROMPT_NAME = "whatsapp-agent/voice-note";
+export const PHOTO_PROMPT_NAME = "whatsapp-agent/photo";
+export const PDF_PROMPT_NAME = "whatsapp-agent/pdf";
 
 /** The kinds of a customer's file the agent reads. */
 export type FileKind = "audio" | "image" | "document";
@@ -12,6 +21,8 @@ export type ReadText = (bytes: Uint8Array, contentType: string) => Promise<strin
 export interface Asking {
   feature: AiFeature;
   system: string;
+  /** The Langfuse prompt the system text came from; none when it is the built-in text. */
+  prompt?: { name: string; version: number };
   user: string;
   attachments: AiPart[];
 }
@@ -23,12 +34,6 @@ const PDF_TEXT_CHARACTERS = 6_000;
 /** What a PDF with no words to read is kept as. */
 export const UNREADABLE_PDF = "a PDF with no readable text";
 
-const VOICE_PROMPT =
-  "Write exactly what is said in this WhatsApp voice note to an Indian travel company, in the language and script spoken (Hindi in Devanagari, Hinglish in Latin letters). Nothing else.";
-const IMAGE_PROMPT =
-  "Describe what this photo a customer sent an Indian travel company shows, in at most two sentences, copying any amounts, dates and names exactly. Then answer the question, if there is one.";
-const PDF_PROMPT =
-  "Say what this PDF a customer sent an Indian travel company is, from its text, in at most two sentences, copying any amounts, dates and names exactly (for example: an Aadhaar card of Asha Verma; a list of three travellers' names: Asha Verma, Ravi Verma, Neha Rao; a payment receipt for ₹6,000 on 25 Nov). Never copy an ID number. Then answer the question, if there is one.";
 export const IMAGE_SCHEMA = {
   name: "photo_reading",
   jsonSchema: {
@@ -38,6 +43,10 @@ export const IMAGE_SCHEMA = {
     additionalProperties: false,
   },
 };
+
+/** The request's link to the Langfuse prompt, only when the text came from there. */
+const sourceOf = (prompt: NaturalPrompt) =>
+  prompt.source ? { prompt: { name: prompt.source.name, version: prompt.source.version } } : {};
 
 /** The PDF's words, cut; empty for a scan or a file unpdf can't open (a broken or locked one). */
 async function pdfWords(readText: ReadText, bytes: Uint8Array): Promise<string> {
@@ -58,26 +67,31 @@ export async function askingOf(
   body: () => Promise<Uint8Array>,
   question: string | null,
   readText: ReadText | undefined,
+  prompts?: AiPrompts,
 ): Promise<Asking | { kept: string } | null> {
   const asks = question === null ? "No question." : `Question: ${question}`;
   if (kind === "audio") {
     const format = audioFormatOf(contentType);
     if (format === null) return null;
     const attachments: AiPart[] = [{ type: "audio", format, bytes: await body() }];
-    return { feature: "agent_voice", system: VOICE_PROMPT, user: "Voice note.", attachments };
+    const prompt = await managedPrompt(prompts, VOICE_NOTE_PROMPT_NAME, VOICE_NOTE_PROMPT_TEXT);
+    return { feature: "agent_voice", system: prompt.text, ...sourceOf(prompt), user: "Voice note.", attachments };
   }
   if (kind === "image") {
     const mimeType = IMAGE_TYPES.find((type) => type === contentType);
     if (mimeType === undefined) return null;
     const attachments: AiPart[] = [{ type: "image", mimeType, bytes: await body() }];
-    return { feature: "agent_image", system: IMAGE_PROMPT, user: asks, attachments };
+    const prompt = await managedPrompt(prompts, PHOTO_PROMPT_NAME, PHOTO_PROMPT_TEXT);
+    return { feature: "agent_image", system: prompt.text, ...sourceOf(prompt), user: asks, attachments };
   }
   if (contentType !== PDF_TYPE || readText === undefined) return null;
   const words = await pdfWords(readText, await body());
   if (words === "") return { kept: UNREADABLE_PDF };
+  const prompt = await managedPrompt(prompts, PDF_PROMPT_NAME, PDF_PROMPT_TEXT);
   return {
     feature: "agent_image",
-    system: PDF_PROMPT,
+    system: prompt.text,
+    ...sourceOf(prompt),
     user: `${asks}\n\nThe PDF's text:\n<pdf>\n${fenced(words)}\n</pdf>`,
     attachments: [],
   };

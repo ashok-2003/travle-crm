@@ -13,6 +13,7 @@ import {
 import { AI_INPUT_RECORD_TYPE } from "@travel-crm/contracts/files";
 import type { Database, OrgTx } from "@travel-crm/db";
 import type { AiModel, AiPart } from "@travel-crm/integrations/ai";
+import type { AiPrompts } from "@travel-crm/integrations/prompts";
 import { getLead } from "../../crm/index.js";
 import type { Files } from "../../files/index.js";
 import { organizationTimeZone, type MemberAccess } from "../../identity/index.js";
@@ -24,7 +25,9 @@ import { aiEnabled } from "../settings.js";
 import { MONTHLY_AI_LIMIT, recordTokens, releaseAiCall, reserveAiCall, usedThisMonth } from "../usage.js";
 import { callAnswer, leadAnswer, quoteAnswer, tripAnswer } from "@travel-crm/contracts/ai";
 import { jsonObjectIn } from "./json.js";
-import { fillPrompt, type FillSourceFacts, type PlainFillTarget } from "./prompt.js";
+import { managedPrompt } from "../managed-prompt.js";
+import { FILL_FORM_PROMPT_NAME, fillPrompt, type FillSourceFacts, type PlainFillTarget } from "./prompt.js";
+import { FILL_FORM_PROMPT_TEXT } from "./prompt-text.js";
 import { resolveCall, resolveLead, resolveQuote, type ResolveContext, type Resolved } from "./resolve.js";
 import { isSpecial, prepareSpecial, type SpecialPrepared } from "./special-targets.js";
 import { proposalHash, valueHash } from "./values.js";
@@ -211,7 +214,7 @@ function destinationMatcher(tx: OrgTx) {
  * the router's.
  */
 export async function fillForm(
-  { db, model, files }: { db: Database; model: AiModel; files: Files },
+  { db, model, files, prompts }: { db: Database; model: AiModel; files: Files; prompts?: AiPrompts | undefined },
   access: MemberAccess,
   input: AiFillInput,
   now: Date,
@@ -239,12 +242,20 @@ export async function fillForm(
     await giveBack();
     throw error;
   }
+  const instructions = await managedPrompt(
+    prompts,
+    prepared.special?.prompt.name ?? FILL_FORM_PROMPT_NAME,
+    prepared.special?.prompt.builtIn ?? FILL_FORM_PROMPT_TEXT,
+  );
   const result = await model.complete({
     feature: prepared.special?.feature ?? "fill_form",
     messages:
       prepared.special === null
-        ? fillPrompt(plainTarget(input.target), { ...prepared.facts, attachments })
-        : prepared.special.messages(attachments, prepared.facts.text),
+        ? fillPrompt(plainTarget(input.target), { ...prepared.facts, attachments }, instructions.text)
+        : prepared.special.messages(instructions.text, attachments, prepared.facts.text),
+    ...(instructions.source === undefined
+      ? {}
+      : { prompt: { name: instructions.source.name, version: instructions.source.version } }),
     json: true,
     maxTokens: prepared.special?.maxTokens ?? 2500,
     // Opaque: the agency's id, never a person's.

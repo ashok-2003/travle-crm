@@ -5,6 +5,7 @@
 import { WHATSAPP_RECORD_TYPE } from "@travel-crm/contracts/files";
 import type { Database } from "@travel-crm/db";
 import type { AiMessage } from "@travel-crm/integrations/ai";
+import type { AiPrompts } from "@travel-crm/integrations/prompts";
 import type { Files } from "../../files/index.js";
 import type { LoopIO } from "../natural/loop/types.js";
 import { askingOf, IMAGE_SCHEMA, parsePhoto, type FileKind, type ReadText } from "./media-asking.js";
@@ -16,6 +17,8 @@ export interface MediaReadDependencies {
   organizationId: string;
   /** A PDF's words (the worker's documentText); without it a PDF isn't read. */
   readText?: ReadText;
+  /** Langfuse's prompts for the three readings; left out, the built-in texts. */
+  prompts?: AiPrompts | undefined;
   /** Waits between looks at a file still being copied; tests pass a fake one. */
   sleep?: (ms: number) => Promise<void>;
 }
@@ -94,6 +97,7 @@ async function read(
     call,
     organizationId,
     readText,
+    prompts,
     sleep = (ms) => new Promise((done) => setTimeout(done, ms)),
   }: MediaReadDependencies,
   { conversationId, messageId }: Input,
@@ -136,7 +140,7 @@ async function read(
         attachmentId: file.id,
       })
     ).body;
-  const asking = await askingOf(way.kind, file.contentType, body, question, readText);
+  const asking = await askingOf(way.kind, file.contentType, body, question, readText, prompts);
   if (asking === null) return unreadable("that file's format can't be read");
 
   let found: { description: string; answer: string } | null;
@@ -150,6 +154,7 @@ async function read(
     const result = await call({
       feature: asking.feature,
       messages: [{ role: "system", content: asking.system }, user],
+      ...(asking.prompt === undefined ? {} : { prompt: asking.prompt }),
       ...(way.kind === "audio" ? {} : { schema: IMAGE_SCHEMA }),
       maxTokens: 2_000,
       reasoning: { effort: "minimal" },

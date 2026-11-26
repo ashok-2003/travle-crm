@@ -209,6 +209,21 @@ describe("the Langfuse tracing", () => {
     for (const span of unlinked) expect(span.attributes).not.toHaveProperty(["langfuse.observation.prompt.name"]);
   });
 
+  it("links a call outside any turn to the managed prompt it names", async () => {
+    const traced = open();
+    traced.generation({ name: "ai.write_up", input: [], prompt: { name: "write-up/system", version: 3 } }).end({});
+    traced.generation({ name: "ai.score_lead", input: [] }).end({});
+    await traced.flush();
+    const sent = spans();
+    expect(sent.find((span) => span.name === "ai.write_up")?.attributes).toMatchObject({
+      "langfuse.observation.prompt.name": "write-up/system",
+      "langfuse.observation.prompt.version": 3,
+    });
+    expect(sent.find((span) => span.name === "ai.score_lead")?.attributes).not.toHaveProperty([
+      "langfuse.observation.prompt.name",
+    ]);
+  });
+
   it("nests a step under its turn with its own type, and its error by name only", async () => {
     const traced = open();
     const error = Object.assign(new Error("9876543210 not found"), { code: "P2025" });

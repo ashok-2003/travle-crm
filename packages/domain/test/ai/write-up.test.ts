@@ -2,8 +2,10 @@
 // the plan and never a unit price; the quote's total and advance are filled by code and an amount the model typed is taken out;
 // a draft quote has no link line; the month's call is given back when the AI fails; the draft keeps ids and a hash, never words.
 import { createMemoryAiModel } from "@travel-crm/integrations/ai";
+import { createMemoryPrompts, type AiPrompts } from "@travel-crm/integrations/prompts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { MONTHLY_AI_LIMIT, saveAiSettings, writeUpQuote } from "../../src/ai/index.js";
+import { WRITE_UP_PROMPT_TEXT } from "../../src/ai/write-up/prompt-text.js";
 import { createQuote, setQuoteStatus, addInstallment } from "../../src/quotes/index.js";
 import { aLead } from "../crm/support/records.js";
 import { memberOf } from "../imports/support/test-imports.js";
@@ -101,13 +103,13 @@ describe("quote write-up", () => {
         await tx.aiSettings.updateMany({ data: { instructions: "WRITEUP_INSTRUCTIONS" } });
         await tx.aiKnowledge.create({ data: { title: "Offer", body: "WRITEUP_KNOWLEDGE_BODY" } });
       });
-    const write = (member = seller, language: "en" | "hi" = "en") =>
+    const write = (member = seller, language: "en" | "hi" = "en", prompts?: AiPrompts) =>
       writeUpQuote(
         test.db,
         model,
         member,
         { quoteId: quote.id, language, channel: "whatsapp" },
-        { agencyName: "Sharma Holidays", now: testNow },
+        { agencyName: "Sharma Holidays", now: testNow, prompts },
       );
     return { organizationId, inOrg, owner, seller, outsider, chat, quote, model, turnOn, write };
   }
@@ -143,6 +145,23 @@ describe("quote write-up", () => {
     expect(request?.feature).toBe("write_up");
     expect(result.monthlyLimit).toBe(MONTHLY_AI_LIMIT);
     expect(result.usedThisMonth).toBe(1);
+  });
+
+  it("runs on Langfuse's write-up/system when it has one, and on the built-in rules when it has none", async () => {
+    const { write, model, turnOn } = await agency();
+    await turnOn();
+    model.answer("Hi Rahul!\nTotal: {total}");
+    const prompts = createMemoryPrompts([
+      { name: "write-up/system", version: 6, label: "production", text: "Langfuse write-up rules, {total}" },
+    ]);
+    await write(undefined, "en", prompts);
+    expect(model.requests[0]?.messages[0]).toEqual({ role: "system", content: "Langfuse write-up rules, {total}" });
+    expect(model.requests[0]?.prompt).toEqual({ name: "write-up/system", version: 6 });
+
+    model.answer("Hi Rahul!\nTotal: {total}");
+    await write(undefined, "en", createMemoryPrompts());
+    expect(model.requests[1]?.messages[0]).toEqual({ role: "system", content: WRITE_UP_PROMPT_TEXT });
+    expect(model.requests[1]?.prompt).toBeUndefined();
   });
 
   it("keeps {link} on a quote that has been sent, and offers the customer's chat with a draft that keeps no words", async () => {

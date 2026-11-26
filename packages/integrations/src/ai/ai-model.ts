@@ -1,6 +1,7 @@
 // The AI port (ADR 0029): one completion (words, tool calls or both) from a list of chat messages, for one named feature, from
 // the first of that feature's configured models that answers. Adapters: OpenRouter, with its zero-data-retention routing on
 // every request, and the in-memory one tests script. Domain code never sees a vendor's SDK or URL.
+import type { TracedPrompt } from "../tracing/ai-tracing.js";
 
 /** The features that call the model; each has its own list of models in the settings. */
 export const aiFeatures = [
@@ -137,6 +138,11 @@ export interface AiRequest {
    * asked only while `NEXT_MODEL_MIN_LEFT_MS` of it remain.
    */
   deadlineAt?: number;
+  /**
+   * The Langfuse prompt (name and version) this call's instructions came from, for the trace to link; no adapter sends
+   * it to a model. Left out for the built-in text, which is none of Langfuse's.
+   */
+  prompt?: TracedPrompt;
 }
 
 /**

@@ -6,12 +6,15 @@ import { createHash } from "node:crypto";
 import type { SuggestedReply, SuggestReplyInput } from "@travel-crm/contracts/ai";
 import type { Database, OrgTx } from "@travel-crm/db";
 import type { AiModel } from "@travel-crm/integrations/ai";
+import type { AiPrompts } from "@travel-crm/integrations/prompts";
 import { getLead } from "../crm/index.js";
 import { organizationTimeZone, type MemberAccess } from "../identity/index.js";
 import { listQuickReplies, tripKitWords, visibleConversation } from "../inbox/index.js";
 import { calendarDateIn, DomainError } from "../kernel/index.js";
 import { calendarText } from "./calendar.js";
-import { promptOf, type PromptFacts } from "./prompt.js";
+import { managedPrompt } from "./managed-prompt.js";
+import { promptOf, SUGGEST_REPLY_PROMPT_NAME, type PromptFacts } from "./prompt.js";
+import { SUGGEST_REPLY_PROMPT_TEXT } from "./prompt-text.js";
 import { tripsOnOffer } from "./trips-on-offer.js";
 import { aiEnabled } from "./settings.js";
 import { MONTHLY_AI_LIMIT, releaseAiCall, reserveAiCall, usedThisMonth } from "./usage.js";
@@ -114,16 +117,18 @@ export async function suggestReply(
   model: AiModel,
   access: MemberAccess,
   input: SuggestReplyInput,
-  context: { agencyName: string; now: Date },
+  context: { agencyName: string; now: Date; prompts?: AiPrompts | undefined },
 ): Promise<SuggestedReply> {
   const { organizationId } = access;
   if (!model.configured) {
     throw err("AI_NOT_READY", "The AI isn't set up on this server yet", "CONFLICT");
   }
   const prepared = await db.forOrg(organizationId, (tx) => prepare(tx, access, input, context));
+  const prompt = await managedPrompt(context.prompts, SUGGEST_REPLY_PROMPT_NAME, SUGGEST_REPLY_PROMPT_TEXT);
   const result = await model.complete({
     feature: "suggest_reply",
-    messages: promptOf(prepared.facts),
+    messages: promptOf(prepared.facts, prompt.text),
+    ...(prompt.source ? { prompt: { name: prompt.source.name, version: prompt.source.version } } : {}),
     maxTokens: 500,
     // Gemini's thinking counts against maxTokens: left to itself, it used all 500 on long chats and answered nothing.
     reasoning: { effort: "minimal" },

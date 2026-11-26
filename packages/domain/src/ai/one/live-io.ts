@@ -26,7 +26,7 @@ export interface OneTurnDependencies extends LiteDependencies {
 
 /** The loop's IO for one live turn on `context`, the context built from `prepared`; `clock` in epoch milliseconds. */
 export function oneLiveIO(
-  deps: Pick<OneTurnDependencies, "db" | "ai" | "toolAgent" | "files">,
+  deps: Pick<OneTurnDependencies, "db" | "ai" | "toolAgent" | "files" | "prompts">,
   prepared: NaturalPrepared,
   input: LiteTurnInput,
   context: OneContext,
@@ -45,7 +45,7 @@ export function oneLiveIO(
     // The tool layer has already checked the reference is this chat's own customer file.
     media: async (name, args) => {
       const messageId = context.media.get(String(args.message))?.messageId ?? "";
-      const reading = { db, files: deps.files, call, organizationId };
+      const reading = { db, files: deps.files, call, organizationId, prompts: deps.prompts };
       const where = { conversationId: input.conversationId, messageId };
       const done =
         name === "look_at_image"

@@ -6,6 +6,7 @@
 import type { WriteUp, WriteUpInput } from "@travel-crm/contracts/ai";
 import type { Database, OrgTx } from "@travel-crm/db";
 import type { AiModel } from "@travel-crm/integrations/ai";
+import type { AiPrompts } from "@travel-crm/integrations/prompts";
 import { organizationTimeZone, type MemberAccess } from "../../identity/index.js";
 import { visibleConversations } from "../../inbox/index.js";
 import { DomainError, formatMoney, money } from "../../kernel/index.js";
@@ -13,7 +14,9 @@ import { getQuote } from "../../quotes/index.js";
 import { hashOf } from "../suggest.js";
 import { aiEnabled } from "../settings.js";
 import { MONTHLY_AI_LIMIT, recordTokens, releaseAiCall, reserveAiCall, usedThisMonth } from "../usage.js";
-import { writeUpPrompt, type WriteUpFacts } from "./prompt.js";
+import { managedPrompt } from "../managed-prompt.js";
+import { writeUpPrompt, WRITE_UP_PROMPT_NAME, type WriteUpFacts } from "./prompt.js";
+import { WRITE_UP_PROMPT_TEXT } from "./prompt-text.js";
 import { fillTokens, withoutTypedAmounts } from "./tokens.js";
 
 const MAX_CHARS = 3000;
@@ -101,15 +104,17 @@ export async function writeUpQuote(
   model: AiModel,
   access: MemberAccess,
   input: WriteUpInput,
-  context: { agencyName: string; now: Date },
+  context: { agencyName: string; now: Date; prompts?: AiPrompts | undefined },
 ): Promise<WriteUp> {
   const { organizationId } = access;
   if (!model.configured) throw refuse("AI_NOT_READY", "The AI isn't set up on this server yet");
   const prepared = await db.forOrg(organizationId, (tx) => prepare(tx, access, input, context));
   const giveBack = () => db.forOrg(organizationId, (tx) => releaseAiCall(tx, context.now, prepared.timeZone));
+  const prompt = await managedPrompt(context.prompts, WRITE_UP_PROMPT_NAME, WRITE_UP_PROMPT_TEXT);
   const result = await model.complete({
     feature: "write_up",
-    messages: writeUpPrompt(prepared.facts),
+    messages: writeUpPrompt(prepared.facts, prompt.text),
+    ...(prompt.source ? { prompt: { name: prompt.source.name, version: prompt.source.version } } : {}),
     maxTokens: 1200,
     // Opaque: the agency's id, never a person's.
     user: organizationId,

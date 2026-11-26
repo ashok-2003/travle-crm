@@ -55,6 +55,19 @@ describe("the in-memory tracing", () => {
     expect(tracing.generations.map((call) => call.prompt)).toEqual([prompt, prompt, null, null]);
   });
 
+  it("links a call to its own managed prompt first, else to its turn's", async () => {
+    const tracing = createMemoryTracing();
+    const own = { name: "write-up/system", version: 2 };
+    const turns = { name: "whatsapp-agent/natural-system", version: 4 };
+    tracing.generation({ name: "ai.write_up", input: [], prompt: own }).end({ output: "outside a turn" });
+    await tracing.turn({ ...start("chat-1"), prompt: turns }, () => {
+      tracing.generation({ name: "ai.write_up", input: [], prompt: own }).end({ output: "its own" });
+      tracing.generation({ name: "ai.sales_agent", input: [] }).end({ output: "the turn's" });
+      return Promise.resolve();
+    });
+    expect(tracing.generations.map((call) => call.prompt)).toEqual([own, own, turns]);
+  });
+
   it("never mixes two turns running at once, and drops a note made outside any", async () => {
     const tracing = createMemoryTracing();
     tracing.note({ output: "stray" });

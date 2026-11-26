@@ -141,6 +141,17 @@ describe("the traced AI model", () => {
     expect(tracing.generations[0]?.start.metadata).not.toHaveProperty("jsonSchema");
   });
 
+  it("links a call to the managed prompt it was made from, and a call without one to none", async () => {
+    const tracing = createMemoryTracing();
+    const inner = createMemoryAiModel();
+    inner.answer("one");
+    inner.answer("two");
+    const prompt = { name: "write-up/system", version: 7 };
+    await withTracing(inner, tracing).complete({ feature: "write_up", messages: [], prompt });
+    await withTracing(inner, tracing).complete({ feature: "write_up", messages: [] });
+    expect(tracing.generations.map((call) => call.prompt)).toEqual([prompt, null]);
+  });
+
   it("shows a tool round as the model saw it: the calls it made, each result's call, and the calls it answers", async () => {
     const tracing = createMemoryTracing();
     const inner = createMemoryAiModel();

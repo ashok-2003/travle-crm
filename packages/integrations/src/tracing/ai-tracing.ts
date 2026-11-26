@@ -60,6 +60,8 @@ export interface GenerationStart {
   model?: string;
   modelParameters?: Record<string, string | number>;
   metadata?: Record<string, unknown>;
+  /** The managed prompt this one call was made from; without it, the running turn's (if any) is linked. */
+  prompt?: TracedPrompt;
 }
 
 /** A model call as it ended: its answer, the model that gave it and the tokens it cost, or why there was none. */
