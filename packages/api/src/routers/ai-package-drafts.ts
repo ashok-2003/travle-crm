@@ -27,7 +27,7 @@ export const aiPackageDraftsRouter = router({
     .output(foundTripsOutput)
     .mutation(({ ctx, input }) => {
       if (!ctx.ai?.configured) throw notReady();
-      return findTrips({ db: ctx.db, model: ctx.ai }, ctx.member, input, new Date());
+      return findTrips({ db: ctx.db, model: ctx.ai, prompts: ctx.prompts }, ctx.member, input, new Date());
     }),
 
   /** One trip drafted, every value with the lines it came from. Saves nothing. */
@@ -36,7 +36,7 @@ export const aiPackageDraftsRouter = router({
     .output(packageDraft)
     .mutation(({ ctx, input }) => {
       if (!ctx.ai?.configured) throw notReady();
-      return draftPackage({ db: ctx.db, model: ctx.ai }, ctx.member, input, new Date());
+      return draftPackage({ db: ctx.db, model: ctx.ai, prompts: ctx.prompts }, ctx.member, input, new Date());
     }),
 
   /** "Save as package". The brochure's copy runs after the transaction; if it fails the package stays saved. */

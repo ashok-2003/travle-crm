@@ -2,6 +2,9 @@
 // two sources that disagree are both kept; a value whose lines don't exist is not filled; payment details are never drafted.
 import { PACKAGE_DRAFT_CHARACTERS } from "@travel-crm/contracts/ai";
 import { createMemoryAiModel } from "@travel-crm/integrations/ai";
+import { createMemoryPrompts } from "@travel-crm/integrations/prompts";
+import { MAX_DRAFT_DAYS } from "@travel-crm/contracts/ai";
+import { roomTypes } from "@travel-crm/contracts/quotes";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { draftPackage, findTrips, saveAiSettings } from "../../src/ai/index.js";
 import { anAgency, createTestImports, memberOf, type TestImports } from "../imports/support/test-imports.js";
@@ -161,6 +164,32 @@ describe("drafting one trip", () => {
     expect(fill?.fields.some((path) => path.startsWith(`${input.trip.ref}.`))).toBe(true);
     expect(await inOrg((tx) => tx.quoteTemplate.count())).toBe(0);
     expect(model.requests.at(-1)?.feature).toBe("draft_packages");
+  });
+
+  it("drafts on Langfuse's package-drafts/draft-package when it has one (placeholders filled), linking the call; else on the built-in text", async () => {
+    const { model, owner, input } = await agency();
+    model.answer(answer());
+    const prompts = createMemoryPrompts([
+      {
+        name: "package-drafts/draft-package",
+        version: 7,
+        label: "production",
+        text: "LANGFUSE DRAFT: {{max_days}} days, rooms {{room_types}}",
+      },
+    ]);
+    await draftPackage({ db: test.db, model, prompts }, owner, input, NOW);
+    const own = model.requests.at(-1);
+    expect(own?.messages[0]?.content).toBe(
+      `LANGFUSE DRAFT: ${String(MAX_DRAFT_DAYS)} days, rooms ${roomTypes.join(", ")}`,
+    );
+    expect(own?.prompt).toEqual({ name: "package-drafts/draft-package", version: 7 });
+    model.answer(answer());
+    await draftPackage({ db: test.db, model }, owner, input, NOW);
+    const builtIn = model.requests.at(-1);
+    expect(builtIn?.messages[0]?.content).toMatch(/^DRAFT_PACKAGE\. You work for a travel agency/);
+    expect(builtIn?.messages[0]?.content).toContain(`At most ${String(MAX_DRAFT_DAYS)} days,`);
+    expect(builtIn?.messages[0]?.content).not.toContain("{{");
+    expect(builtIn?.prompt).toBeUndefined();
   });
 
   it("a price that its line doesn't print is shown with check this", async () => {
