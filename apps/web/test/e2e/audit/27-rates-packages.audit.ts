@@ -1,5 +1,7 @@
 // The visual audit of release 7b (2026-11-02): a supplier's rates in two seasons, a quote with lines priced from rates and the
-// minimum-margin warning, a package with two tiers, a package's public page and its enquiry form (joining a departure).
+// minimum-margin warning, a package with two tiers, a package's public page and its enquiry form (joining a departure);
+// and the packages revamp (2026-11-26): a group trip's departures calendar (a month on a phone, two from 1280px, one at
+// 1024px), its Prices card (a table, or a tab per season on a phone) and the Packages list (a table, or a row each).
 import { saveBusinessProfile } from "../support/documents";
 import { expect, signInByEmail, test } from "../support/fixtures";
 import { ownDeparture } from "../support/departures";
@@ -177,16 +179,33 @@ test("a group trip with two seasons: its departures calendar, and the Packages l
   await expect(card.getByRole("list", { name: "Seasons" })).toContainText("Festival");
   await expect(card.getByRole("button", { name: /departure/ }).first()).toBeVisible();
   await shoot(page, "packages-group-trip", { element: card });
-  if (test.info().project.name === "phone") {
-    // A phone shows one month: the next one has the seasons' colours. Then the narrowest phone, where nothing may spill.
+  const phone = test.info().project.name === "phone";
+  if (phone) {
+    // The two seasons' prices, a tab each.
+    const prices = page.getByRole("region", { name: "Prices", exact: true });
+    await shoot(page, "packages-group-prices-phone", { element: prices });
+    await prices.getByRole("tab", { name: "Festival" }).click();
+    await shoot(page, "packages-group-prices-phone-festival", { element: prices });
+    // A phone shows one month: the next one has the seasons' colours.
     await card.getByRole("button", { name: "Next month" }).click();
     await expect(card.getByRole("button", { name: /^4 Dec, departure/ })).toBeVisible();
     await shoot(page, "packages-group-trip-next", { element: card });
+    // The narrowest phone, on the month with the cancelled departure, where nothing may spill.
     await page.setViewportSize({ width: 360, height: 800 });
+    for (let turns = 0; turns < 2 && (await card.getByText("Cancelled", { exact: true }).count()) === 0; turns += 1) {
+      await card.getByRole("button", { name: turns === 0 ? "Previous month" : "Next month" }).click();
+    }
     await shoot(page, "packages-group-trip-360", { element: card });
     const sideways = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(sideways).toBeLessThanOrEqual(0);
     await page.setViewportSize({ width: 390, height: 844 });
+  } else {
+    // A 1024px screen reads one month, so that no day's price runs into the next day's.
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await expect(card.getByRole("grid")).toHaveCount(1);
+    await shoot(page, "packages-group-trip-1024", { element: card });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect(card.getByRole("grid")).toHaveCount(2);
   }
 
   await page.goto("/packages");

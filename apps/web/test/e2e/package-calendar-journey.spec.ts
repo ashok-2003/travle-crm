@@ -1,7 +1,7 @@
 // A group trip's page (prices, departures, trip details) and its departures calendar: an Owner adds Regular prices, adds a
 // Christmas season, adds a departure that repeats every week, sees each one's price and seats on the calendar, gives one a
-// Quad price of its own, cancels and reopens one, and edits the Trip details alone. The calendar is a month grid on a
-// desktop and the month's list on a phone, so each step reaches a day the way that screen does.
+// Quad price of its own, cancels and reopens one, and edits the Trip details alone. The calendar is a month grid on both
+// screens; the day's panel is a side panel on a desktop and a sheet on a phone, and the Prices are a table or a tab per season.
 import type { Locator, Page } from "@playwright/test";
 import { expectAccessible } from "./support/accessibility";
 import { inputDay } from "./support/departures";
@@ -20,19 +20,9 @@ function shownDay(day: string): string {
   return `${String(Number(date))} ${MONTH_NAMES[Number(month) - 1] ?? ""}${year === thisYear ? "" : ` ${year ?? ""}`}`;
 }
 
-/** "Fri 4 Dec": the same with the weekday, as the phone's list and the panel say it. */
-function shownWeekday(day: string): string {
-  const weekday = new Intl.DateTimeFormat("en-IN", { weekday: "short", timeZone: "UTC" }).format(
-    new Date(`${day}T00:00:00Z`),
-  );
-  return `${weekday} ${shownDay(day)}`;
-}
-
-/** A departure's button: its day on a desktop, its line in the month's list on a phone; `words` is a pattern for the rest. */
-function departureOn(page: Page, phone: boolean, day: string, words: string): Locator {
-  return phone
-    ? page.getByRole("button", { name: new RegExp(`^${shownWeekday(day)} · ${words}`) })
-    : page.getByRole("button", { name: new RegExp(`^${shownDay(day)}, ${words}`) });
+/** A departure's day on the grid; `words` is a pattern for the rest of its name. */
+function departureOn(page: Page, day: string, words: string): Locator {
+  return page.getByRole("button", { name: new RegExp(`^${shownDay(day)}, ${words}`) });
 }
 
 /** Turns the calendar's months until `visible` shows. */
@@ -49,32 +39,36 @@ async function showMonthOf(page: Page, visible: Locator) {
   await expect(visible).toBeVisible();
 }
 
-/** The panel of the day tapped: a side panel on a desktop, a sheet on a phone. */
+/** The panel of the day tapped: a side panel (an aside) on a desktop, a sheet on a phone. */
 function panelOf(page: Page, phone: boolean): Locator {
-  return phone ? page.getByRole("dialog") : page.getByRole("complementary");
+  return phone ? page.getByRole("dialog") : page.getByRole("complementary", { name: "The day you chose" });
+}
+
+/** Taps a day: a sheet still closing can swallow the first tap on a phone, so it taps again until the sheet is there. */
+async function tap(page: Page, phone: boolean, button: Locator): Promise<Locator> {
+  const panel = panelOf(page, phone);
+  await button.click();
+  if (phone) {
+    await expect(async () => {
+      if (!(await panel.isVisible())) await button.click();
+      await expect(panel).toBeVisible({ timeout: 1_500 });
+    }).toPass({ timeout: 10_000 });
+  }
+  return panel;
 }
 
 /** Opens the panel of a day with a departure. */
 async function openDeparture(page: Page, phone: boolean, day: string, words: string): Promise<Locator> {
-  const button = departureOn(page, phone, day, words);
+  const button = departureOn(page, day, words);
   await showMonthOf(page, button);
-  await button.click();
-  return panelOf(page, phone);
+  return tap(page, phone, button);
 }
 
-/** Opens the panel of an empty day ahead: its button on a desktop; "Add a departure" and a day to pick on a phone. */
+/** Opens the panel of an empty day ahead: its button on the grid. */
 async function openEmptyDay(page: Page, phone: boolean, day: string): Promise<Locator> {
-  if (phone) {
-    await page.getByRole("button", { name: "Add a departure", exact: true }).click();
-    const panel = page.getByRole("dialog");
-    await panel.getByRole("textbox", { name: "Day of the departure" }).fill(inputDay(day));
-    await expect(panel.getByRole("heading", { name: shownWeekday(day) })).toBeVisible();
-    return panel;
-  }
   const button = page.getByRole("button", { name: new RegExp(`^${shownDay(day)}$`) });
   await showMonthOf(page, button);
-  await button.click();
-  return panelOf(page, phone);
+  return tap(page, phone, button);
 }
 
 test("an Owner prices a group trip, adds a season and weekly departures, changes one, cancels and reopens one, and edits the trip details alone", async ({
@@ -128,6 +122,8 @@ test("an Owner prices a group trip, adds a season and weekly departures, changes
   await dialog.getByLabel("Double, per person").fill("9,499");
   await dialog.getByRole("button", { name: "Save" }).click();
   await expect(dialog).toBeHidden();
+  // A phone shows one season at a time: its tab first.
+  if (phone) await prices.getByRole("tab", { name: "Christmas" }).click();
   await expect(prices.getByRole("textbox", { name: "Triple, Christmas" })).toHaveValue(/8,?499/);
   const departures = page.getByRole("region", { name: "Departures", exact: true });
   await expect(departures.getByRole("list", { name: "Seasons" })).toContainText("Christmas");
@@ -143,8 +139,8 @@ test("an Owner prices a group trip, adds a season and weekly departures, changes
   if (phone) await page.keyboard.press("Escape");
 
   // Each shows its price and its seats.
-  const words = "(?:departure, )?(?:from )?₹6,499(?:,| ·) (?:20 left|20 of 20 left)";
-  for (const day of weeks) await showMonthOf(page, departureOn(page, phone, day, words));
+  const words = "departure, from ₹6,499, 20 left";
+  for (const day of weeks) await showMonthOf(page, departureOn(page, day, words));
 
   // One departure's own Quad price.
   panel = await openDeparture(page, phone, first, words);
@@ -165,17 +161,15 @@ test("an Owner prices a group trip, adds a season and weekly departures, changes
   await dialog.getByLabel("Why is it cancelled?").fill("Road closed");
   await dialog.getByRole("button", { name: "Cancel departure" }).click();
   await expect(dialog).toBeHidden();
-  const gone = phone
-    ? page.getByRole("button", { name: new RegExp(`^${shownWeekday(second)} · Cancelled`) })
-    : page.getByRole("button", { name: new RegExp(`^${shownDay(second)}, departure cancelled`) });
-  // On a phone the day's sheet stays over the list: it shows the change, then is closed to see the list.
+  const gone = page.getByRole("button", { name: new RegExp(`^${shownDay(second)}, departure cancelled`) });
+  // On a phone the day's sheet stays over the grid: it shows the change, then is closed to see the grid.
   await expect(panelOf(page, phone)).toContainText("This departure is cancelled.");
   if (phone) await page.keyboard.press("Escape");
   await expect(gone).toBeVisible();
-  await gone.click();
+  await tap(page, phone, gone);
   await panelOf(page, phone).getByRole("button", { name: "Reopen this departure" }).click();
   if (phone) await page.keyboard.press("Escape");
-  await expect(departureOn(page, phone, second, words)).toBeVisible();
+  await expect(departureOn(page, second, words)).toBeVisible();
 
   // The page fits the phone's width.
   if (phone) {
