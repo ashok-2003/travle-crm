@@ -1,6 +1,7 @@
 // The opened quote read at a glance: its trip big, its price before its plan, the plan as boxes, points that are
 // ticked and crossed, payments in the colours people read, a green departure, and the "sent, so fixed" note last.
 import { screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { messages } from "@/i18n/messages";
 import { QuoteScreen } from "@/quotes/quote-screen";
@@ -124,6 +125,41 @@ describe("an opened sent quote", () => {
     const note = await screen.findByText(words.quote.frozenTitle);
     for (const heading of document.querySelectorAll("h1, h2")) inOrder(heading, note);
     expect(note.closest("[class*=text-caption]")).not.toBeNull();
+  });
+});
+
+describe("an AI booking's quote, waiting for payment", () => {
+  const waiting = { status: "draft", paymentWait: "waiting" } as const;
+
+  it("reads Waiting for payment in the header, not Draft", async () => {
+    const heading = await open(waiting);
+    const header = heading.parentElement ?? document.body;
+    expect(within(header).getByText(words.status.waiting)).toBeTruthy();
+    expect(within(header).queryByText(words.status.draft)).toBeNull();
+  });
+
+  it("opens read like a sent quote: the trip line, the price as text and the money in its colours", async () => {
+    await open({ ...waiting, totals: money(0, 5_250_000) });
+    expect(await screen.findByText(/Fri 4 Dec · 1 adult/)).toBeTruthy();
+    expect(screen.getByRole("heading", { name: words.form.price })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: words.form.trip })).toBeNull();
+    expect(screen.getByText(words.money.nothingReceived)).toBeTruthy();
+    expect(figure(words.money.paid).className).toMatch(/text-status-bad-ink/);
+  });
+
+  it("opens the form on Edit", async () => {
+    await open(waiting);
+    await userEvent.click(await screen.findByRole("link", { name: words.quote.edit }));
+    expect(await screen.findByRole("heading", { name: words.form.trip })).toBeTruthy();
+    expect(screen.queryByText(/Fri 4 Dec · 1 adult/)).toBeNull();
+  });
+
+  it("is a plain draft when an older api sends no wait", async () => {
+    const older: Partial<ReturnType<typeof aQuote>> = aQuote({ status: "draft" });
+    delete older.paymentWait;
+    await open({}, { "quotes.get": { data: older } });
+    expect(await screen.findByRole("heading", { name: words.form.trip })).toBeTruthy();
+    expect(screen.getAllByText(words.status.draft).length).toBeGreaterThan(0);
   });
 });
 

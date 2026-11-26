@@ -35,7 +35,14 @@ import { useOpenDocument, useQuoteChanges, useQuoteSettings } from "./use-quotes
 const whatsappHref = (phone: string, words: string) =>
   `https://wa.me/${phone.replace(/\D/g, "")}?text=${encodeURIComponent(words)}`;
 
-export function QuoteActions({ quote }: { quote: QuoteDetail }) {
+export function QuoteActions({
+  quote,
+  onEdit,
+}: {
+  quote: QuoteDetail;
+  /** A draft shown read (an AI booking's): Edit opens its form first. */
+  onEdit?: (() => void) | undefined;
+}) {
   const t = useTranslations("quotes.quote");
   const tMargin = useTranslations("quotes.margin");
   const tPackage = useTranslations("quotes.package");
@@ -166,7 +173,9 @@ export function QuoteActions({ quote }: { quote: QuoteDetail }) {
         )}
         {mayEdit && editsInPlace && (
           <Button variant="outline" asChild>
-            <Link href="#quote-form">{editLabel}</Link>
+            <Link href="#quote-form" onClick={onEdit}>
+              {editLabel}
+            </Link>
           </Button>
         )}
         {mayEdit && makesVersion && (

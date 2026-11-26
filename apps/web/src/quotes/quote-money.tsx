@@ -22,9 +22,16 @@ import { useHolds } from "@/session/me-context";
 import { AddInstallmentDialog, RecordPaymentDialog } from "./money-dialogs";
 import { useOpenDocument, useQuoteChanges } from "./use-quotes";
 
-export function QuoteMoney({ quote }: { quote: QuoteDetail }) {
+export function QuoteMoney({
+  quote,
+  reading,
+}: {
+  quote: QuoteDetail;
+  /** The quote is read, not written (sent, accepted, or an AI booking's draft until Edit): money in its colours. */
+  reading: boolean;
+}) {
   const t = useTranslations("quotes.money");
-  const mayEdit = useHolds("quotes:edit") && quote.status === "draft";
+  const mayEdit = useHolds("quotes:edit") && quote.status === "draft" && !reading;
   const mayRecord = useHolds("quotes:record_payments");
   const { removeInstallment, voidPayment } = useQuoteChanges();
   const open = useOpenDocument(quote.id);
@@ -32,9 +39,9 @@ export function QuoteMoney({ quote }: { quote: QuoteDetail }) {
   const { totals } = quote;
   const today = useAgencyToday();
   // Money is read in the colours people know once the quote is out: nothing received red, part paid amber, all paid green.
-  const reading = quote.status === "sent" || quote.status === "accepted";
+  const coloured = reading && quote.status !== "declined" && quote.status !== "replaced";
   const paidState =
-    !reading || totals.totalPaise === 0
+    !coloured || totals.totalPaise === 0
       ? null
       : totals.paidPaise === 0
         ? "none"
@@ -45,7 +52,7 @@ export function QuoteMoney({ quote }: { quote: QuoteDetail }) {
   const suggested = Math.min(totals.balancePaise, nextDue?.amountPaise ?? totals.balancePaise);
 
   return (
-    <Card className={quote.status === "draft" ? undefined : "max-xl:-order-1"}>
+    <Card className={reading ? "max-xl:-order-1" : undefined}>
       <CardHeader>
         <CardTitle>
           <h2>{t("title")}</h2>
