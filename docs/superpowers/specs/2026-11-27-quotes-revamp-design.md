@@ -82,7 +82,13 @@ colour. The customer's link page and the PDF are older than the app's design and
 10. **A UPI QR wherever the customer pays** (owner, 2026-11-27): the customer's page (Pay now) and the PDF (a Pay box) show a
     QR of the same `upi://pay` link the "Pay by UPI" button uses: the agency's UPI id, its name, the amount due now and the
     quote's number as the note, with the UPI id and name in text beside it. Settings → Payment details shows the agency's QR
-    with "Scan it once and pay ₹1 to check it". The uploaded QR picture stays only for an agency with no UPI id. Later, in
+    with "Scan it once and pay ₹1 to check it", and a **"Mark as verified"** button (owner, 2026-11-27): confirming
+    ("I scanned this QR, paid ₹1, and it reached our account") records who and when, shown on the screen ("Verified by
+    Ashok Kumar on 27 Nov, 3:40 pm") and in the agency's audit log. Changing the UPI id clears the verification (audited).
+    Customers see the QR (page, PDF) only once it is verified; the UPI id in text and the "Pay by UPI" button work as today
+    either way, so live agencies are not interrupted. Only a member who may change payment details verifies, from a
+    session the api reads afresh. An additive migration holds when, by whom and which UPI id was verified. The uploaded
+    QR picture stays only for an agency with no UPI id. Later, in
     its own PR: the AI's WhatsApp payment message, an Inbox "Send payment QR" action, the traveller's trip page and balance
     reminders.
 
