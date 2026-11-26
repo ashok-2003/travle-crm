@@ -19,7 +19,7 @@ import type { Context } from "../context.js";
 import { orgProcedure } from "../procedures.js";
 import { router } from "../trpc.js";
 
-type FillContext = Pick<Context, "db" | "files" | "ai"> & { member: MemberAccess };
+type FillContext = Pick<Context, "db" | "files" | "ai" | "prompts"> & { member: MemberAccess };
 
 async function fill(ctx: FillContext, input: AiFillInput, targets: readonly FillTarget[]) {
   if (!targets.includes(input.target))
@@ -28,7 +28,7 @@ async function fill(ctx: FillContext, input: AiFillInput, targets: readonly Fill
     throw new DomainError("FORBIDDEN", "MISSING_PERMISSION", "Requires inbox:view");
   }
   if (!ctx.ai?.configured) throw new DomainError("CONFLICT", "AI_NOT_READY", "The AI isn't set up on this server yet");
-  return fillForm({ db: ctx.db, model: ctx.ai, files: ctx.files }, ctx.member, input, new Date());
+  return fillForm({ db: ctx.db, model: ctx.ai, files: ctx.files, prompts: ctx.prompts }, ctx.member, input, new Date());
 }
 
 export const aiFillRouter = router({

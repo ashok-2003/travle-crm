@@ -30,7 +30,7 @@ export const aiRatesRouter = router({
       if (!ctx.spreadsheets)
         throw new DomainError("CONFLICT", "AI_NOT_READY", "Excel files can't be read on this server yet");
       return readRateSheet(
-        { db: ctx.db, model: ctx.ai, files: ctx.files, spreadsheets: ctx.spreadsheets },
+        { db: ctx.db, model: ctx.ai, files: ctx.files, spreadsheets: ctx.spreadsheets, prompts: ctx.prompts },
         ctx.member,
         input,
         new Date(),

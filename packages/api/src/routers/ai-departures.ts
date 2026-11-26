@@ -30,7 +30,7 @@ export const aiDeparturesRouter = router({
       if (!ctx.ai?.configured) {
         throw new DomainError("CONFLICT", "AI_NOT_READY", "The AI isn't set up on this server yet");
       }
-      return readRoomRequests({ db: ctx.db, model: ctx.ai }, ctx.member, input, new Date());
+      return readRoomRequests({ db: ctx.db, model: ctx.ai, prompts: ctx.prompts }, ctx.member, input, new Date());
     }),
 
   /** People who asked about this place and may be offered the departure's empty seats: a plain query, no AI. */

@@ -3,6 +3,8 @@
 // notes are kept; nothing is saved by the reading; the apply is the rooming list's own update, audited as drafted by AI with what
 // the member changed; the month's call is given back when the AI fails or finds nothing.
 import { createMemoryAiModel } from "@travel-crm/integrations/ai";
+import { createMemoryPrompts } from "@travel-crm/integrations/prompts";
+import { ROOMING_PROMPT_TEXT } from "../../src/ai/rooming/prompt-text.js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { readRoomRequests, recordRoomRequestsApplied } from "../../src/ai/index.js";
 import { setRoomRequests } from "../../src/departures/index.js";
@@ -96,6 +98,22 @@ describe("rooming requests read by the AI", () => {
     const fill = await world.inOrg((tx) => tx.aiFill.findUniqueOrThrow({ where: { id: proposal.fillId ?? "" } }));
     expect(fill).toMatchObject({ target: "room_requests", subjectId: departure.id, appliedAt: null });
     expect(JSON.stringify(fill)).not.toContain("stairs");
+  });
+
+  it("reads on Langfuse's rooming/read-requests when it has one, linking the call to it; else on the built-in text", async () => {
+    const { departure, model } = await departureWithNotes();
+    const input = { departureId: departure.id };
+    const prompts = createMemoryPrompts([
+      { name: "rooming/read-requests", version: 7, label: "production", text: "LANGFUSE ROOMING RULES" },
+    ]);
+    model.answer(JSON.stringify({ requests: [] }));
+    await readRoomRequests({ db: world.db, model, prompts }, world.manager, input, now);
+    expect(model.requests[0]?.messages[0]).toEqual({ role: "system", content: "LANGFUSE ROOMING RULES" });
+    expect(model.requests[0]?.prompt).toEqual({ name: "rooming/read-requests", version: 7 });
+    model.answer(JSON.stringify({ requests: [] }));
+    await readRoomRequests({ db: world.db, model }, world.manager, input, now);
+    expect(model.requests[1]?.messages[0]).toEqual({ role: "system", content: ROOMING_PROMPT_TEXT });
+    expect(model.requests[1]?.prompt).toBeUndefined();
   });
 
   it("cuts a group that would pass the cap of 80 travellers at the cap", async () => {
