@@ -9,6 +9,7 @@ import type { Database, OrgTx } from "@travel-crm/db";
 import type { AiModel } from "@travel-crm/integrations/ai";
 import type { JobQueue } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
+import type { AiPrompts } from "@travel-crm/integrations/prompts";
 import type { Files } from "../files/index.js";
 import { organizationTimeZone } from "../identity/index.js";
 import { MEDIA_STORED_EVENT, numberAnswers } from "../inbox/index.js";
@@ -78,6 +79,8 @@ export function aiReadFileHandler(dependencies: {
   ai: AiModel;
   readText: ReadText;
   logger: Logger;
+  /** Langfuse's prompts for reading a file; left out, the built-in texts. */
+  prompts?: AiPrompts | undefined;
 }): JobHandler {
   const queue = AI_READ_FILE_QUEUE;
   return {
@@ -85,7 +88,7 @@ export function aiReadFileHandler(dependencies: {
     concurrency: AT_ONCE,
     handle: async (data) => {
       const { organizationId, conversationId, messageId } = aiReadFileJob.parse(data);
-      const { db, files, ai, readText, logger } = dependencies;
+      const { db, files, ai, readText, logger, prompts } = dependencies;
       if (!ai.configured) return;
       const found = await db.forOrg(organizationId, async (tx) => {
         const message = await tx.whatsappMessage.findFirst({
@@ -99,7 +102,7 @@ export function aiReadFileHandler(dependencies: {
       if (found === null || !isReadKind(found.kind)) return;
       const call = countedModel(ai, { db, organizationId, now: new Date(), timeZone: found.timeZone });
       const read = await readArrivedFile(
-        { db, files, call, organizationId, readText },
+        { db, files, call, organizationId, readText, prompts },
         { conversationId, messageId, kind: found.kind },
       );
       logger.info({ queue, outcome: read.ok ? "read" : "not_read" }, "A customer's file read as it arrived");
