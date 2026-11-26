@@ -69,13 +69,16 @@ export function useSetBillingDetails(onSaved: () => void) {
   );
 }
 
-/** Opens an invoice's stored PDF in a new tab, by the api's short-lived link. */
+/**
+ * Opens an invoice's stored PDF by the api's short-lived link, in this tab (the PDF opens or downloads in place): a
+ * new tab opened after the request has waited is taken for a pop-up and blocked.
+ */
 export function useDownloadInvoice() {
   const client = useConsoleTRPCClient();
   return useMutation({
     mutationFn: (invoiceId: string) => client.invoices.downloadLink.query({ invoiceId }),
     onSuccess: ({ url }) => {
-      window.open(url, "_blank", "noopener");
+      window.location.assign(url);
     },
   });
 }

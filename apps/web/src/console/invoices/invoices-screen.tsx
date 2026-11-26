@@ -9,6 +9,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
+import { LoadFailedAlert } from "@/components/load-failed-alert";
 import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
 import { ShowMoreButton } from "@/components/show-more-button";
@@ -58,7 +59,7 @@ function Invoices() {
             <Button variant="outline" asChild>
               <Link href={consoleRoutes.billingDetails}>{t("billingDetails")}</Link>
             </Button>
-            <NewInvoiceButton billing={billing} />
+            <NewInvoiceButton billing={details.data} />
           </div>
         }
       />
@@ -71,6 +72,13 @@ function Invoices() {
             </TextLink>
           </AlertDescription>
         </Alert>
+      )}
+      {details.isError && (
+        <LoadFailedAlert
+          message={t("billingDetailsLoadFailed")}
+          error={details.error}
+          onRetry={() => void details.refetch()}
+        />
       )}
       {list()}
     </>

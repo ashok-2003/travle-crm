@@ -1,8 +1,14 @@
 // The invoice form's checks and its totals preview: the preview adds up as the api does (GST once on the lines' sum,
 // CGST and SGST in the firm's state, IGST elsewhere), and a rate with no state is refused before anything is sent.
 // @vitest-environment node
+import { detail } from "./invoices-support";
 import { describe, expect, it } from "vitest";
-import { newInvoiceValues, previewAmounts, toCreateInvoiceInput } from "@/console/invoices/invoice-values";
+import {
+  copiedInvoiceValues,
+  newInvoiceValues,
+  previewAmounts,
+  toCreateInvoiceInput,
+} from "@/console/invoices/invoice-values";
 
 describe("previewAmounts", () => {
   it("splits GST in half when the billed company is in the firm's state", () => {
@@ -21,6 +27,12 @@ describe("previewAmounts", () => {
       subtotalPaise: 1_000_000,
       totalPaise: 1_000_000,
     });
+  });
+});
+
+describe("copiedInvoiceValues", () => {
+  it("makes a copy of a pre-invoice an Invoice", () => {
+    expect(copiedInvoiceValues({ ...detail, kind: "proforma" }, "2026-11-26", true).kind).toBe("invoice");
   });
 });
 

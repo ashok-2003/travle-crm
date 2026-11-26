@@ -91,7 +91,7 @@ export function InvoiceActions({ invoice, billing }: { invoice: InvoiceSummary; 
               download.mutate(invoice.id);
             }}
           >
-            {t("download")}
+            {invoice.status === "cancelled" ? t("downloadCancelled") : t("download")}
           </DropdownMenuItem>
           {billing && (
             <DropdownMenuItem

@@ -20,6 +20,7 @@ import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { Button } from "@/components/ui/button";
 import { FieldDescription, FieldGroup, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 import { NoteField } from "@/leads/form/note-field";
 import {
   MAX_LINES,
@@ -58,7 +59,7 @@ function Totals({ control, billing }: { control: Control<InvoiceValues>; billing
   return (
     <section aria-label={t("totals")} className="flex flex-col gap-2">
       {rows.map((row) => (
-        <div key={row.label} className={`flex justify-between gap-4 ${row.strong ? "font-semibold" : ""}`}>
+        <div key={row.label} className={cn("flex justify-between gap-4", row.strong && "font-semibold")}>
           <span>{row.label}</span>
           <span className="numbers">{formatMoney(money(row.paise))}</span>
         </div>

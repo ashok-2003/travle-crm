@@ -1,13 +1,14 @@
 // The invoice form's values, as text, turned into the api's input, and the totals the form previews as the person
 // types. The api's own schema decides what is valid; each problem is named so the form shows it on its field.
-import { indiaGst, money } from "@travel-crm/domain/kernel";
 import { paiseFromRupeesText, type GstStateCode } from "@travel-crm/contracts/kernel";
 import {
   createInvoiceInput,
+  MAX_INVOICE_LINE_PAISE,
   type CreateInvoiceInput,
   type InvoiceDetail,
   type InvoiceKind,
 } from "@travel-crm/contracts/platform";
+import { invoiceAmounts, type InvoiceAmounts } from "@travel-crm/domain/kernel";
 import type { Checked, Problems } from "@/components/forms/checked";
 import { rupeesFieldText } from "@/components/forms/money-field";
 
@@ -55,10 +56,13 @@ export function newInvoiceValues(today: string, defaultTerms: string | null): In
   };
 }
 
-/** A copy of an invoice: everything but the dates (today's and none), and GST once the firm can no longer charge it. */
+/**
+ * A copy of an invoice: everything but the dates (today's and none), always an Invoice (copying a pre-invoice is how
+ * it becomes one), and no GST once the firm can no longer charge it.
+ */
 export function copiedInvoiceValues(invoice: InvoiceDetail, today: string, canChargeGst: boolean): InvoiceValues {
   return {
-    kind: invoice.kind,
+    kind: "invoice",
     issuedOn: today,
     dueOn: "",
     billToName: invoice.billToName,
@@ -154,36 +158,19 @@ export function toCreateInvoiceInput(
   return unplaced ? { ok: false, problems: named, unplaced } : { ok: false, problems: named };
 }
 
-export interface InvoicePreview {
-  subtotalPaise: number;
-  cgstPaise: number;
-  sgstPaise: number;
-  igstPaise: number;
-  totalPaise: number;
-}
-
 /**
- * What the invoice adds up to, as the api computes it (platform/invoice-amounts.ts): GST once on the sum of the lines,
- * CGST and SGST when the billed company is in the firm's state, else IGST. Lines not yet valid count as nothing.
+ * What the invoice adds up to, as the api computes it: the kernel's own invoiceAmounts, the same function. Lines not
+ * yet valid (empty, or above the most a line may charge) count as nothing.
  */
 export function previewAmounts(
   amounts: readonly string[],
   rateBasisPoints: number,
   sellerStateCode: GstStateCode,
   billToStateCode: GstStateCode | null,
-): InvoicePreview {
-  const subtotalPaise = amounts.reduce((sum, text) => sum + (paiseFromRupeesText(text) ?? 0), 0);
-  const taxed = indiaGst.compute({
-    supplierStateCode: sellerStateCode,
-    placeOfSupplyStateCode: billToStateCode ?? sellerStateCode,
-    lines: [{ description: "Invoice", sacCode: "998431", taxableValue: money(subtotalPaise), rateBasisPoints }],
+): InvoiceAmounts {
+  const lines = amounts.map((text) => {
+    const paise = paiseFromRupeesText(text) ?? 0;
+    return { amountPaise: paise > MAX_INVOICE_LINE_PAISE ? 0 : paise };
   });
-  const part = (name: string) => taxed.components.find((component) => component.name === name)?.amount.amountPaise ?? 0;
-  return {
-    subtotalPaise,
-    cgstPaise: part("CGST"),
-    sgstPaise: part("SGST") + part("UTGST"),
-    igstPaise: part("IGST"),
-    totalPaise: taxed.total.amountPaise,
-  };
+  return invoiceAmounts(lines, rateBasisPoints, sellerStateCode, billToStateCode);
 }

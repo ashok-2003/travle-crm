@@ -30,15 +30,16 @@
     },
     "actionsFor": "Actions for invoice {number}",
     "download": "Download",
+    "downloadCancelled": "Download (cancelled)",
+    "billingDetailsLoadFailed": "The billing details didn't load, so New invoice and Copy are off for now.",
     "copy": "Copy as a new invoice",
-    "cancel": "Cancel invoice",
-    "downloadFailed": "The invoice's PDF didn't open. Try again."
+    "cancel": "Cancel invoice"
   },
   "invoiceForm": {
     "createTitle": "New invoice",
     "createDescription": "Fill in who it is for and what it charges. Once made, an invoice never changes.",
     "copyTitle": "New invoice from {number}",
-    "copyDescription": "Everything is copied but the date and the number. Change what you need.",
+    "copyDescription": "Everything is copied but the date and the number, and it is made as an invoice. Change what you need.",
     "create": "Make invoice",
     "creating": "Making invoice",
     "made": "Invoice {number} is made.",

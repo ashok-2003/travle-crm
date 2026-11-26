@@ -7,11 +7,12 @@ import type { BillingDetails, InvoiceDetail } from "@travel-crm/contracts/platfo
 import { calendarDateIn } from "@travel-crm/domain/kernel";
 import { PlusIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { toast } from "sonner";
 import { FormDialog } from "@/components/forms/form-dialog";
 import type { ReturnFocusTo } from "@/components/return-focus";
 import { Button } from "@/components/ui/button";
+import { FieldDescription } from "@/components/ui/field";
 import { PLATFORM_TIME_ZONE } from "@/lib/platform-time-zone";
 import { InvoiceForm } from "./invoice-form";
 import { copiedInvoiceValues, newInvoiceValues } from "./invoice-values";
@@ -68,11 +69,13 @@ export function NewInvoiceButton({ billing }: { billing: BillingDetails | null |
   const t = useTranslations("consoleInvoices.invoices");
   const [open, setOpen] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
+  const hintId = useId();
   return (
     <>
       <Button
         ref={button}
         disabled={!billing}
+        aria-describedby={billing === null ? hintId : undefined}
         onClick={() => {
           setOpen(true);
         }}
@@ -80,6 +83,11 @@ export function NewInvoiceButton({ billing }: { billing: BillingDetails | null |
         <PlusIcon aria-hidden="true" />
         {t("new")}
       </Button>
+      {billing === null && (
+        <FieldDescription id={hintId} className="sr-only">
+          {t("needsBillingDetails")}
+        </FieldDescription>
+      )}
       {billing && <InvoiceDialog billing={billing} open={open} onOpenChange={setOpen} returnFocusTo={button} />}
     </>
   );

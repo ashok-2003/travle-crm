@@ -63,12 +63,20 @@ describe("InvoicesScreen", () => {
 
   it("says so, and links to Billing details, when there are none, keeping New invoice off", async () => {
     open({ "platform.invoices.billingDetails": { data: null } });
-    expect(await screen.findByText(new RegExp(words.needsBillingDetails.slice(0, 20)))).toBeVisible();
+    expect(await screen.findByRole("link", { name: words.goToBillingDetails })).toBeVisible();
     expect(screen.getByRole("link", { name: words.goToBillingDetails })).toHaveAttribute(
       "href",
       "/console/invoices/billing-details",
     );
-    expect(screen.getByRole("button", { name: words.new })).toBeDisabled();
+    const button = screen.getByRole("button", { name: words.new });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAccessibleDescription(words.needsBillingDetails);
+  });
+
+  it("says when the billing details didn't load, with Try again", async () => {
+    open({ "platform.invoices.billingDetails": { status: 403 } });
+    expect(await screen.findByText(words.billingDetailsLoadFailed)).toBeVisible();
+    expect(screen.getByRole("button", { name: messages.common.tryAgain })).toBeVisible();
   });
 
   it("holds the GST choice at None, with the reason, until a GSTIN is saved", async () => {
@@ -134,20 +142,22 @@ describe("InvoicesScreen", () => {
     expect(within(dialog).getAllByLabelText(form.lineAmount)).toHaveLength(1);
   });
 
-  it("downloads an invoice, a cancelled one too, by opening the api's link in a new tab", async () => {
-    const opened = vi.fn();
-    vi.stubGlobal("open", opened);
+  it("downloads an invoice, a cancelled one too (marked so), by opening the api's link in this tab", async () => {
+    const assign = vi.fn();
+    vi.stubGlobal("location", { assign });
     open({ "platform.invoices.downloadLink": { data: { url: "https://files.example/invoice.pdf" } } });
     for (const invoice of [summary, cancelled]) {
       await userEvent.click(
         await screen.findByRole("button", { name: words.actionsFor.replace("{number}", invoice.number) }),
       );
-      await userEvent.click(screen.getByRole("menuitem", { name: words.download }));
+      await userEvent.click(
+        screen.getByRole("menuitem", { name: invoice === cancelled ? words.downloadCancelled : words.download }),
+      );
     }
     await vi.waitFor(() => {
-      expect(opened).toHaveBeenCalledTimes(2);
+      expect(assign).toHaveBeenCalledTimes(2);
     });
-    expect(opened).toHaveBeenCalledWith("https://files.example/invoice.pdf", "_blank", "noopener");
+    expect(assign).toHaveBeenCalledWith("https://files.example/invoice.pdf");
     expect(inputsTo("invoices.downloadLink")).toEqual([{ invoiceId: summary.id }, { invoiceId: cancelled.id }]);
   });
 
@@ -206,7 +216,7 @@ describe("InvoicesScreen", () => {
     await userEvent.click(
       await screen.findByRole("button", { name: words.actionsFor.replace("{number}", cancelled.number) }),
     );
-    expect(screen.getByRole("menuitem", { name: words.download })).toBeVisible();
+    expect(screen.getByRole("menuitem", { name: words.downloadCancelled })).toBeVisible();
     expect(screen.queryByRole("menuitem", { name: words.cancel })).toBeNull();
   });
 
