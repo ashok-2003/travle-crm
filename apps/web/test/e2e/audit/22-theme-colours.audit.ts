@@ -40,7 +40,8 @@ test("Theme colours: sign-in, a sent quote and the console's invites", async ({
   await page.getByLabel("How many").fill("4");
   await page.getByRole("button", { name: "Save quote" }).click();
   await expect(page.getByText("Quote saved")).toBeVisible();
-  await page.getByRole("button", { name: "Customer link" }).click();
+  await page.getByRole("button", { name: "Create live link" }).click();
+  await expect(page.getByRole("link", { name: "Live link" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Send on WhatsApp" })).toBeVisible();
   await shoot(page, "theme-quote-send");
 

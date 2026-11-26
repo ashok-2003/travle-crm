@@ -55,13 +55,11 @@ export async function sentQuote(
   return { leadId, quoteId: quote.id, link: `${origin}${shared.path}` };
 }
 
-/** The customer accepts on the link in a browser of their own, agreeing to trip updates on WhatsApp. */
+/** The customer accepts on the link in a browser of their own: a name alone, which agrees to trip updates on WhatsApp. */
 export async function acceptOnTheLink(browser: Browser, link: string, name: string): Promise<void> {
   const customer = await browser.newPage();
   await customer.goto(link);
   await customer.getByLabel("Your name").fill(name);
-  await customer.getByLabel(/I agree to the terms/).check();
-  await customer.getByLabel("Send me trip updates on WhatsApp").check();
   await customer.getByRole("button", { name: "Accept quote" }).click();
   await expect(customer.getByText("Thank you, your acceptance is recorded")).toBeVisible();
   await customer.close();

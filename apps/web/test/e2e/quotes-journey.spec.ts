@@ -28,16 +28,17 @@ test("an Owner quotes, the customer accepts on the link, the Owner records a pay
   await page.getByRole("button", { name: "Save quote" }).click();
   await expect(page.getByText("Quote saved")).toBeVisible();
 
-  // Its link, which the customer opens without signing in.
-  await page.getByRole("button", { name: "Customer link" }).click();
-  const link = await page.getByLabel("The customer's link").inputValue();
-  expect(link).toMatch(/\/p\/.+/);
+  // Its live link, which the customer opens without signing in.
+  await page.getByRole("button", { name: "Create live link" }).click();
+  const path = await page.getByRole("link", { name: "Live link" }).getAttribute("href");
+  expect(path).toMatch(/^\/p\/.+/);
   const customer = await browser.newPage();
-  await customer.goto(link);
+  await customer.goto(new URL(path ?? "", page.url()).href);
   await expect(customer.getByRole("heading", { level: 1, name: "Goa for four" })).toBeVisible();
-  await expect(customer.getByText("₹50,400.00").first()).toBeVisible();
+  // Whole rupees for the customer.
+  await expect(customer.getByText("₹50,400").first()).toBeVisible();
+  // A name alone accepts: the small print says what accepting agrees to.
   await customer.getByLabel("Your name").fill("Rahul Sharma");
-  await customer.getByLabel(/I agree to the terms/).check();
   await customer.getByRole("button", { name: "Accept quote" }).click();
   await expect(customer.getByText("Thank you, your acceptance is recorded")).toBeVisible();
   await customer.close();
@@ -104,8 +105,8 @@ test("a salesperson writes quotes but can't record a payment or open the money i
   await signInByCode(salesperson, { code: agency.code, staff: ravi });
   await salesperson.goto(`/quotes/${quote.id}`);
   await expect(salesperson.getByRole("heading", { level: 1, name: "Kerala" })).toBeVisible();
-  // They see the quote and can make a new version of it, but not record money on it.
-  await expect(salesperson.getByRole("button", { name: "Make a new version" })).toBeVisible();
+  // They see the quote and can Edit it (a new version, the quote being sent), but not record money on it.
+  await expect(salesperson.getByRole("button", { name: "Edit" })).toBeVisible();
   await expect(salesperson.getByRole("button", { name: "Record payment" })).toHaveCount(0);
   const refused = await salesperson.request.post("/api/trpc/quotes.recordPayment", {
     data: {

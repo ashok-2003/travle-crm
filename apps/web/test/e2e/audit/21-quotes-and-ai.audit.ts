@@ -52,15 +52,14 @@ test("quotes, payments, the invoice, Finance, Reports, hot leads and a lost reas
   await page.getByRole("button", { name: "Save quote" }).click();
   await expect(page.getByText("Quote saved")).toBeVisible();
 
-  await page.getByRole("button", { name: "Customer link" }).click();
-  const link = await page.getByLabel("The customer's link").inputValue();
+  await page.getByRole("button", { name: "Create live link" }).click();
+  const path = await page.getByRole("link", { name: "Live link" }).getAttribute("href");
   const customer = await browser.newPage();
   await customer.setViewportSize(page.viewportSize() ?? { width: 390, height: 844 });
-  await customer.goto(link);
+  await customer.goto(new URL(path ?? "", page.url()).href);
   await expect(customer.getByRole("heading", { level: 1, name: "Goa for four, 5 nights" })).toBeVisible();
   await shoot(customer, "quote-customer-link");
   await customer.getByLabel("Your name").fill("Rahul Sharma");
-  await customer.getByLabel(/I agree to the terms/).check();
   await customer.getByRole("button", { name: "Accept quote" }).click();
   await expect(customer.getByText("Thank you, your acceptance is recorded")).toBeVisible();
   await customer.close();
