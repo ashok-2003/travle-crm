@@ -9,9 +9,7 @@ import { rupees } from "@/components/forms/money-field";
 import { StatusBadge } from "@/components/status-badge";
 import { formatCalendarDay } from "@/lib/format";
 import { mayBeMissing } from "@/lib/older-api";
-
-/** Seats free at or under which a departure is "filling": its count is bold. */
-const FEW_SEATS = 5;
+import { FEW_SEATS } from "./departure-calendar-days";
 
 /** The trip's kind: "Group trip · 2 nights", or a custom trip's nights, days or tiers. */
 export function useKindWords() {
