@@ -105,10 +105,12 @@ const allowed: Record<string, string> = {
 };
 
 describe("destructive buttons", () => {
-  it("are the status-bad fill with ink words, a little deeper on hover, without an outline", () => {
+  // Owner, 2026-11-26: the soft red was too faint; the fill is the status-bad tint deepened with its dot (ink words 11:1).
+  it("are a clear red fill with ink words, deeper on hover, without an outline", () => {
     const classes = buttonVariants({ variant: "destructive" }).split(/\s+/);
-    expect(classes).toEqual(expect.arrayContaining(["bg-status-bad-fill", "text-foreground"]));
-    expect(classes.some((name) => name.startsWith("hover:bg-") && name.includes("status-bad"))).toBe(true);
+    expect(classes).toContain("text-foreground");
+    expect(classes.some((name) => name.startsWith("bg-") && name.includes("status-bad-dot)_22%"))).toBe(true);
+    expect(classes.some((name) => name.startsWith("hover:bg-") && name.includes("status-bad-dot)_32%"))).toBe(true);
     expect(classes).not.toContain("bg-background");
   });
 

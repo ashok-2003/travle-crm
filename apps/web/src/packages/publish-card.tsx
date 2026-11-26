@@ -73,7 +73,7 @@ export function PublishCard({ detail }: { detail: PackageDetail }) {
       {mayPublish ? (
         <div>
           <Button
-            variant={detail.published ? "outline" : "default"}
+            variant={detail.published ? "destructive" : "default"}
             disabled={setPublished.isPending || !access.allowed || (!detail.published && !ready)}
             onClick={() => {
               setPublished.mutate(

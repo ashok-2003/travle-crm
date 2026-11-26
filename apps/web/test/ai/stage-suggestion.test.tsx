@@ -100,7 +100,9 @@ describe("StageSuggestionCard", () => {
     await show();
     const card = await screen.findByRole("region", { name: "The AI suggests marking this lead Lost" });
     expect(card.className).toContain("--brand-people-tint");
-    expect(within(card).getByRole("button", { name: "Yes, mark it Lost" })).toHaveClass("bg-status-bad-fill");
+    expect(within(card).getByRole("button", { name: "Yes, mark it Lost" })).toHaveClass(
+      "bg-[color-mix(in_oklab,var(--brand-status-bad-fill),var(--brand-status-bad-dot)_22%)]",
+    );
   });
 
   it("shows nothing when there is no suggestion", async () => {
