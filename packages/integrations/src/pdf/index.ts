@@ -11,3 +11,4 @@ export {
   unprintableCharactersIn,
 } from "./printable-text.js";
 export { renderPdf } from "./render-pdf.js";
+export { renderPlatformInvoice } from "./render-platform-invoice.js";

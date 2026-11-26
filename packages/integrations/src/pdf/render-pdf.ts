@@ -11,7 +11,7 @@ const templates = {
 } satisfies Record<PdfTemplate, unknown>;
 
 /** The same value with every string normalised for printing. Bytes (a logo) and dates are kept as they are. */
-function normalised<T>(value: T): T {
+export function normalised<T>(value: T): T {
   if (typeof value === "string") return normalisedText(value) as T;
   if (value instanceof Uint8Array || value instanceof Date || value === null || typeof value !== "object") return value;
   if (Array.isArray(value)) return value.map(normalised) as T;
