@@ -1,6 +1,6 @@
 // The quotation's template: the quote page's layout on paper (spec 2026-11-27 item 8). The agency, who it is for, the trip
-// and when, the price lines and the total, what is due, the days as light-blue boxes, inclusions with ticks, exclusions
-// with crosses, notes as points, and the agency's terms. No tax table: the invoice carries that.
+// and when, the price lines and the total, what is due (Paid once covered), the days as light-blue boxes, inclusions with
+// green ticks, exclusions with plain crosses, notes as points, and the agency's terms. No tax table: the invoice carries that.
 // Written with createElement rather than JSX: dependency-cruiser's resolver doesn't follow imports of .tsx files.
 import { Document, Page, Path, Rect, StyleSheet, Svg, Text, View, type DocumentProps } from "@react-pdf/renderer";
 import { brand } from "@travel-crm/brand";
@@ -96,7 +96,9 @@ function dues(style: Styles, data: QuotationDocumentData): ReactElement | null {
   return section(
     style,
     "To pay",
-    ...data.dues.map((due, index) => priceRow(style, index, due.label, `By ${due.by}`, due.amount)),
+    ...data.dues.map((due, index) =>
+      priceRow(style, index, due.label, `By ${due.by}${due.paid ? " · Paid" : ""}`, due.amount),
+    ),
   );
 }
 
@@ -128,7 +130,8 @@ function payBox(style: Styles, data: QuotationDocumentData): ReactElement | null
           code === null ? "Pay by UPI to this UPI id:" : "Scan with any UPI app, or pay to this UPI id:",
         ),
         createElement(Text, { style: { ...style.payText, fontWeight: 600 } }, data.pay.upiId),
-        createElement(Text, { style: style.payText }, data.pay.name),
+        // Without a UPI name the payee is the id itself, printed once.
+        data.pay.name === data.pay.upiId ? null : createElement(Text, { style: style.payText }, data.pay.name),
       ),
     ),
   );
@@ -166,23 +169,27 @@ function days(style: Styles, data: QuotationDocumentData): ReactElement | null {
   );
 }
 
-/** A green tick or a red cross, drawn: the fonts carry neither. */
-function mark(style: Styles, kind: "tick" | "cross"): ReactElement {
-  const { good, bad } = brand.colours.status;
-  const colour = kind === "tick" ? good : bad;
+/** A green tick or a plain cross in muted ink, drawn: the fonts carry neither. */
+function mark(style: Styles, theme: PdfTheme, kind: "tick" | "cross"): ReactElement {
   return createElement(
     Svg,
     { style: style.mark, width: 12, height: 12, viewBox: "0 0 12 12" },
     createElement(Path, {
       d: kind === "tick" ? "M2 6.5 L5 9 L10 3" : "M3 3 L9 9 M9 3 L3 9",
-      stroke: colour.ink,
+      stroke: kind === "tick" ? brand.colours.status.good.ink : theme.muted,
       strokeWidth: 1.6,
       fill: "none",
     }),
   );
 }
 
-function points(style: Styles, label: string, texts: string[], kind: "tick" | "cross" | "dot"): ReactElement | null {
+function points(
+  style: Styles,
+  theme: PdfTheme,
+  label: string,
+  texts: string[],
+  kind: "tick" | "cross" | "dot",
+): ReactElement | null {
   if (texts.length === 0) return null;
   return section(
     style,
@@ -191,7 +198,7 @@ function points(style: Styles, label: string, texts: string[], kind: "tick" | "c
       createElement(
         View,
         { key: index, style: style.point, wrap: false },
-        kind === "dot" ? createElement(Text, { style: style.bullet }, "•") : mark(style, kind),
+        kind === "dot" ? createElement(Text, { style: style.bullet }, "•") : mark(style, theme, kind),
         createElement(Text, { style: style.words }, text),
       ),
     ),
@@ -223,9 +230,9 @@ export function quotationDocument({ data, branding, issuedAt }: PdfInput): React
       dues(style, data),
       payBox(style, data),
       days(style, data),
-      points(style, "Included", data.inclusions, "tick"),
-      points(style, "Not included", data.exclusions, "cross"),
-      points(style, "Notes", data.notes, "dot"),
+      points(style, theme, "Included", data.inclusions, "tick"),
+      points(style, theme, "Not included", data.exclusions, "cross"),
+      points(style, theme, "Notes", data.notes, "dot"),
       branding.terms ? section(style, "Terms", createElement(Text, { style: style.paragraph }, branding.terms)) : null,
       pageFooter({ branding, theme }),
     ),

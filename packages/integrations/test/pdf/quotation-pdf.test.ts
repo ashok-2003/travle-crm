@@ -84,6 +84,22 @@ describe("the quotation template", () => {
     expect(withQr.length).toBeGreaterThan(withBox.length);
   });
 
+  it("marks a due that was paid as Paid", async () => {
+    const dues = [
+      { label: "Advance", by: "1 Dec 2026", amount: "₹3,000", paid: true as const },
+      { label: "Balance", by: "3 Dec 2026", amount: "₹5,999" },
+    ];
+    const { text } = await pdfText(await renderPdf("quotation", { issuedAt, data: { ...quotation, dues }, branding }));
+    expect(text).toContain("By 1 Dec 2026 · Paid");
+    expect(text).not.toContain("By 3 Dec 2026 · Paid");
+  });
+
+  it("prints the payee once when its name is its UPI id (no UPI name)", async () => {
+    const pay = { upiId: "agency@bank", name: "agency@bank", amount: "₹3,000" };
+    const { text } = await pdfText(await renderPdf("quotation", { issuedAt, data: { ...quotation, pay }, branding }));
+    expect(text.split("agency@bank").length - 1).toBe(1);
+  });
+
   it("leaves out the parts a quotation does not have", async () => {
     const bare = {
       ...quotation,

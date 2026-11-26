@@ -37,7 +37,8 @@ export interface QuotationDocumentData {
   gst?: { label: string; amount: string } | undefined;
   total: string;
   totalNote?: string | undefined;
-  dues: { label: string; by: string; amount: string }[];
+  /** `paid` once what was received covers it. */
+  dues: { label: string; by: string; amount: string; paid?: true | undefined }[];
   days: { title: string; description?: string | undefined }[];
   inclusions: string[];
   exclusions: string[];
