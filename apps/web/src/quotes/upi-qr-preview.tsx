@@ -32,7 +32,9 @@ export function UpiQrPreview({
   const { timeZone } = useMe().organization;
   const [asking, setAsking] = useState(false);
   const opener = useRef<HTMLButtonElement>(null);
-  const verify = useVerifyUpi(() => { setAsking(false); });
+  const verify = useVerifyUpi(() => {
+    setAsking(false);
+  });
   const at = mayBeMissing(verifiedAt);
   return (
     <div className="flex flex-col items-start gap-2">
@@ -54,7 +56,9 @@ export function UpiQrPreview({
             variant="outline"
             disabled={writeHint !== null}
             aria-describedby={writeHint === null ? undefined : "upi-verify-hint"}
-            onClick={() => { setAsking(true); }}
+            onClick={() => {
+              setAsking(true);
+            }}
           >
             {t("upiVerify")}
           </Button>
@@ -67,7 +71,9 @@ export function UpiQrPreview({
             action={t("upiVerifyAction")}
             destructive={false}
             request={verify}
-            onConfirm={() => { verify.mutate({}); }}
+            onConfirm={() => {
+              verify.mutate({});
+            }}
             returnFocusTo={opener}
           />
         </>
