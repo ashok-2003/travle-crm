@@ -95,7 +95,10 @@ describe("PackageScreen", () => {
     const open = headerLink();
     expect(open).toHaveAttribute("href", "/a/acme/kedarnath");
     expect(open).toHaveAttribute("target", "_blank");
-    expect(screen.getByRole("button", { name: words.header.copyLink })).toBeTruthy();
+    const writeText = vi.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    await userEvent.click(screen.getByRole("button", { name: words.header.copyLink }));
+    expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/a/acme/kedarnath`);
   });
 
   it.each([

@@ -81,7 +81,10 @@ describe("the AI changes card", () => {
         aPackage({ kind: "group", seasons: [aSeason("s1", "Regular", "2027-01-01", "2099-12-31", { double: 1 })] }),
       ],
       ["a custom trip with a From price", aPackage({ id: packageId, fromPricePaise: 500_000 })],
-      ["a custom trip with a tier", aPackage({ id: packageId, tiers: [{ id: "t1", name: "Standard" } as never] })],
+      [
+        "a custom trip with a tier",
+        aPackage({ id: packageId, tiers: [{ id: "t1", name: "Standard", position: 0, lines: [] }] }),
+      ],
     ] as const;
     it.each(priced)(
       "shows only a button for %s, and opens the card with the focus in What changed",
@@ -163,6 +166,36 @@ describe("the AI changes card", () => {
     await show();
     expect(await screen.findByText(words.ignoredTitle)).toBeInTheDocument();
     expect(screen.getByText("Kasol 5N from 9000")).toBeInTheDocument();
+  });
+
+  it("stays open with its result when applying prices makes the trip priced", async () => {
+    let priced = false;
+    const unpriced = aPackage({
+      id: packageId,
+      kind: "group",
+      seasons: [aSeason("s1", "Regular", "2027-01-01", "2099-12-31")],
+    });
+    const withPrices = aPackage({
+      id: packageId,
+      kind: "group",
+      seasons: [aSeason("s1", "Regular", "2027-01-01", "2099-12-31", { double: 1 })],
+    });
+    const applying = afterApply(1);
+    const { client } = render({
+      "packages.get": () => ({ data: priced ? withPrices : unpriced }),
+      "ai.packageChanges.propose": { data: proposal([priceChange]) },
+      ...applying,
+      "ai.packageChanges.applyChanges": () => {
+        priced = true;
+        return applying["ai.packageChanges.applyChanges"]();
+      },
+    });
+    await show();
+    await userEvent.click(await screen.findByRole("button", { name: "Apply 1 change" }));
+    expect(await screen.findByText("1 change applied")).toBeInTheDocument();
+    await client.invalidateQueries();
+    await waitFor(() => expect(screen.getByRole("button", { name: words.undoAll })).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: words.title })).toBeNull();
   });
 
   it("applies the ticked changes, says how many, and refreshes the trip", async () => {

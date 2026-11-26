@@ -4,10 +4,10 @@
 // exact changes (the AI proposes, nothing is saved), applies the ticked ones in one go and can Undo all. Shown only to
 // whoever holds quotes:edit with the AI on the plan.
 import type { UndoPackageChangesResult } from "@travel-crm/contracts/ai";
+import type { PackageDetail } from "@travel-crm/contracts/quotes";
 import { SparklesIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
-import type { PackageDetail } from "@travel-crm/contracts/quotes";
 import { usePackage } from "../use-packages";
 import { Button } from "@/components/ui/button";
 import { RefusalAlert } from "@/components/refusal-alert";
@@ -62,6 +62,10 @@ function Box({ packageId }: { packageId: string }) {
   const seasons = detail?.seasons;
   // Once the trip has prices the box is a button; opening it puts the cursor in "What changed".
   const [opened, setOpened] = useState(false);
+  // A card that has been shown stays for the page's life: applying prices must not hide its result and Undo.
+  const [shown, setShown] = useState(false);
+  const collapsed = detail !== undefined && hasPrices(detail) && !opened && !shown;
+  if (!collapsed && detail !== undefined && !shown) setShown(true);
   const propose = useProposeChanges();
   const upload = useUploadChangeInput();
   const latest = useLatestChangeRun(packageId, true);
@@ -169,7 +173,7 @@ function Box({ packageId }: { packageId: string }) {
       </div>
     );
   };
-  if (detail !== undefined && hasPrices(detail) && !opened) {
+  if (collapsed) {
     return (
       <div>
         <Button
