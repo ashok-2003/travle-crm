@@ -54,9 +54,7 @@ export function PackagesTable({
               {one.fromPricePaise !== null && <span className="numbers">{rupees(one.fromPricePaise)}</span>}
             </TableCell>
             <TableCell>
-              <span className="numbers">
-                <NextDeparture one={one} />
-              </span>
+              <NextDeparture one={one} />
             </TableCell>
             <TableCell>{one.kind === "group" && <span className="numbers">{one.departuresAhead}</span>}</TableCell>
             <TableCell>

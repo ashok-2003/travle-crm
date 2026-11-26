@@ -12,6 +12,7 @@ export {
   issueQuotePdf,
   type DocumentContext,
 } from "./quote-documents.js";
+export { countsOf, seatsSoldAndHeld } from "./seat-counts.js";
 export {
   createPackage,
   deletePackage,

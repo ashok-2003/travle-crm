@@ -25,38 +25,49 @@ export function useKindWords() {
   };
 }
 
+const number = (chunks: ReactNode) => <span className="numbers">{chunks}</span>;
+
 /** A departure's seats: "20 left", the count in bold when few, or "Full". */
 function Seats({ free }: { free: number }) {
   const t = useTranslations("packages.list");
   if (free === 0) return <>{t("full")}</>;
   const words = t("seatsLeft", { free });
-  return free <= FEW_SEATS ? <strong>{words}</strong> : <>{words}</>;
+  return <span className="numbers">{free <= FEW_SEATS ? <strong>{words}</strong> : words}</span>;
 }
 
-/** "27 Nov · 20 left" (the caller gives it the number font), or nothing for a trip with no departure ahead (and for an older api that does not say). */
+/** "27 Nov · 20 left", or nothing for a trip with no departure ahead (and for an older api that does not say). */
 export function NextDeparture({ one }: { one: QuotePackage }) {
   const next = mayBeMissing(one.nextDeparture);
   if (next === null || next === undefined) return null;
   return (
     <>
-      {formatCalendarDay(next.startDate)} · <Seats free={next.seatsFree} />
+      <span className="numbers">{formatCalendarDay(next.startDate)}</span> · <Seats free={next.seatsFree} />
     </>
   );
 }
 
-/** The phone's line: "From ₹5,000 · 27 Nov · 20 left"; an older api's answer gets the departures count instead. */
+/**
+ * The phone's line: a group trip's "From ₹5,000 · 27 Nov · 20 left" (an older api's answer gets the departures count
+ * instead), a custom trip's words with its From price. Only the spans holding numbers have the number font.
+ */
 export function PhoneLine({ one }: { one: QuotePackage }) {
   const t = useTranslations("packages.list");
   const kind = useKindWords();
-  if (one.kind !== "group") return <span className="numbers">{kind(one)}</span>;
+  const from = one.fromPricePaise === null ? null : t.rich("fromPrice", { price: rupees(one.fromPricePaise), number });
   const next = mayBeMissing(one.nextDeparture);
   const parts: ReactNode[] = [];
-  if (one.fromPricePaise !== null) parts.push(t("fromPrice", { price: rupees(one.fromPricePaise) }));
-  if (next === undefined) parts.push(t("departuresAhead", { count: one.departuresAhead }));
-  else if (next !== null) parts.push(<NextDeparture key="next" one={one} />);
-  if (parts.length === 0) return <span>{kind(one)}</span>;
+  if (one.kind === "group") {
+    if (from !== null) parts.push(from);
+    if (next === undefined) parts.push(number(t("departuresAhead", { count: one.departuresAhead })));
+    else if (next !== null) parts.push(<NextDeparture key="next" one={one} />);
+    if (parts.length === 0) parts.push(kind(one));
+  } else {
+    parts.push(kind(one));
+    // A trip priced by tiers or by its lines says that instead of a From price.
+    if (one.tierCount === 0 && one.subtotalPaise === 0 && from !== null) parts.push(from);
+  }
   return (
-    <span className="numbers">
+    <span>
       {parts.map((part, index) => (
         <Fragment key={index}>
           {index > 0 && " · "}

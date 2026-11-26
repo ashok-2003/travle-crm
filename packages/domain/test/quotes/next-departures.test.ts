@@ -3,6 +3,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { parseCalendarDate } from "../../src/kernel/index.js";
 import { createPackage, listPackages } from "../../src/quotes/index.js";
+import { countsOf, seatsSoldAndHeld } from "../../src/departures/index.js";
+import { aLead } from "../crm/support/records.js";
 import { openWorld, type World } from "../bookings/support.js";
 import { aBookingOn } from "../departures/support.js";
 
@@ -69,20 +71,56 @@ describe("the packages list's next departure", () => {
     expect((await listed())(trip)).toBeNull();
   });
 
-  it("reads in the same number of queries however many trips there are", async () => {
+  it("counts seats as the departures module does: a requested booking and an active hold both take seats", async () => {
+    const trip = await aTrip("group");
+    const id = await depart(trip, "2026-11-22", 20);
+    await aBookingOn(world, id, { adults: 2, confirmed: false });
+    const lead = await world.inOrg((tx) => aLead(tx, { ownerUserId: world.seller.userId, stage: "contacted" }));
+    await world.inOrg((tx) =>
+      tx.departureHold.create({
+        data: {
+          departureId: id,
+          leadId: lead.id,
+          seats: 4,
+          expiresAt: new Date("2099-01-01T00:00:00Z"),
+          status: "active",
+        },
+      }),
+    );
+    const mine = await world.inOrg((tx) => tx.departure.findFirstOrThrow({ where: { id } }));
+    const theirs = await world.inOrg(async (tx) => (await seatsSoldAndHeld(tx, [id], new Date())).get(id));
+    expect(theirs).toEqual({ sold: 2, held: 4 });
+    expect((await listed())(trip)).toEqual({
+      startDate: "2026-11-22",
+      seatsFree: countsOf(mine.seatsTotal, theirs?.sold ?? 0, theirs?.held ?? 0).free,
+    });
+    expect((await listed())(trip)?.seatsFree).toBe(14);
+  });
+
+  it("reads in the same number of queries however many trips there are, raw ones included", async () => {
     const count = async () => {
       let queries = 0;
       await world.inOrg(async (tx) => {
-        const departure = tx.departure;
-        const findMany = departure.findMany.bind(departure);
-        departure.findMany = ((...args: Parameters<typeof findMany>) => {
-          queries += 1;
-          return findMany(...args);
-        }) as typeof departure.findMany;
+        const restore: (() => void)[] = [];
+        const wrap = <T extends object>(owner: T, key: keyof T) => {
+          const kept = owner[key];
+          const original = (kept as (...args: unknown[]) => unknown).bind(owner);
+          (owner as Record<keyof T, unknown>)[key] = (...args: unknown[]) => {
+            queries += 1;
+            return original(...args);
+          };
+          restore.push(() => {
+            (owner as Record<keyof T, unknown>)[key] = kept;
+          });
+        };
+        wrap(tx.departure, "findMany");
+        wrap(tx, "$queryRaw");
         try {
           await listPackages(tx, world.organizationId, today);
         } finally {
-          departure.findMany = findMany;
+          restore.forEach((undo) => {
+            undo();
+          });
         }
       });
       return queries;

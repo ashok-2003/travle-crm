@@ -63,6 +63,11 @@ describe("PackagesScreen", () => {
       ...overrides,
     });
   const day = formatCalendarDay("2026-11-27");
+  // A line whose words sit in several spans (only the numbers have the number font): matched on its whole text.
+  const line = (text: string) => (_content: string, element: Element | null) =>
+    element !== null &&
+    element.textContent === text &&
+    [...element.children].every((child) => child.textContent !== text);
 
   it("shows a table of each trip's price, next departure and departures on a wide screen", async () => {
     await showing([manali()]);
@@ -71,7 +76,7 @@ describe("PackagesScreen", () => {
       expect(screen.getByRole("columnheader", { name: header })).toBeTruthy();
     expect(screen.getByText("Group trip · 2 nights")).toBeTruthy();
     expect(screen.getByText("₹5,000")).toBeTruthy();
-    expect(screen.getByText(`${day} · 20 left`)).toBeTruthy();
+    expect(screen.getByText(line(`${day} · 20 left`))).toBeTruthy();
     expect(screen.getByText("24")).toBeTruthy();
     expect(screen.queryByText(messages.packages.list.aiOff)).toBeNull();
     expect(screen.queryByText(messages.packages.list.noDeparturesAhead)).toBeNull();
@@ -82,7 +87,7 @@ describe("PackagesScreen", () => {
     screenIs("phone");
     await showing([manali()]);
     expect(await screen.findByText("Manali 2N/3D")).toBeTruthy();
-    expect(screen.getByText(`From ₹5,000 · ${day} · 20 left`)).toBeTruthy();
+    expect(screen.getByText(line(`From ₹5,000 · ${day} · 20 left`))).toBeTruthy();
     expect(screen.queryByRole("table")).toBeNull();
   });
 
@@ -96,7 +101,7 @@ describe("PackagesScreen", () => {
       }),
     ]);
     expect((await screen.findByText("3 left")).tagName).toBe("STRONG");
-    expect(screen.getByText(`${day} · Full`)).toBeTruthy();
+    expect(screen.getByText(line(`${day} · Full`))).toBeTruthy();
   });
 
   it("badges only what needs attention", async () => {
@@ -156,7 +161,19 @@ describe("PackagesScreen", () => {
     delete older.nextDeparture;
     screenIs("phone");
     await showing([older as QuotePackage]);
-    expect(await screen.findByText("From ₹5,000 · 24 departures ahead")).toBeTruthy();
+    expect(await screen.findByText(line("From ₹5,000 · 24 departures ahead"))).toBeTruthy();
+  });
+
+  it("keeps a custom trip's words and From price on a phone, and puts the number font only on numbers", async () => {
+    screenIs("phone");
+    await showing([
+      listed({ name: "Kashmir Classic", kind: "custom", nights: 6, fromPricePaise: 1_800_000 }),
+      manali(),
+    ]);
+    expect(await screen.findByText(line("Custom trip · 6 nights · From ₹18,000"))).toBeTruthy();
+    expect(screen.getByText("₹18,000").className).toContain("numbers");
+    const group = screen.getByText(line(`From ₹5,000 · ${day} · 20 left`));
+    expect(group.className).not.toContain("numbers");
   });
 
   it("keeps a custom trip's words", async () => {
