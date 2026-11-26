@@ -59,6 +59,19 @@ describe("the quotation template", () => {
     expect(text).not.toMatch(/\.\d\d/);
   });
 
+  it("prints a Pay box with the QR of the link, the UPI id, the agency's name and the amount due now", async () => {
+    const link = "upi://pay?pa=agency%40bank&pn=Sharma+Holidays&am=3000.00&cu=INR&tn=Goa";
+    const pay = { link, upiId: "agency@bank", name: "Sharma Holidays", amount: "₹3,000" };
+    const pdf = await renderPdf("quotation", { issuedAt, data: { ...quotation, pay }, branding });
+    const { text } = await pdfText(pdf);
+    for (const part of ["Pay ₹3,000 now", "Scan with any UPI app", "agency@bank", "Sharma Holidays"]) {
+      expect(text, part).toContain(part);
+    }
+    const without = await renderPdf("quotation", { issuedAt, data: quotation, branding });
+    expect((await pdfText(without)).text).not.toMatch(/Scan with any UPI app/);
+    expect(pdf.length).toBeGreaterThan(without.length);
+  });
+
   it("leaves out the parts a quotation does not have", async () => {
     const bare = {
       ...quotation,

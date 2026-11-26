@@ -9,6 +9,7 @@ import {
   createQuote,
   issueQuoteInvoice,
   issueQuotePdf,
+  saveQuoteSettings,
   setQuoteStatus,
 } from "../../src/quotes/index.js";
 import { aLead } from "../crm/support/records.js";
@@ -98,6 +99,48 @@ describe("the quotation's PDF", () => {
       notes: ["Carry a jacket", "Bring ID"],
     });
     expect(JSON.stringify(data)).not.toMatch(/CGST|SGST|Taxable/);
+  });
+
+  describe("the Pay box", () => {
+    const issueData = async (quote: { id: string }) => {
+      const issued = await world.inOrg((tx) => issueQuotePdf(tx, world.manager, quote.id, context));
+      const stored = await world.inOrg((tx) =>
+        tx.issuedDocument.findUniqueOrThrow({ where: { id: issued.documentId } }),
+      );
+      return issuedDocumentRenderInput.parse(stored.renderInput).data;
+    };
+    const withUpi = (upiId: string) =>
+      world.inOrg((tx) =>
+        saveQuoteSettings(tx, world.manager, {
+          upiId,
+          upiName: "Sharma Holidays",
+          defaultTaxRateBasisPoints: 500,
+          defaultTerms: "",
+          defaultMarkupBasisPoints: 0,
+          minMarginBasisPoints: null,
+          minMarginPerPersonPaise: null,
+        }),
+      );
+
+    it("carries the link, the UPI id, the name and the amount due now when the agency has a UPI id", async () => {
+      await withUpi("sharma@bank");
+      const quote = await aQuote();
+      const data = await issueData(quote);
+      expect(data).toMatchObject({
+        pay: {
+          upiId: "sharma@bank",
+          name: "Sharma Holidays",
+          amount: "₹3,000",
+          link: `upi://pay?pa=sharma%40bank&pn=Sharma+Holidays&am=3000.00&cu=INR&${new URLSearchParams({ tn: title.slice(0, 50) }).toString()}`,
+        },
+      });
+    });
+
+    it("has none without a UPI id", async () => {
+      await withUpi("");
+      const data = await issueData(await aQuote());
+      expect(data).not.toHaveProperty("pay");
+    });
   });
 
   it("has no GST row or note on a quote without tax", async () => {

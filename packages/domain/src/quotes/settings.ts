@@ -72,19 +72,3 @@ export async function saveQuoteSettings(
   });
   return settingsOf(row as SettingsRow);
 }
-
-/** A link that opens the customer's UPI app to pay the agency (NPCI's upi://pay), or null without a UPI id. */
-export function upiPayLink(
-  settings: Pick<QuoteSettings, "upiId" | "upiName">,
-  payment: { amountPaise: number; note: string },
-): string | null {
-  if (settings.upiId === "" || payment.amountPaise <= 0) return null;
-  const params = new URLSearchParams({
-    pa: settings.upiId,
-    pn: settings.upiName === "" ? settings.upiId : settings.upiName,
-    am: `${String(Math.floor(payment.amountPaise / 100))}.${String(payment.amountPaise % 100).padStart(2, "0")}`,
-    cu: "INR",
-    tn: payment.note.slice(0, 50),
-  });
-  return `upi://pay?${params.toString()}`;
-}

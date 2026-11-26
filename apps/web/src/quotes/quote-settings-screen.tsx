@@ -3,9 +3,15 @@
 // /settings/quotes (step 3, P0): the agency's UPI id and the name customers see when they pay (money goes straight to
 // the agency, never through us), the GST rate a new quote starts with, and the terms printed under every quote.
 import { paiseFromRupeesText } from "@travel-crm/contracts/kernel";
-import { saveQuoteSettingsInput, type QuoteSettings, type SaveQuoteSettingsInput } from "@travel-crm/contracts/quotes";
+import {
+  saveQuoteSettingsInput,
+  upiPayLink,
+  type QuoteSettings,
+  type SaveQuoteSettingsInput,
+} from "@travel-crm/contracts/quotes";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
+import { QrCode } from "@/account/qr-code";
 import { BackToSettings } from "@/components/back-to-settings";
 import { ErrorState } from "@/components/error-state";
 import { checked } from "@/components/forms/checked";
@@ -90,6 +96,8 @@ function SettingsForm({ saved }: { saved: QuoteSettings }) {
     },
     (problem) => t(`problems.${problem}`),
   );
+  // What the agency has saved, not what it is typing: the code it prints and sends is the saved one.
+  const link = upiPayLink(saved);
   return (
     <Card className="max-w-[720px]">
       <CardContent>
@@ -115,6 +123,16 @@ function SettingsForm({ saved }: { saved: QuoteSettings }) {
             hint={t("upiNameHint")}
             disabled={save.isPending}
           />
+          {link === null ? null : (
+            <div className="flex flex-col items-start gap-2">
+              <QrCode
+                value={link}
+                label={t("upiQrLabel", { upiId: saved.upiId })}
+                className="size-40 text-foreground"
+              />
+              <p className="text-muted-foreground">{t("upiQrTest")}</p>
+            </div>
+          )}
           <SelectField
             control={form.control}
             name="taxRate"

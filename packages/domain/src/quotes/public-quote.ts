@@ -2,7 +2,7 @@
 // by UPI; and accepting it there with their name, which the system records as the customer's (publicActor) and which
 // moves the lead to Booking requested. A declined, replaced or unsent quote can't be accepted; accepting twice changes
 // nothing. A replaced quote's link says so, with no prices.
-import type { QuoteAcceptedEvent } from "@travel-crm/contracts/quotes";
+import { upiPayLink, type QuoteAcceptedEvent } from "@travel-crm/contracts/quotes";
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import { advanceLeadStage } from "../crm/index.js";
@@ -10,8 +10,8 @@ import { publishEvent } from "../jobs/index.js";
 import { DomainError, publicActor } from "../kernel/index.js";
 import { assertTakesStandInPayments } from "./placeholder-payments.js";
 import { dayOf, daysOf, findQuoteForSystem, itemsOf, paidOf } from "./quote-rows.js";
-import { coveredInstallments } from "./totals.js";
-import { quoteSettingsOf, upiPayLink } from "./settings.js";
+import { coveredInstallments, payDueNow } from "./totals.js";
+import { quoteSettingsOf } from "./settings.js";
 
 export interface PublicQuote {
   title: string;
@@ -59,17 +59,7 @@ export async function publicQuoteOf(tx: OrgTx, quoteId: string): Promise<PublicQ
     })),
     paidPaise,
   );
-  // What to pay now: the next instalment not yet covered, as much of it as is left; else the balance.
-  let left = paidPaise;
-  let payPaise = balancePaise;
-  for (const due of installments) {
-    if (left >= due.amountPaise) {
-      left -= due.amountPaise;
-      continue;
-    }
-    payPaise = Math.min(balancePaise, due.amountPaise - left);
-    break;
-  }
+  const payPaise = payDueNow(installments, paidPaise, balancePaise);
   const siblings = await tx.quote.findMany({
     where: { leadId: quote.leadId, status: { in: ["sent", "accepted"] } },
     orderBy: { createdAt: "asc" },

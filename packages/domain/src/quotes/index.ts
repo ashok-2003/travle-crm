@@ -92,7 +92,8 @@ export {
   updateQuote,
   type QuoteContext,
 } from "./quotes.js";
-export { quoteSettingsOf, saveQuoteSettings, upiPayLink } from "./settings.js";
+export { quoteSettingsOf, saveQuoteSettings } from "./settings.js";
+export { upiPayLink } from "@travel-crm/contracts/quotes";
 export { coveredInstallments, quoteMoney, TOUR_OPERATOR_SAC } from "./totals.js";
 
 /** The record type of a quote shared by link (/p/<token>). */

@@ -2,15 +2,17 @@
 // and when, the price lines and the total, what is due, the days as light-blue boxes, inclusions with ticks, exclusions
 // with crosses, notes as points, and the agency's terms. No tax table: the invoice carries that.
 // Written with createElement rather than JSX: dependency-cruiser's resolver doesn't follow imports of .tsx files.
-import { Document, Page, Path, StyleSheet, Svg, Text, View, type DocumentProps } from "@react-pdf/renderer";
+import { Document, Page, Path, Rect, StyleSheet, Svg, Text, View, type DocumentProps } from "@react-pdf/renderer";
 import { brand } from "@travel-crm/brand";
 import { createElement, type ReactElement } from "react";
 import type { PdfInput, QuotationDocumentData } from "../document-input.js";
+import { qrSquares } from "../../qr/index.js";
 import { pageFooter, pageHeader } from "../page-parts.js";
 import { pdfTheme, type PdfTheme } from "../theme.js";
 
 function styles(theme: PdfTheme) {
   const { sky } = brand.colours.avatar;
+  const { attention } = brand.colours.status;
   return StyleSheet.create({
     page: { paddingTop: 36, paddingHorizontal: 40, paddingBottom: 64, fontFamily: theme.fonts.ui, fontSize: 10 },
     label: { fontFamily: theme.fonts.title, fontSize: 12, fontWeight: 600, color: theme.ink, marginBottom: 6 },
@@ -32,6 +34,17 @@ function styles(theme: PdfTheme) {
     totalLine: { flexDirection: "row", alignItems: "flex-end", gap: 5, marginTop: 10 },
     total: { fontFamily: theme.fonts.numbers, fontSize: 16, fontWeight: 600, color: theme.money },
     totalNote: { fontSize: 10, color: theme.muted, marginBottom: 2 },
+    payBox: {
+      flexDirection: "row",
+      gap: 14,
+      alignItems: "center",
+      padding: 10,
+      backgroundColor: attention.fill,
+      borderRadius: 6,
+    },
+    qr: { width: 96, height: 96 },
+    payTitle: { fontFamily: theme.fonts.title, fontSize: 13, fontWeight: 600, color: attention.ink },
+    payText: { color: attention.ink, marginTop: 3 },
     day: { backgroundColor: sky.fill, borderRadius: 6, padding: 9 },
     dayTitle: { fontWeight: 600, color: sky.ink },
     dayText: { color: sky.ink, marginTop: 3, lineHeight: 1.35 },
@@ -84,6 +97,34 @@ function dues(style: Styles, data: QuotationDocumentData): ReactElement | null {
     style,
     "To pay",
     ...data.dues.map((due, index) => priceRow(style, index, due.label, `By ${due.by}`, due.amount)),
+  );
+}
+
+/** The Pay box: the UPI link as a QR (vector, so it prints crisp), with the words to pay by hand. */
+function payBox(style: Styles, data: QuotationDocumentData): ReactElement | null {
+  if (!data.pay) return null;
+  const { size, path } = qrSquares(data.pay.link);
+  return createElement(
+    View,
+    { style: { ...style.section }, wrap: false },
+    createElement(
+      View,
+      { style: style.payBox },
+      createElement(
+        Svg,
+        { style: style.qr, viewBox: `0 0 ${String(size)} ${String(size)}` },
+        createElement(Rect, { x: 0, y: 0, width: size, height: size, fill: "#ffffff" }),
+        createElement(Path, { d: path, fill: "#000000" }),
+      ),
+      createElement(
+        View,
+        { style: style.words },
+        createElement(Text, { style: style.payTitle }, `Pay ${data.pay.amount} now`),
+        createElement(Text, { style: style.payText }, "Scan with any UPI app, or pay to this UPI id:"),
+        createElement(Text, { style: { ...style.payText, fontWeight: 600 } }, data.pay.upiId),
+        createElement(Text, { style: style.payText }, data.pay.name),
+      ),
+    ),
   );
 }
 
@@ -174,6 +215,7 @@ export function quotationDocument({ data, branding, issuedAt }: PdfInput): React
       data.when ? createElement(Text, { style: style.when }, data.when) : null,
       price(style, data),
       dues(style, data),
+      payBox(style, data),
       days(style, data),
       points(style, "Included", data.inclusions, "tick"),
       points(style, "Not included", data.exclusions, "cross"),

@@ -8,6 +8,7 @@ import {
   type IssueDocumentInput,
   type IssueQuotationInput,
 } from "@travel-crm/contracts/documents";
+import { upiPayLink, type QuoteSettings } from "@travel-crm/contracts/quotes";
 import type { OrgTx } from "@travel-crm/db";
 import { issueDocument } from "../documents/index.js";
 import type { MemberAccess } from "../identity/index.js";
@@ -22,7 +23,8 @@ import {
 } from "../kernel/index.js";
 import { gstLabel, wholeRupeePrice } from "./whole-rupees.js";
 import { dayOf, daysOf, findQuoteForChange, findQuoteInScope, itemsOf, paidOf } from "./quote-rows.js";
-import { quoteMoney, TOUR_OPERATOR_SAC } from "./totals.js";
+import { quoteSettingsOf } from "./settings.js";
+import { coveredInstallments, payDueNow, quoteMoney, TOUR_OPERATOR_SAC } from "./totals.js";
 
 type Branding = IssueDocumentInput["branding"];
 
@@ -99,7 +101,7 @@ function travellersOf(quote: Quote): string {
  * The quotation in the words its PDF prints, matching the customer's page: whole rupees, dates as words. Nothing is cut
  * short: the contract's caps are the quote's own limits, so a quote that saves always issues.
  */
-function quotationContent(quote: Quote) {
+function quotationContent(quote: Quote, settings: QuoteSettings, agencyName: string) {
   const day = (date: Date, weekday: boolean) => formatDayWithYear(parseCalendarDate(dayOf(date)), { weekday });
   const when = [quote.startDate === null ? "" : day(quote.startDate, true), travellersOf(quote)]
     .filter(Boolean)
@@ -110,9 +112,30 @@ function quotationContent(quote: Quote) {
     Number(quote.totalPaise),
     Number(quote.taxPaise),
   );
+  const paidPaise = paidOf(quote);
+  const dueNow = payDueNow(
+    coveredInstallments(
+      quote.installments.map((due) => ({ amountPaise: Number(due.amountPaise), dueOn: dayOf(due.dueOn) })),
+      paidPaise,
+    ),
+    paidPaise,
+    Math.max(0, Number(quote.totalPaise) - paidPaise),
+  );
+  // The same link the customer's button opens, so the QR and the button agree.
+  const link = upiPayLink(settings, { amountPaise: dueNow, note: quote.title });
   return {
     title: quote.title,
     customer: quote.lead.person.name,
+    ...(link === null
+      ? {}
+      : {
+          pay: {
+            link,
+            upiId: settings.upiId,
+            name: settings.upiName === "" ? agencyName : settings.upiName,
+            amount: formatRupees(dueNow),
+          },
+        }),
     ...(when === "" ? {} : { when }),
     lines: items.map((item, index) => ({
       description: `${item.description} × ${String(item.quantity)}`,
@@ -163,7 +186,11 @@ export async function issueQuotePdf(tx: OrgTx, access: MemberAccess, quoteId: st
   const issued = await issue(
     tx,
     access,
-    { template: "quotation", content: quotationContent(quote), branding: context.branding },
+    {
+      template: "quotation",
+      content: quotationContent(quote, await quoteSettingsOf(tx), context.branding.organizationName),
+      branding: context.branding,
+    },
     QUOTE_DOCUMENT_PREFIX,
     context.now,
   );

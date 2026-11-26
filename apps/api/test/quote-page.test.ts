@@ -1,5 +1,6 @@
 // The customer's quote page at /p/<token>: reads in the owner's order, accepts with a name alone (no tick boxes) and keeps what
 // the two ticks kept, shows what to pay once accepted, carries no script and fits a 360px phone.
+import { qrSvg } from "@travel-crm/integrations/qr";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { CookieJar } from "./support/cookie-jar.js";
 import { signedInOwner } from "./support/people.js";
@@ -187,6 +188,31 @@ describe("the customer's quote page", () => {
     expect(inOrder(positions(html, "Fri 4 Dec 2026", "Accepted by Meera Iyer", "Pay by UPI", "<h2>Price</h2>"))).toBe(
       true,
     );
+  });
+
+  it("draws the UPI QR in the Pay now section: the button's own link, named for a screen reader, no script", async () => {
+    const made = await aQuote();
+    await post(made.path, { name: "Meera Iyer" });
+    const { html } = await page(made.path);
+    const href = /<a class="button" href="([^"]+)">Pay by UPI/.exec(html)?.[1]?.replaceAll("&amp;", "&") ?? "";
+    expect(href).toMatch(/^upi:\/\/pay\?pa=agency%40bank&pn=.+&am=52500\.00&cu=INR&tn=Goa\+4\+days$/);
+    const qr = /<svg role="img" aria-label="UPI QR to pay ₹52,500 to ([^"]+)"[\s\S]*?<\/svg>/.exec(html);
+    expect(qr).not.toBeNull();
+    expect(qr?.[0]).toBe(qrSvg(href, `UPI QR to pay ₹52,500 to ${qr?.[1] ?? ""}`));
+    expect(html).toContain("<strong>agency@bank</strong>");
+    expect(html).not.toContain("<script");
+  });
+
+  it("draws no QR without a UPI id", async () => {
+    await server.db.forOrg(agency.organizationId, (tx) => tx.quoteSettings.updateMany({ data: { upiId: "" } }));
+    const made = await aQuote();
+    await post(made.path, { name: "Meera Iyer" });
+    const { html } = await page(made.path);
+    await server.db.forOrg(agency.organizationId, (tx) =>
+      tx.quoteSettings.updateMany({ data: { upiId: "agency@bank" } }),
+    );
+    expect(html).not.toContain("UPI QR");
+    expect(html).not.toContain("Pay by UPI");
   });
 
   it("with several options, the radio choice comes before the name and the one Accept button", async () => {
