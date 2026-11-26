@@ -81,6 +81,8 @@ test("quotes, payments, the invoice, Finance, Reports, hot leads and a lost reas
   const quoteId = page.url().split("/").pop() ?? "";
   await callApi(page, "finance.addCost", {
     quoteId,
+    departureId: null,
+    supplierId: null,
     category: "hotel",
     supplier: "Hotel Baga Bliss",
     amountPaise: 3_200_000,
@@ -107,7 +109,7 @@ test("quotes, payments, the invoice, Finance, Reports, hot leads and a lost reas
     }
   });
   await page.goto("/dashboard");
-  await expect(page.getByRole("heading", { name: /hot lead/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /hot leads/i })).toBeVisible();
   await shoot(page, "home-hot-leads");
 
   await page.goto(`/leads/${other}`);
@@ -117,7 +119,7 @@ test("quotes, payments, the invoice, Finance, Reports, hot leads and a lost reas
   await shoot(page, "lost-reason");
   await page.keyboard.press("Escape");
   await page.goto("/dashboard");
-  await expect(page.getByRole("region", { name: "Today at a glance" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: /^Good (morning|afternoon|evening)/ })).toBeVisible();
   await shoot(page, "home-final");
   await page.goto("/reports");
   await expect(page.getByRole("heading", { level: 1, name: "Reports" })).toBeVisible();
