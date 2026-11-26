@@ -62,7 +62,8 @@ colour. The customer's link page and the PDF are older than the app's design and
    - **Accept** right after: the customer's name and one Accept button, no tick boxes (several options: choose one first,
      as today); once accepted, the same place shows what to pay now with "Pay by UPI" and the UPI id, and the payment
      claim as today;
-   - then the price (total including GST, no paise, no CGST/SGST table), the day boxes, inclusions (green ticks),
+   - then the price breakdown (each line × quantity and its amount, then the total including GST; no paise, no
+     CGST/SGST table — owner: "price breakdown"), the day boxes, inclusions (green ticks),
      exclusions (crosses), notes, and the terms in full;
    - at the bottom, small but readable: "By accepting this quote I agree to the terms and cancellation policy, and to get
      trip updates on WhatsApp." Accepting records the trip-updates permission the old tick box recorded. It covers trip
