@@ -3,8 +3,10 @@
 // answer; a draft keeps ids and a hash, never its words; and a reply sent from it is audited as drafted by AI.
 import { randomUUID } from "node:crypto";
 import { createMemoryAiModel, type MemoryAiModel } from "@travel-crm/integrations/ai";
+import { createMemoryPrompts } from "@travel-crm/integrations/prompts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { MONTHLY_AI_LIMIT, aiSettingsOf, recordDraftSent, saveAiSettings, suggestReply } from "../../src/ai/index.js";
+import { SUGGEST_REPLY_PROMPT_TEXT } from "../../src/ai/prompt-text.js";
 import { createQuickReply } from "../../src/inbox/index.js";
 import { monthStartOf } from "../../src/inbox/index.js";
 import { aLead } from "../crm/support/records.js";
@@ -100,6 +102,41 @@ describe("suggest reply", () => {
     const row = await inOrg((tx) => tx.aiDraft.findUniqueOrThrow({ where: { id: draft.draftId } }));
     expect(JSON.stringify(row)).not.toContain("Namaste");
     expect(row).toMatchObject({ conversationId: chat.id, draftedBy: expect.any(String) as string });
+  });
+
+  it("runs on Langfuse's suggest-reply/system when it has one, linking the call to it", async () => {
+    const { model, turnOn, chat, seller } = await agency();
+    await turnOn();
+    model.answer('"Namaste!"');
+    const prompts = createMemoryPrompts([
+      { name: "suggest-reply/system", version: 4, label: "production", text: "Langfuse reply rules" },
+    ]);
+    await suggestReply(
+      test.db,
+      model,
+      seller,
+      { conversationId: chat.id },
+      { agencyName: "Sharma Holidays", now: testNow, prompts },
+    );
+    const [request] = model.requests;
+    expect(request?.messages[0]).toEqual({ role: "system", content: "Langfuse reply rules" });
+    expect(request?.prompt).toEqual({ name: "suggest-reply/system", version: 4 });
+  });
+
+  it("runs on the built-in rules, with no prompt link, when Langfuse has none", async () => {
+    const { model, turnOn, chat, seller } = await agency();
+    await turnOn();
+    model.answer('"Namaste!"');
+    await suggestReply(
+      test.db,
+      model,
+      seller,
+      { conversationId: chat.id },
+      { agencyName: "Sharma Holidays", now: testNow, prompts: createMemoryPrompts() },
+    );
+    const [request] = model.requests;
+    expect(request?.messages[0]).toEqual({ role: "system", content: SUGGEST_REPLY_PROMPT_TEXT });
+    expect(request?.prompt).toBeUndefined();
   });
 
   it("is not found for a chat the member may not see", async () => {
