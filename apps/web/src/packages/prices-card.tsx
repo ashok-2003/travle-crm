@@ -29,6 +29,8 @@ export function PricesCard({ detail }: { detail: PackageDetail }) {
   const [adding, setAdding] = useState(false);
   // Unsaved price changes in the table: a season change would read the trip again and drop them.
   const [edited, setEdited] = useState(false);
+  // The phone's season tab, held here: the table below starts over when the trip is read again.
+  const [chosen, setChosen] = useState<string | null>(null);
   const onEdited = useCallback((next: boolean) => {
     setEdited(next);
   }, []);
@@ -60,7 +62,13 @@ export function PricesCard({ detail }: { detail: PackageDetail }) {
         </div>
       )}
       {/* A new key when the trip is read again: the table starts from what was saved. */}
-      <PriceTable key={JSON.stringify([detail.roomTypes, detail.seasons])} detail={detail} onEdited={onEdited} />
+      <PriceTable
+        key={JSON.stringify([detail.roomTypes, detail.seasons])}
+        detail={detail}
+        chosen={chosen}
+        onChoose={setChosen}
+        onEdited={onEdited}
+      />
       <AddSeasonDialog
         packageId={detail.id}
         rooms={rooms}

@@ -32,8 +32,9 @@ included), and `test/design-shapes.test.ts` ties radii, type scale, z scale and 
 - Focus: the one global 2px outline in `globals.css`; components don't add `focus-visible:ring-*`. An input group's
   outline goes round the whole group, not the input inside it (`globals.css`).
 - `button.tsx`: pill shape (`rounded-full`), primary hover is `action-pressed`; outline has the input border; ghost is
-  blue text; destructive is the status-bad tint with ink words, a little deeper on hover (owner, 2026-11-21: a soft red
-  fill for every button that ends, removes or refuses something, in place of the registry's red words on an outline). A `quiet` variant of our own (feedback round 1): ink words
+  blue text; destructive is the status-bad tint deepened with 22% of its dot, ink words, 32% on hover (owner, 2026-11-21: a red
+  fill for every button that ends, removes or refuses something, in place of the registry's red words on an outline;
+  2026-11-26: deeper, the first tint was too faint). A `quiet` variant of our own (feedback round 1): ink words
   that take the ghost's blue tint on hover, for a choice whose own content carries colour (the stage bar's steps, where
   link blue would hide the stages' colours); a `send` variant of our own (owner, 2026-10-28): the brand's green fill with
   white words, for the buttons that send to a customer on WhatsApp and nothing else, so a send looks unlike every blue

@@ -1,5 +1,7 @@
 // The visual audit of release 7b (2026-11-02): a supplier's rates in two seasons, a quote with lines priced from rates and the
-// minimum-margin warning, a package with two tiers, a package's public page and its enquiry form (joining a departure).
+// minimum-margin warning, a package with two tiers, a package's public page and its enquiry form (joining a departure);
+// and the packages revamp (2026-11-26): a group trip's departures calendar (a month on a phone, two from 1280px, one at
+// 1024px), its Prices card (a table, or a tab per season on a phone) and the Packages list (a table, or a row each).
 import { saveBusinessProfile } from "../support/documents";
 import { expect, signInByEmail, test } from "../support/fixtures";
 import { ownDeparture } from "../support/departures";
@@ -15,6 +17,7 @@ import {
   aTier,
   publishedPackage,
   saveMarginSettings,
+  updatePackage,
 } from "../support/packages";
 import { visitorsDevice } from "../support/website-form";
 import { screenshotsOnly, shoot } from "./camera";
@@ -128,4 +131,84 @@ test("rates, a priced quote with the warning, a package with tiers, and its publ
   await expect(visit.getByRole("heading", { name: /^Join the departure on/ })).toBeVisible();
   await shoot(visit, "r7b-public-form");
   await visitor.close();
+});
+
+test("a group trip with two seasons: its departures calendar, and the Packages list", async ({ page, agency }) => {
+  test.setTimeout(300_000);
+  await signInByEmail(page, agency.owner);
+  await saveBusinessProfile(page);
+  const packageId = await aPackage(page, "Spiti 6N7D");
+  await updatePackage(page, packageId, {
+    kind: "group",
+    roomTypes: ["triple", "double"],
+    weeklyDays: [5, 6, 0],
+    seatsPerDeparture: 20,
+    nights: 6,
+    startCity: "Delhi",
+  });
+  // The first days have no season (their departures say "No price"), then Regular, then a dear Festival fortnight.
+  const none = { single: null, double: null, triple: null, quad: null, child_bed: null, child_no_bed: null };
+  await callApi(page, "packages.saveSeason", {
+    packageId,
+    label: "Regular",
+    startsOn: dayInIndia(6),
+    endsOn: dayInIndia(20),
+    prices: { ...none, triple: 1_230_000, double: 1_399_900 },
+  });
+  await callApi(page, "packages.saveSeason", {
+    packageId,
+    label: "Festival",
+    startsOn: dayInIndia(21),
+    endsOn: dayInIndia(120),
+    prices: { ...none, triple: 1_899_900, double: 2_099_900 },
+  });
+  // A cancelled, a full and a nearly full departure among the weekly ones.
+  const days = await callApi<{ departureId: string; seatsFree: number }[]>(page, "departures.calendar", {
+    packageId,
+    from: dayInIndia(0),
+    to: dayInIndia(30),
+  });
+  const [cancelled, full, few] = days.slice(2, 5);
+  if (cancelled === undefined || full === undefined || few === undefined) throw new Error("no weekly departures made");
+  await callApi(page, "departures.cancel", { departureId: cancelled.departureId, reason: "Road closed" });
+  await callApi(page, "departures.setSeats", { departureId: full.departureId, seatsTotal: 0 });
+  await callApi(page, "departures.setSeats", { departureId: few.departureId, seatsTotal: 3 });
+
+  await page.goto(`/packages/${packageId}`);
+  const card = page.getByRole("region", { name: "Departures", exact: true });
+  await expect(card.getByRole("list", { name: "Seasons" })).toContainText("Festival");
+  await expect(card.getByRole("button", { name: /departure/ }).first()).toBeVisible();
+  await shoot(page, "packages-group-trip", { element: card });
+  const phone = test.info().project.name === "phone";
+  if (phone) {
+    // The two seasons' prices, a tab each.
+    const prices = page.getByRole("region", { name: "Prices", exact: true });
+    await shoot(page, "packages-group-prices-phone", { element: prices });
+    await prices.getByRole("tab", { name: "Festival" }).click();
+    await shoot(page, "packages-group-prices-phone-festival", { element: prices });
+    // A phone shows one month: the next one has the seasons' colours.
+    await card.getByRole("button", { name: "Next month" }).click();
+    await expect(card.getByRole("button", { name: /^4 Dec, departure/ })).toBeVisible();
+    await shoot(page, "packages-group-trip-next", { element: card });
+    // The narrowest phone, on the month with the cancelled departure, where nothing may spill.
+    await page.setViewportSize({ width: 360, height: 800 });
+    for (let turns = 0; turns < 2 && (await card.getByText("Cancelled", { exact: true }).count()) === 0; turns += 1) {
+      await card.getByRole("button", { name: turns === 0 ? "Previous month" : "Next month" }).click();
+    }
+    await shoot(page, "packages-group-trip-360", { element: card });
+    const sideways = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    expect(sideways).toBeLessThanOrEqual(0);
+    await page.setViewportSize({ width: 390, height: 844 });
+  } else {
+    // A 1024px screen reads one month, so that no day's price runs into the next day's.
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await expect(card.getByRole("grid")).toHaveCount(1);
+    await shoot(page, "packages-group-trip-1024", { element: card });
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect(card.getByRole("grid")).toHaveCount(2);
+  }
+
+  await page.goto("/packages");
+  await expect(page.getByText("Spiti 6N7D").first()).toBeVisible();
+  await shoot(page, "packages-group-list");
 });

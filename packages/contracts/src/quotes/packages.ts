@@ -98,6 +98,8 @@ export const quotePackage = z.object({
   aiGap: z.enum(sellGaps).nullable(),
   /** A group trip's departures from today on that are not cancelled. */
   departuresAhead: z.int(),
+  /** A group trip's first departure from today that is not cancelled, with its seats free; null for a custom trip or none. */
+  nextDeparture: z.object({ startDate: calendarDate, seatsFree: z.int() }).nullable(),
 });
 export type QuotePackage = z.infer<typeof quotePackage>;
 export const quotePackageList = z.array(quotePackage);

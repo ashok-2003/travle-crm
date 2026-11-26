@@ -23,11 +23,7 @@ function show(
 ) {
   screenIs("wide");
   const api = fakeApi();
-  renderWithApi(
-    <DayPanel detail={detail} day={day} departure={entry} today={TODAY} onDayChange={vi.fn()} />,
-    newQueryClient(),
-    me,
-  );
+  renderWithApi(<DayPanel detail={detail} day={day} departure={entry} today={TODAY} />, newQueryClient(), me);
   return api;
 }
 const button = (name: string) => screen.getByRole("button", { name });

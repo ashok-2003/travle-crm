@@ -57,6 +57,7 @@ const listed = (detail: PackageDetail, departuresAhead: number): QuotePackage =>
   aiSells: detail.sellable && detail.sellGaps.length === 0,
   aiGap: detail.sellGaps[0] ?? null,
   departuresAhead,
+  nextDeparture: null,
 });
 
 /** Opens the trip's page over an api that has the trip, its departures and its place in the Packages list. */
@@ -76,6 +77,9 @@ async function showing(detail: PackageDetail, me = member({ isOwner: true })) {
 }
 
 const section = (title: string) => within(screen.getByRole("region", { name: title }));
+/** The header's Open the page (the Page card has a link of the same words, inside its region). */
+const headerLink = () =>
+  screen.queryAllByRole("link", { name: words.header.openPage }).find((link) => link.closest("[role=region]") === null);
 const headings = () => screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent);
 
 describe("PackageScreen", () => {
@@ -85,6 +89,34 @@ describe("PackageScreen", () => {
   });
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it("puts Copy link and Open the page beside the title while the page is live", async () => {
+    await showing(groupTrip);
+    const open = headerLink();
+    expect(open).toHaveAttribute("href", "/a/acme/kedarnath");
+    expect(open).toHaveAttribute("target", "_blank");
+    const writeText = vi.fn(() => Promise.resolve());
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    await userEvent.click(screen.getByRole("button", { name: words.header.copyLink }));
+    expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/a/acme/kedarnath`);
+  });
+
+  it.each([
+    ["unpublished", { published: false }],
+    ["the agency's pages off", { pagesEnabled: false }],
+  ])("has neither Copy link nor Open the page when %s", async (_name, change) => {
+    await showing({ ...groupTrip, ...change });
+    expect(screen.queryByRole("button", { name: words.header.copyLink })).toBeNull();
+    expect(headerLink()).toBeUndefined();
+  });
+
+  it("shows a long inclusions value in full, all six lines", async () => {
+    const six = ["a", "b", "c", "d", "e", "f"].map((x) => `Line ${x}`).join("\n");
+    await showing({ ...groupTrip, inclusions: six });
+    const value = within(screen.getByRole("region", { name: titles.details })).getByText(/Line a/);
+    expect(value.textContent).toBe(six);
+    expect(value.className).not.toContain("line-clamp");
   });
 
   it("says the page is not live when it is published but the agency's public pages are off", async () => {

@@ -48,6 +48,13 @@ describe("Details", () => {
     expect(within(username).getByText("meera")).toHaveClass("basis-full");
   });
 
+  it("puts a stacked row's value under its label even when both would fit on one line", () => {
+    render(<Details rows={[{ label: "Notes", value: "Short", stacked: true }]} />);
+    const value = screen.getByText("Short");
+    expect(value).toHaveClass("basis-full", "text-left");
+    expect(value.className).not.toContain("line-clamp");
+  });
+
   it("shows a label alone when it has no value", () => {
     render(<Details rows={[{ label: "Temporary password" }]} />);
     expect(screen.getByRole("listitem")).toHaveTextContent("Temporary password");

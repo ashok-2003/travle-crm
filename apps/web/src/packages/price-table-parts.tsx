@@ -21,6 +21,15 @@ import type { SeasonTint } from "./season-colours";
 import { SeasonColumnMenu, type ColumnAction } from "./season-column-menu";
 import { seasonDates } from "./season-words";
 
+/** A season's menu: what it offers, whether it is off, and what it tells the table. */
+export interface SeasonMenu {
+  actions: readonly ColumnAction[];
+  disabled: boolean;
+  describedBy: string | undefined;
+  onOpen: (button: HTMLElement) => void;
+  onChoose: (action: ColumnAction) => void;
+}
+
 export function SeasonHeadCell({
   column,
   columns,
@@ -31,13 +40,7 @@ export function SeasonHeadCell({
   columns: readonly SeasonColumn[];
   tint: SeasonTint;
   /** The column's menu, or null for someone who may only read. */
-  menu: {
-    actions: readonly ColumnAction[];
-    disabled: boolean;
-    describedBy: string | undefined;
-    onOpen: (button: HTMLElement) => void;
-    onChoose: (action: ColumnAction) => void;
-  } | null;
+  menu: SeasonMenu | null;
 }) {
   const t = useTranslations("packages.departuresCalendar");
   return (

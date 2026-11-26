@@ -21,7 +21,7 @@ const inputDay = (day: string): string => day.split("-").reverse().join("/");
 test("an Owner makes a group package, prices its seasons, sees its departures and files, lets the AI sell it, and quotes three in a triple room", async ({
   page,
   agency,
-}) => {
+}, testInfo) => {
   test.setTimeout(300_000);
   await signInByEmail(page, agency.owner);
   await saveBusinessProfile(page);
@@ -74,7 +74,11 @@ test("an Owner makes a group package, prices its seasons, sees its departures an
   await dialog.getByLabel("Double, per person").fill("9,999");
   await dialog.getByRole("button", { name: "Save" }).click();
   await expect(dialog).toBeHidden();
+  // A phone shows one season at a time: its tab first.
+  const phone = testInfo.project.name === "phone";
+  if (phone) await prices.getByRole("tab", { name: "Nov" }).click();
   await expect(prices.getByRole("textbox", { name: "Triple, Nov" })).toHaveValue(/6,?999/);
+  if (phone) await prices.getByRole("tab", { name: "Dec to Jan peak" }).click();
   await expect(prices.getByRole("textbox", { name: "Triple, Dec to Jan peak" })).toHaveValue(/8,?999/);
 
   // The departures made when the package was saved: the calendar names both seasons and shows a departure with its seats.

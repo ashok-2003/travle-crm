@@ -616,6 +616,29 @@ export const SHOTS = [
   { name: "r7b-package", screen: "A package with its two tiers, photos and publishing", as: owner },
   { name: "r7b-public-page", screen: "A package's public page", as: visitor },
   { name: "r7b-public-form", screen: "The public page's enquiry form, joining a departure", as: visitor },
+  // The departures calendar, compact on every screen (packages revamp, 2026-11-26).
+  { name: "packages-group-trip", screen: "A group trip with two seasons: its departures calendar", as: owner },
+  {
+    name: "packages-group-trip-next",
+    screen: "The same calendar a month on, in its seasons",
+    as: owner,
+    only: "phone",
+  },
+  { name: "packages-group-trip-360", screen: "The same calendar on a 360px phone", as: owner, only: "phone" },
+  { name: "packages-group-trip-1024", screen: "The same calendar at 1024px: one month", as: owner, only: "desktop" },
+  {
+    name: "packages-group-prices-phone",
+    screen: "The two seasons' prices on a phone: a tab each",
+    as: owner,
+    only: "phone",
+  },
+  {
+    name: "packages-group-prices-phone-festival",
+    screen: "The same prices on the second season's tab",
+    as: owner,
+    only: "phone",
+  },
+  { name: "packages-group-list", screen: "The Packages list with the group trip", as: owner },
   // The Leads list's Show (leads show spec, 2026-11-21): Home's Hot View all, and Not contacted yet on Mine.
   { name: "leads-show-hot", screen: "Leads on Show: Hot, from Home's View all, its chip first", as: owner },
   { name: "leads-show-hot-1024", screen: "Leads on Show: Hot at 1024px", as: owner, only: "desktop" },
