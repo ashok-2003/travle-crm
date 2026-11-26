@@ -108,6 +108,7 @@ describe("the customer's quote page", () => {
       ),
     ).toBe(true);
     expect(html).toContain("₹52,500");
+    expect(inOrder(positions(html, "<h2>Price</h2>", "Hotel × 1", "₹50,000", 'class="total">₹52,500'))).toBe(true);
     expect(html).not.toContain("52,500.00");
     expect(html).not.toMatch(/CGST|SGST|GST 5%/);
     expect(html).not.toContain("<script");
@@ -172,7 +173,9 @@ describe("the customer's quote page", () => {
     expect(html).not.toContain('name="name"');
     expect(html).toContain("Pay by UPI");
     expect(html).toContain("agency@bank");
-    expect(inOrder(positions(html, "<h1>Goa 4 days</h1>", "Pay by UPI", "<h2>Price</h2>"))).toBe(true);
+    expect(inOrder(positions(html, "Fri 4 Dec 2026", "Accepted by Meera Iyer", "Pay by UPI", "<h2>Price</h2>"))).toBe(
+      true,
+    );
   });
 
   it("with several options, the radio choice comes before the name and the one Accept button", async () => {
@@ -189,6 +192,7 @@ describe("the customer's quote page", () => {
       }),
     );
     const { html } = await page(made.path);
+    expect(html).toContain("Details below are for Goa 3-star.");
     expect(html.match(/type="radio"/g)?.length).toBe(2);
     expect(inOrder(positions(html, 'type="radio"', 'name="name"', "Accept"))).toBe(true);
     expect(html.match(/<button type="submit"[^>]*>Accept/g)).toHaveLength(1);

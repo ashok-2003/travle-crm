@@ -92,6 +92,12 @@ export function quotePage(
         `<li><strong>Day ${String(index + 1)}: ${escapeHtml(day.title)}</strong>${day.description === "" ? "" : `<p>${paragraphs(day.description)}</p>`}</li>`,
     )
     .join("");
+  const lines = quote.items
+    .map(
+      (item) =>
+        `<tr><td>${escapeHtml(item.description)} × ${String(item.quantity)}${item.detail === "" ? "" : `<small>${escapeHtml(item.detail)}</small>`}</td><td class="n">${wholeRupees(item.amountPaise)}</td></tr>`,
+    )
+    .join("");
   const dues = quote.installments
     .map(
       (due) =>
@@ -139,7 +145,8 @@ ${notice === "accepted" ? `<section class="notice"><h2>Thank you, your acceptanc
 ${notice === "claimed" ? `<section class="notice"><h2>Thank you, we'll check your payment</h2><p>${escapeHtml(agencyName)} will mark it received once it shows in their account.</p></section>` : ""}
 ${notice === "refused" && view.why?.startsWith("CLAIM") === true ? `<section class="notice"><h2>That didn't go through</h2><p>Check the amount and add your UPI reference or a screenshot, then try again.</p></section>` : notice === "refused" ? `<section class="notice"><h2>We couldn't record your acceptance</h2><p>${escapeHtml(refusalWords(quote, agencyName))}</p></section>` : ""}
 ${accept}
-${section("Price", `<p class="total">${wholeRupees(quote.totalPaise)}</p><small>${quote.taxPaise > 0 ? "Total, including GST" : "Total"}</small>${quote.paidPaise > 0 ? `<table><tbody><tr><td>Paid</td><td class="n">${wholeRupees(quote.paidPaise)}</td></tr><tr><td>Balance</td><td class="n">${wholeRupees(quote.balancePaise)}</td></tr></tbody></table>` : ""}${dues === "" ? "" : `<table><tbody>${dues}</tbody></table>`}`)}
+${choices ? `<p class="hint">Details below are for ${escapeHtml(quote.title)}.</p>` : ""}
+${section("Price", `${lines === "" ? "" : `<table class="lines"><tbody>${lines}</tbody></table>`}<p class="total">${wholeRupees(quote.totalPaise)}</p><small>${quote.taxPaise > 0 ? "Total, including GST" : "Total"}</small>${quote.paidPaise > 0 ? `<table><tbody><tr><td>Paid</td><td class="n">${wholeRupees(quote.paidPaise)}</td></tr><tr><td>Balance</td><td class="n">${wholeRupees(quote.balancePaise)}</td></tr></tbody></table>` : ""}${dues === "" ? "" : `<table><tbody>${dues}</tbody></table>`}`)}
 ${section("Your trip, day by day", days === "" ? "" : `<ol class="days">${days}</ol>`)}
 ${section("Included", pointsOf(quote.inclusions).length === 0 ? "" : list("ticks", quote.inclusions))}
 ${section("Not included", pointsOf(quote.exclusions).length === 0 ? "" : list("crosses", quote.exclusions))}
