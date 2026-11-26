@@ -47,6 +47,9 @@ export const KNOWN_ACTIONS = [
   "invite.created",
   "invite.cancelled",
   "invite.joined",
+  "invoice.created",
+  "invoice.cancelled",
+  "billing-details.changed",
 ] as const;
 
 export type KnownAction = (typeof KNOWN_ACTIONS)[number];
@@ -69,6 +72,8 @@ const NAMED_TARGETS = [
   "person",
   "platform",
   "ai_turn_trace",
+  "invoice",
+  "billing_details",
 ] as const;
 
 export type NamedTarget = (typeof NAMED_TARGETS)[number];
