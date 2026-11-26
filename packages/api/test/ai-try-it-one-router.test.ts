@@ -117,7 +117,7 @@ describe("ai.testOne", () => {
     const agent = answering();
     const caller = await anAiAgency({ toolAgent: agent.toolAgent });
     const shown = await caller.ai.testOne({ messages: hi, state: null });
-    expect(shown).toMatchObject({ outcome: "replied", messages: [words], trace: { promptVersion: "built-in-one-5" } });
+    expect(shown).toMatchObject({ outcome: "replied", messages: [words], trace: { promptVersion: "built-in-one-10" } });
     expect(agent.runs).toHaveLength(1);
     expect(agent.runs[0]?.request).toMatchObject({ feature: "sales_agent" });
     expect(agent.runs[0]?.request).not.toHaveProperty("model");
@@ -150,7 +150,7 @@ describe("ai.testOne", () => {
 
     const other = await anAiAgency({ toolAgent: answering().toolAgent });
     const builtIn = await other.ai.testOne({ messages: hi, state: null });
-    expect(builtIn.trace).toMatchObject({ promptVersion: "built-in-one-5", promptLabel: null });
+    expect(builtIn.trace).toMatchObject({ promptVersion: "built-in-one-10", promptLabel: null });
   });
 
   it("runs on Langfuse's draft when chosen, read past the cache, and on the live prompt when there is no draft", async () => {

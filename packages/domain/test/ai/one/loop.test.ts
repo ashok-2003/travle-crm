@@ -11,6 +11,7 @@ import { startNaturalTrace, type NaturalTraceBuilder } from "../../../src/ai/nat
 import type { QuoteFigures, StagedAction } from "../../../src/ai/natural/types.js";
 import type { OneContext } from "../../../src/ai/one/context.js";
 import { runOneLoop, type OneLoopIO, type OneSettings } from "../../../src/ai/one/loop.js";
+import { codeWords } from "../../../src/ai/one/reply-check.js";
 import type { OneActionName } from "../../../src/ai/one/tools.js";
 import { parseCalendarDate } from "../../../src/kernel/index.js";
 
@@ -75,6 +76,11 @@ function contextOf(): OneContext {
       ["T1", "package-1"],
       ["T2", "package-2"],
     ]),
+    titles: new Map([
+      ["package-1", "Kedarkantha Trek"],
+      ["package-2", "Brahmatal Trek"],
+    ]),
+    codes: ["T1", "T2", "B1", "B2"],
     newLines: [
       { id: "line-1", from: "customer", at: new Date(START - 60_000), kind: "text", text: "Kedarkantha ka rate?" },
     ],
@@ -243,6 +249,21 @@ describe("the one agent's loop", () => {
     });
   });
 
+  it("asks again when the reply shows a trip ID, then sends the clean answer unedited", async () => {
+    model.answer({ text: "Manali (T1) mein hotel stay hai." }, "Manali mein hotel stay hai.");
+    expect(await loop()).toMatchObject({ end: "final", messages: ["Manali mein hotel stay hai."], callsUsed: 2 });
+    expect(model.requests[1]?.messages.at(-1)?.content).toBe(`${APP_CHECK} ${codeWords("T1")}`);
+  });
+
+  it("asks once more when the reply was code or a tool call as text, then leaves it to the team", async () => {
+    model.answer({ text: '{"trip_id": "T3", "adults": 4}' }, "Kab ka plan hai?");
+    expect(await loop()).toMatchObject({ end: "final", messages: ["Kab ka plan hai?"], callsUsed: 2 });
+    expect(model.requests[1]?.messages.at(-1)?.content).toBe(`${APP_CHECK} ${codeWords("code")}`);
+
+    model.answer({ text: "Ye raha T1" }, { text: '→ quote(trip: "T1")' });
+    expect(await loop()).toMatchObject({ end: "fallback", reason: "model" });
+  });
+
   it("ends quiet after stay_quiet without asking the model again", async () => {
     model.answer({ toolCalls: [quietCall] });
     expect(await loop()).toMatchObject({ end: "final", messages: [], callsUsed: 1 });
@@ -360,7 +381,7 @@ describe("the one agent's loop", () => {
       staged: new Map([["update_lead", staging.update_lead]]),
       task:
         `The AI took too many steps without a reply it could send, so nothing went to the customer. ` +
-        `They wrote: "Kedarkantha ka rate?". Not done: the AI meant to offer T1 for 2 on Sat 19 Dec, total ₹18,998. ` +
+        `They wrote: "Kedarkantha ka rate?". Not done: the AI meant to offer Kedarkantha Trek for 2 on Sat 19 Dec, total ₹18,998. ` +
         "Why on this turn shows what it tried.",
       draft: null,
     });
@@ -411,7 +432,9 @@ describe("the one agent's loop", () => {
     const fallback = await loop({ forced: [handOver, brochure] });
     expect(fallback).toMatchObject({ end: "fallback", reason: "model" });
     expect(stagedOf(fallback)).toEqual(["hand_over"]);
-    expect(fallback.end === "fallback" && fallback.task).toContain("Not done: the AI meant to send T1's brochure.");
+    expect(fallback.end === "fallback" && fallback.task).toContain(
+      "Not done: the AI meant to send Kedarkantha Trek's brochure.",
+    );
   });
 
   it("traces each call, each tool with its refusals, and the staged actions", async () => {

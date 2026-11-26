@@ -40,7 +40,7 @@ async function tripsFound(context: ReadContext, query: string): Promise<string> 
   if (found.elsewhen.length > 0) {
     return `none of the trips matching "${words}" leaves in ${when}; their next dates:\n${lines(found.elsewhen, false)}`;
   }
-  const trips = tripsAre([...context.labels.keys()]);
+  const trips = tripsAre(context.sheets);
   if (months.length === 0) return `no title, place, stop or pickup says "${words}"; ${trips}`;
   const nothing = found.words === "" ? "" : `nothing matches "${words}"; `;
   return found.inMonth.length > 0
@@ -57,7 +57,7 @@ async function tripWhole(context: ReadContext, label: string): Promise<string> {
       : await tripSheetsOf(context.tx, [{ id: packageId, kind: "group" }], context.today, context.now, {
           whole: true,
         });
-  if (sheet === undefined) return `refused: that trip isn't on sale now; ${tripsAre([...context.labels.keys()])}`;
+  if (sheet === undefined) return `refused: that trip isn't on sale now; ${tripsAre(context.sheets)}`;
   const text = fenced(tripInFull({ ...sheet, label }, context.today));
   return sheet.departures.length < MOST_DEPARTURES
     ? text

@@ -53,8 +53,8 @@ describe("a trip as the natural agent reads it", () => {
   it("writes a trip in full with its numbers, rooms by season, advance and the next departures", () => {
     const text = tripInFull(kedarkantha, today);
     expect(text.split("\n").slice(0, 3)).toEqual([
-      "Trip ID: T1",
       "Name: Kedarkantha Trek",
+      "ID for tools: T1",
       "Where: Sankri, Uttarakhand · 5 nights · from Dehradun",
     ]);
     for (const part of [
@@ -143,8 +143,8 @@ describe("a trip as the natural agent reads it", () => {
 
   it("writes one labelled index entry with the trip's ID, the from-price, the next 3 dates and the main stops", () => {
     expect(tripIndexEntry(kedarkantha, today).split("\n")).toEqual([
-      "Trip ID: T1",
       "Name: Kedarkantha Trek",
+      "ID for tools: T1",
       "Where: Sankri, Uttarakhand · 5 nights · from Dehradun",
       "Price: from ₹9,499 per person, the lowest room (quote or get_trip gives each room's)",
       "Dates: Sat 12 Dec, Sat 19 Dec, Sat 26 Dec",

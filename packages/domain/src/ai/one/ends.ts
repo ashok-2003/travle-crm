@@ -35,8 +35,7 @@ export function oneFallback(
 ): LoopEnd {
   const staged = without(run.staged, CUSTOMER_FACING);
   turn.trace.staged(staged);
-  const labelOf = new Map([...turn.context.labels].map(([label, packageId]) => [packageId, label]));
-  const tripOf = (packageId: string) => labelOf.get(packageId) ?? "a trip";
+  const tripOf = (packageId: string) => turn.context.titles.get(packageId) ?? "a trip";
   const dropped = [...run.staged.values()]
     .filter((action) => !staged.has(action.tool))
     .flatMap((action) => notDone(action, tripOf, turn.today) ?? []);

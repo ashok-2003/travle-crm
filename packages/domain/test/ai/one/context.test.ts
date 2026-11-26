@@ -209,7 +209,7 @@ describe("the one agent's context", () => {
       [
         "<customer>",
         "Details: December, no day yet · 2 adults",
-        "Came from: Instagram ad for T1 Kedarkantha Trek.",
+        "Came from: Instagram ad for Kedarkantha Trek (ID T1).",
         'Team notes, newest first: Sat 14 Nov, Amit: "Offered ₹500 off"',
         "Open tasks: Confirm the pickup point.",
         "</customer>",
@@ -289,9 +289,9 @@ describe("the one agent's context", () => {
       }),
     );
     expect(context.messages[0]?.content).toContain(
-      "\nBrochure ID: B1\nTrip: T1 Kedarkantha Trek\nName: Winter plan\nAbout: Dates and costs",
+      "\nName: Winter plan\nTrip: Kedarkantha Trek\nAbout: Dates and costs\nID for send_brochure: B1",
     );
-    expect(chat(context)[0]?.content).toContain("Brochures sent in this chat: B1 Winter plan.");
+    expect(chat(context)[0]?.content).toContain("Brochures sent in this chat: Winter plan.");
     const turn = context.messages.at(-1)?.content ?? "";
     expect(turn).not.toContain("Brochures sent");
     expect(turn).toContain("The app sent a QR.");

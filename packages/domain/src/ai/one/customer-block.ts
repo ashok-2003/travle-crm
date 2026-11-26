@@ -34,7 +34,7 @@ export function customerBlock(input: CustomerBlockInput): string | null {
   const trip = sheetOf(lead.packageId);
   const ad = cameFrom === null ? undefined : sheetOf(cameFrom.packageId);
   const details = [
-    trip === undefined ? null : `trip ${trip.label}`,
+    trip === undefined ? null : `trip ${fenced(trip.title)} (ID ${trip.label})`,
     whenWords(lead, today),
     travellerWords(lead.adults, lead.childrenAges),
     lead.pickupCity === null ? null : `joining from ${oneLine(lead.pickupCity)}`,
@@ -47,7 +47,7 @@ export function customerBlock(input: CustomerBlockInput): string | null {
     details.length === 0 ? null : `Details: ${details.join(" · ")}`,
     cameFrom === null
       ? null
-      : `Came from: ${oneLine(cameFrom.source)}${ad === undefined ? "" : ` for ${ad.label} ${fenced(ad.title)}`}.`,
+      : `Came from: ${oneLine(cameFrom.source)}${ad === undefined ? "" : ` for ${fenced(ad.title)} (ID ${ad.label})`}.`,
     lead.summary === null || lead.summary.trim() === ""
       ? null
       : `Earlier notes: ${oneLine(cutText(lead.summary, EARLIER_NOTES_CUT))}`,

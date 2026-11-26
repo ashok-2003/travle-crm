@@ -134,7 +134,7 @@ describe("stageAction", () => {
         notes: ["Customer now says double room; the lead says triple."],
       },
       result:
-        "saved: trip T1, name Rohan Mehta; a person's value stands, noted for the team: " +
+        "saved: trip Kedarkantha Trek, name Rohan Mehta; a person's value stands, noted for the team: " +
         "Customer now says double room; the lead says triple.",
     });
     expect(await stageAction(ctx(), "update_lead", said, "")).toEqual({
@@ -151,7 +151,8 @@ describe("stageAction", () => {
         },
         notes: [],
       },
-      result: "saved: trip T1, Sat 19 Dec, 2 adults, 2 children (8, 10), pickup delhi, double room, name Rohan Mehta",
+      result:
+        "saved: trip Kedarkantha Trek, Sat 19 Dec, 2 adults, 2 children (8, 10), pickup delhi, double room, name Rohan Mehta",
     });
     // A person's "flexible" is no date to keep, and a day they typed differs from a month the customer says now.
     expect(
@@ -179,7 +180,7 @@ describe("stageAction", () => {
     // A trip at their place fills the trip they left empty; their name again changes nothing.
     expect(await stageAction(ctx({ typed }), "update_lead", { trip_id: "T1", name: "rohan mehta" }, "")).toEqual({
       staged: { tool: "update_lead", fields: { packageId: "package-1" }, notes: [] },
-      result: "saved: trip T1",
+      result: "saved: trip Kedarkantha Trek",
     });
     // The lead's trip again changes nothing; another trip there is theirs to choose, so it is a note.
     const tripOne = { ...lead, packageId: "package-1" };
@@ -204,7 +205,7 @@ describe("stageAction", () => {
 
   it("refuses a brochure for a trip the chat hasn't named (G6)", async () => {
     expect(await stageAction(ctx(), "send_brochure", { trip_id: "T2" }, "")).toEqual({
-      refused: "refused: the chat hasn't named T2 Brahmatal Trek: name it, or ask which trip",
+      refused: "refused: the chat hasn't named Brahmatal Trek: name it, or ask which trip",
     });
   });
 
@@ -223,7 +224,7 @@ describe("stageAction", () => {
       return sent.map((outcome) => ("staged" in outcome ? "sent" : outcome.refused));
     };
     const notNamed = (trip: string) => `refused: the chat hasn't named ${trip}: name it, or ask which trip`;
-    const onlyMeghalaya = [notNamed("T1 Spiti Valley in Winter"), notNamed("T2 Valley of Flowers"), "sent"];
+    const onlyMeghalaya = [notNamed("Spiti Valley in Winter"), notNamed("Valley of Flowers"), "sent"];
     expect(
       await brochures("Meghalaya trip in December?", "Here are the details of the Meghalaya trip in December"),
     ).toEqual(onlyMeghalaya);
@@ -231,12 +232,12 @@ describe("stageAction", () => {
     // The trips matching the most words count: "Valley of Flowers" names it, not Spiti Valley; and a trip this reply
     // names counts beside it.
     expect(await brochures("Valley of Flowers ya Meghalaya?", "")).toEqual([
-      notNamed("T1 Spiti Valley in Winter"),
+      notNamed("Spiti Valley in Winter"),
       "sent",
-      notNamed("T3 Meghalaya Living Roots"),
+      notNamed("Meghalaya Living Roots"),
     ]);
     expect(await brochures("Valley of Flowers ya Meghalaya?", "Meghalaya ka brochure bhej rahi hoon")).toEqual([
-      notNamed("T1 Spiti Valley in Winter"),
+      notNamed("Spiti Valley in Winter"),
       "sent",
       "sent",
     ]);
@@ -256,11 +257,11 @@ describe("stageAction", () => {
       expect(await stageAction(context, "send_brochure", { trip_id: "T2" }, "")).toMatchObject(sent);
     expect(await stageAction(ctx(), "send_brochure", { trip_id: "T2" }, "Here is the Brahmatal brochure.")).toEqual({
       ...sent,
-      result: "goes with your reply: T2 Brahmatal Trek's brochure and photos, 1 file",
+      result: "goes with your reply: Brahmatal Trek's brochure and photos, 1 file",
     });
     // "Trek" names a kind of trip, never one trip.
     expect(await stageAction(ctx(saying("Trek ka brochure bhejo")), "send_brochure", { trip_id: "T2" }, "")).toEqual({
-      refused: "refused: the chat hasn't named T2 Brahmatal Trek: name it, or ask which trip",
+      refused: "refused: the chat hasn't named Brahmatal Trek: name it, or ask which trip",
     });
   });
 
@@ -289,7 +290,7 @@ describe("stageAction", () => {
           caption: "Brahmatal Trek",
           resend: ["brochure-2"],
         },
-        result: "goes with your reply: B2 Brahmatal Trek, and 0 photos",
+        result: "goes with your reply: Brahmatal Trek, and 0 photos",
       },
     );
     expect(await stageAction(ctx(withBrochures), "send_brochure", { brochure_id: "B9" }, "", { agent: "one" })).toEqual(
@@ -309,13 +310,13 @@ describe("stageAction", () => {
         caption: "Winter plan",
         resend: ["brochure-1"],
       },
-      result: "goes with your reply: B1 Winter plan, and 2 photos; it went in this chat before and goes again",
+      result: "goes with your reply: Winter plan, and 2 photos; it went in this chat before and goes again",
     });
   });
 
   it("still refuses natural's brochure the chat didn't name", async () => {
     expect(await stageAction(ctx(withBrochures), "send_brochure", { trip_id: "T2" }, "")).toEqual({
-      refused: "refused: the chat hasn't named T2 Brahmatal Trek: name it, or ask which trip",
+      refused: "refused: the chat hasn't named Brahmatal Trek: name it, or ask which trip",
     });
   });
 
@@ -329,8 +330,7 @@ describe("stageAction", () => {
         "",
       ),
     ).toEqual({
-      refused:
-        "refused: T1 Kedarkantha Trek's brochure went in this chat already; point them to it, or answer in words",
+      refused: "refused: Kedarkantha Trek's brochure went in this chat already; point them to it, or answer in words",
     });
     const bare = sheet(2, "Brahmatal Trek", "Lohajung", []);
     expect(
@@ -340,10 +340,10 @@ describe("stageAction", () => {
         { trip_id: "T2" },
         "",
       ),
-    ).toEqual({ refused: "refused: T2 Brahmatal Trek has no brochure or photos; describe it in words" });
+    ).toEqual({ refused: "refused: Brahmatal Trek has no brochure or photos; describe it in words" });
     expect(await stageAction(ctx(aboutT1), "send_brochure", { trip_id: "T1" }, "")).toEqual({
       staged: { tool: "send_brochure", packageId: "package-1", fileIds: ["brochure-1", "photo-1", "photo-2"] },
-      result: "goes with your reply: T1 Kedarkantha Trek's brochure and photos, 3 files",
+      result: "goes with your reply: Kedarkantha Trek's brochure and photos, 3 files",
     });
   });
 
@@ -415,13 +415,13 @@ describe("stageAction", () => {
         figures: expect.objectContaining({ totalPaise: 2_599_800, advancePaise: 600_000 }) as unknown,
       },
       result:
-        "offered: T1 Kedarkantha Trek, Sat 19 Dec, 2 adults, double; total ₹25,998; advance ₹6,000 (₹3,000 per " +
+        "offered: Kedarkantha Trek, Sat 19 Dec, 2 adults, double; total ₹25,998; advance ₹6,000 (₹3,000 per " +
         "person). Your words state the date and the advance, and ask for their full name or a yes",
     });
     // Paying in full, the words state the total.
     expect(await stageAction(ctx(), "offer_booking", terms({ room: "double", pay_in_full: true }), "")).toMatchObject({
       result:
-        "offered: T1 Kedarkantha Trek, Sat 19 Dec, 2 adults, double, paying in full; total ₹25,998, all due now. " +
+        "offered: Kedarkantha Trek, Sat 19 Dec, 2 adults, double, paying in full; total ₹25,998, all due now. " +
         "Your words state the date and the total, and ask for their full name or a yes",
     });
   });
@@ -448,7 +448,7 @@ describe("stageAction", () => {
   it("refuses book on terms that differ from the live offer", async () => {
     expect(await stageAction(ctx(afterOffer("haan, Rohan Mehta")), "book", { ...yes, room: "triple" }, "")).toEqual({
       refused:
-        "refused: these terms differ from the live offer (T1 Kedarkantha Trek, Sat 19 Dec, 2 adults, double, total " +
+        "refused: these terms differ from the live offer (Kedarkantha Trek, Sat 19 Dec, 2 adults, double, total " +
         "₹25,998); book on its terms, or offer these terms first with offer_booking",
     });
     expect(
@@ -474,7 +474,7 @@ describe("stageAction", () => {
     });
     expect(await stageAction(context, "book", { ...yes, adults: 3 }, "")).toEqual({
       refused:
-        "refused: these terms differ from the live offer (T1 Kedarkantha Trek, Sat 12 Dec, 2 adults, double, total " +
+        "refused: these terms differ from the live offer (Kedarkantha Trek, Sat 12 Dec, 2 adults, double, total " +
         "₹25,998); book on its terms, or offer these terms first with offer_booking",
     });
     expect(await stageAction(context, "book", { ...yes, date: "2026-12-12" }, "")).toMatchObject({
@@ -526,7 +526,7 @@ describe("stageAction", () => {
         via: "offer",
       },
       result:
-        "held once your reply goes: T1 Kedarkantha Trek, Sat 19 Dec, 2 adults, double; total ₹25,998; advance " +
+        "held once your reply goes: Kedarkantha Trek, Sat 19 Dec, 2 adults, double; total ₹25,998; advance " +
         "₹6,000 due now. The app then sends the payment message and QR: leave payment details out of your words",
     });
     // The name may be the lead's or their WhatsApp profile's; a trek that sells one room books it whatever was asked.
@@ -765,7 +765,7 @@ describe("stageAction for the one agent", () => {
         offer: { id: expect.stringMatching(/^[0-9a-f-]{36}$/u) as unknown },
       },
       result:
-        "offered: T1 Kedarkantha Trek, Sat 19 Dec, 2 adults, double; total ₹25,998; advance ₹6,000 (₹3,000 per " +
+        "offered: Kedarkantha Trek, Sat 19 Dec, 2 adults, double; total ₹25,998; advance ₹6,000 (₹3,000 per " +
         "person). The app sends the offer card with these figures and Book and Change buttons after your words: " +
         "keep your line short and don't retype the figures",
     });

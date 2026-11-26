@@ -9,6 +9,7 @@ import {
   parseCalendarDate,
   type CalendarDate,
 } from "../../../kernel/index.js";
+import { fenced } from "../../fenced.js";
 import { oneLine } from "../../lite/context/blocks.js";
 import { stageLabel, travellerWords } from "../../lite/context/lead-card.js";
 import { findPackages, meaningful } from "../../lite/lookups/find-packages.js";
@@ -58,13 +59,17 @@ export function whenWords(lead: NaturalLeadView, today: CalendarDate): string | 
   return `${year === Number(today.slice(0, 4)) ? name : `${name} ${String(year)}`}, no day yet`;
 }
 
+/** The trip by name, its ID after it as the tools' handle; the offer's trip may be off sale now. */
+const tripOf = (sheet: TripSheet | undefined) =>
+  sheet === undefined ? "a trip not on sale now" : `${fenced(sheet.title)} (ID ${sheet.label})`;
+
 export function offerWords(
   offer: LiveOffer,
   clock: Pick<TurnBlockInput, "today" | "timeZone">,
   sheetOf: (packageId: string | null) => TripSheet | undefined,
 ): string {
   return [
-    sheetOf(offer.packageId)?.label ?? "a trip not on sale now",
+    tripOf(sheetOf(offer.packageId)),
     formatShortDay(parseCalendarDate(offer.startsOn), clock.today),
     travellerWords(offer.adults, offer.childrenAges),
     offer.room === null ? null : roomNames[offer.room],

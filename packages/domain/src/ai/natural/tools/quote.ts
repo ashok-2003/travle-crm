@@ -27,7 +27,7 @@ export async function quoteOf(
   terms: BookingTerms,
 ): Promise<{ figures: QuoteFigures; words: string } | Refused> {
   const { tx, today, now } = context;
-  const notOnSale = refused(`that trip isn't on sale now; ${tripsAre([...context.labels.keys()])}`);
+  const notOnSale = refused(`that trip isn't on sale now; ${tripsAre(context.sheets)}`);
   const sheet = context.sheets.find((one) => one.packageId === terms.packageId);
   if (sheet === undefined) return notOnSale;
   const [row, onSale] = await Promise.all([
@@ -105,7 +105,7 @@ export async function quoteOf(
     terms.room !== null && terms.room !== room ? ` (${roomNames[room]} is the only room this trip sells)` : "";
   const travellers = travellerWords(terms.adults, terms.childrenAges) ?? "";
   const words = [
-    `${sheet.label} ${sheet.title}, ${day(startsOn)}, ${travellers}: ${pricesWords(charged)}${onlyRoom}, ${gstWords(tax)}`,
+    `${sheet.title}, ${day(startsOn)}, ${travellers}: ${pricesWords(charged)}${onlyRoom}, ${gstWords(tax)}`,
     `total ${formatRupees(total.totalPaise)}`,
     `advance ${formatRupees(advancePerPersonPaise)} per person, ${formatRupees(advancePaise)} in all`,
     `seats: ${seatWords(departure.freeSeats)}`,
