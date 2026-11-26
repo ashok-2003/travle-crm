@@ -77,6 +77,12 @@ describe("renderPlatformInvoice", () => {
     }
   });
 
+  it("has the firm's name in the footer and no 'Made with' line", async () => {
+    const { text } = await pdfText(await renderPlatformInvoice(full, issuedAt));
+    expect(text).not.toContain("Made with");
+    expect(text).toContain("Test Firm Page 1 of 1");
+  });
+
   it("renders a minimal invoice without due date, payment or notes", async () => {
     const pdf = await renderPlatformInvoice(minimal, issuedAt);
     expect(new TextDecoder().decode(pdf.subarray(0, 5))).toBe("%PDF-");

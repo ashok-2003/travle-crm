@@ -3,7 +3,6 @@
 import { Document, Page, StyleSheet, Text, View, type DocumentProps } from "@react-pdf/renderer";
 import { brand } from "@travel-crm/brand";
 import { createElement, type ReactElement } from "react";
-import { pageFooter } from "../page-parts.js";
 import type { PlatformInvoiceData } from "../platform-invoice-input.js";
 import { pdfTheme, type PdfTheme } from "../theme.js";
 
@@ -55,16 +54,41 @@ function styles(theme: PdfTheme) {
     totalLabel: { color: theme.muted },
     totalLabelEmphasis: { color: theme.ink, fontWeight: 600 },
     totalAmount: { fontFamily: theme.fonts.numbers, color: theme.ink },
-    totalAmountEmphasis: { fontFamily: theme.fonts.numbers, color: theme.money, fontWeight: 600 },
+    totalAmountEmphasis: { fontFamily: theme.fonts.numbers, color: theme.accent, fontWeight: 600 },
     section: { marginTop: 18 },
     paragraph: { color: theme.ink, lineHeight: 1.4 },
     payBox: { marginTop: 18, padding: 10, backgroundColor: theme.surface },
     signatory: { marginTop: 36, alignSelf: "flex-end", width: 200 },
+    footer: {
+      position: "absolute",
+      left: 40,
+      right: 40,
+      bottom: 24,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      paddingTop: 6,
+      borderTopWidth: 0.5,
+      borderTopColor: theme.hairline,
+      fontSize: 8,
+      color: theme.muted,
+    },
     signLine: { marginTop: 28, paddingTop: 4, borderTopWidth: 0.5, borderTopColor: theme.ink, color: theme.muted },
   });
 }
 
 type Styles = ReturnType<typeof styles>;
+
+// The firm's own invoice: its legal name and the page count, without the "Made with" line organization documents carry.
+function footer(style: Styles, sellerName: string): ReactElement {
+  return createElement(
+    View,
+    { style: style.footer, fixed: true },
+    createElement(Text, null, sellerName),
+    createElement(Text, {
+      render: ({ pageNumber, totalPages }) => `Page ${String(pageNumber)} of ${String(totalPages)}`,
+    }),
+  );
+}
 
 function header(style: Styles, data: PlatformInvoiceData): ReactElement {
   const dates = [`Date: ${data.issuedOn}`, ...(data.dueOn ? [`Due: ${data.dueOn}`] : [])];
@@ -145,7 +169,7 @@ function howToPay(style: Styles, lines: readonly string[]): ReactElement {
 }
 
 export function platformInvoice(data: PlatformInvoiceData, issuedAt: Date): ReactElement<DocumentProps> {
-  const theme = pdfTheme({ organizationName: data.seller.name });
+  const theme = pdfTheme({ organizationName: data.seller.name, accentColour: brand.colours.sidebar.fill });
   const style = styles(theme);
   return createElement(
     Document,
@@ -178,7 +202,7 @@ export function platformInvoice(data: PlatformInvoiceData, issuedAt: Date): Reac
         createElement(Text, { style: style.paragraph }, data.signatory),
         createElement(Text, { style: style.signLine }, "Authorised signatory"),
       ),
-      pageFooter({ branding: { organizationName: data.seller.name }, theme }),
+      footer(style, data.seller.name),
     ),
   );
 }
