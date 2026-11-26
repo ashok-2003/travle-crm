@@ -5,8 +5,10 @@
 import { createMemoryStorage } from "@travel-crm/integrations/storage";
 import { createPlatformDatabase, type PlatformDatabase } from "@travel-crm/db/platform";
 import { createMemoryAiModel } from "@travel-crm/integrations/ai";
+import { createMemoryPrompts, type AiPrompts } from "@travel-crm/integrations/prompts";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { findInterestedPeople, recordOfferSent, writeSeatMessage } from "../../src/ai/index.js";
+import { REACH_OUT_PROMPT_TEXT } from "../../src/ai/seats/prompt-text.js";
 import { findDeparture } from "../../src/departures/index.js";
 import { systemActor } from "../../src/kernel/index.js";
 import { eraseCustomerParts } from "../../src/platform/erase-customer.js";
@@ -103,13 +105,13 @@ describe("empty seats", () => {
     const model = createMemoryAiModel();
     const find = (member = world.manager) =>
       world.inOrg(async (tx) => findInterestedPeople(tx, member, await findDeparture(tx, departure.id), now));
-    const write = (leadId: string, member = world.manager) =>
+    const write = (leadId: string, member = world.manager, prompts?: AiPrompts) =>
       writeSeatMessage(
         world.db,
         model,
         member,
         { departureId: departure.id, leadId },
-        { agencyName: "Sharma Holidays", now },
+        { agencyName: "Sharma Holidays", now, prompts },
       );
     return { destination, elsewhere, departure, lead, model, find, write };
   }
@@ -245,6 +247,24 @@ describe("empty seats", () => {
     const fill = await world.inOrg((tx) => tx.aiFill.findUniqueOrThrow({ where: { id: message.fillId } }));
     expect(fill).toMatchObject({ target: "departure_offer", subjectId: person.leadId, appliedAt: null });
     expect(JSON.stringify(fill)).not.toContain("Hi Priya");
+  });
+
+  it("runs on Langfuse's empty-seats/reach-out when it has one, and on the built-in rules when it has none", async () => {
+    const s = await setup();
+    const person = await s.lead(world.seller.userId, { name: "Priya Nair" });
+    s.model.answer("Hi! A few seats are open.\nIt is {price}.");
+    const prompts = createMemoryPrompts([
+      { name: "empty-seats/reach-out", version: 2, label: "production", text: "Langfuse seat rules" },
+    ]);
+    await s.write(person.leadId, world.manager, prompts);
+    expect(s.model.requests[0]?.messages[0]).toEqual({ role: "system", content: "Langfuse seat rules" });
+    expect(s.model.requests[0]?.prompt).toEqual({ name: "empty-seats/reach-out", version: 2 });
+
+    const other = await s.lead(world.seller.userId, { name: "Asha Rao" });
+    s.model.answer("Hi! A few seats are open.\nIt is {price}.");
+    await s.write(other.leadId, world.manager, createMemoryPrompts());
+    expect(s.model.requests[1]?.messages[0]).toEqual({ role: "system", content: REACH_OUT_PROMPT_TEXT });
+    expect(s.model.requests[1]?.prompt).toBeUndefined();
   });
 
   it("says nothing was taken out when the model typed no amount or seat count, and fences the names as data", async () => {

@@ -3,11 +3,13 @@
 // call is given back when the AI fails; and the question is kept nowhere.
 import { randomUUID } from "node:crypto";
 import { createMemoryAiModel } from "@travel-crm/integrations/ai";
+import { createMemoryPrompts } from "@travel-crm/integrations/prompts";
 import { createDatabase, type Database, type OrgTx } from "@travel-crm/db";
 import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platform";
 import { createTestOrganization } from "@travel-crm/db/testing";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { chooseReport, chosenFrom, MONTHLY_AI_LIMIT, saveAiSettings } from "../../src/ai/index.js";
+import { ASK_REPORTS_PROMPT_TEXT } from "../../src/ai/ask/prompt-text.js";
 import type { MemberAccess } from "../../src/identity/index.js";
 import { reportsFor } from "../../src/reports/index.js";
 import { aLead } from "../crm/support/records.js";
@@ -105,5 +107,22 @@ describe("ask reports: choosing the report", () => {
     model.answer({ ok: false, reason: "unavailable" });
     expect(await reasonOf(chooseReport(db, model, owner, "anything at all", catalogue(), now))).toBe("AI_UNAVAILABLE");
     expect(await inOrg((tx) => tx.aiUsage.findMany())).toEqual(before);
+  });
+
+  it("runs on Langfuse's ask-reports/system when it has one, and on the built-in rules when it has none", async () => {
+    await turnOn();
+    const model = createMemoryAiModel();
+    model.answer('{"queryId":"leads_by_source","params":{"range":"30d"}}');
+    const prompts = createMemoryPrompts([
+      { name: "ask-reports/system", version: 5, label: "production", text: "Langfuse report rules" },
+    ]);
+    await chooseReport(db, model, owner, "leads by source", catalogue(), now, prompts);
+    expect(model.requests[0]?.messages[0]).toEqual({ role: "system", content: "Langfuse report rules" });
+    expect(model.requests[0]?.prompt).toEqual({ name: "ask-reports/system", version: 5 });
+
+    model.answer('{"queryId":"leads_by_source","params":{"range":"30d"}}');
+    await chooseReport(db, model, owner, "leads by source", catalogue(), now, createMemoryPrompts());
+    expect(model.requests[1]?.messages[0]).toEqual({ role: "system", content: ASK_REPORTS_PROMPT_TEXT });
+    expect(model.requests[1]?.prompt).toBeUndefined();
   });
 });
