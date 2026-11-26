@@ -47,6 +47,14 @@ colour. The customer's link page and the PDF are older than the app's design and
    - Colour only where it carries meaning; everything else stays plain.
    - A draft's form keeps its inputs but in the same order (trip, price, day by day, inclusions, exclusions, notes).
 
+### Packages, built together (owner, 2026-11-27: "build together")
+
+6b. **A trip's Trip details read like a quote.** The trip page's read view of Trip details keeps Name, Destination, Nights
+    and Where it starts as rows at the top, then shows the day by day as the same blue day boxes with arrows (not one grey
+    line), inclusions as green ticks, exclusions as crosses, pickup points, notes and cancellation notes as points. The
+    day boxes and the point lists are one pair of shared parts, used by the opened quote and by the trip page. Packages and
+    the staff side of Quotes ship in one PR.
+
 ### Customer side (PR 2)
 
 7. **The customer's link page** (/p/<token>, plain HTML from the api, no script — kept so):

@@ -5,7 +5,7 @@
 **Goal:** Quotes read at a glance: a searchable list with honest statuses, one row of clear actions, a quote page whose
 trip, money and plan stand out, and a customer page and PDF in the same layout.
 
-**Architecture:** PR 1 (branch feat/quotes-revamp) is the staff side: Task 1 (list, statuses, New quote, lead card) in one
+**Architecture:** PR 1 (branch feat/quotes-revamp, which carries the Packages revamp too: one PR) is the staff side: Task 1 (list, statuses, New quote, lead card) in one
 worktree, Tasks 2 then 3 (a quote's actions, then its body) in another. PR 2 (branch feat/quotes-customer) is Task 4 (the
 customer's page) then Task 5 (the PDF) in a third worktree. Tasks 2 and 3 both touch `quotes/quote-screen.tsx`, so they run
 one after the other.
@@ -90,9 +90,15 @@ list's input (≤ 80 characters).
 
 ### Task 3: The opened quote, read at a glance
 
-**Files:** `apps/web/src/quotes/frozen-quote.tsx`, `quote-form.tsx` (section order only), `quote-money.tsx`,
-`quote-screen.tsx` (the trip header and the note's place), the departure card on the quote page, `quotes.json`, tests; an
-audit shot of a sent group-trip quote on phone and desktop in the quotes audit file.
+**Files:** shared parts in a new `apps/web/src/components/trip-plan/` (`day-boxes.tsx`: the days as light-blue boxes with a
+decorative arrow between them; `point-list.tsx`: one point a line, with a tone of `included` (green tint, tick),
+`excluded` (cross) or `plain` (bullet), splitting stored text on its lines), used by `apps/web/src/quotes/frozen-quote.tsx`
+and by the trip page's Trip details read view (`apps/web/src/packages/section-itinerary.tsx`'s and `section-details.tsx`'s
+rows and the card that renders them: Name, Destination, Nights and Where it starts stay rows; Day by day, Inclusions,
+Exclusions, Pickup points, Notes and Cancellation notes become the shared parts); `quote-form.tsx` (section order only),
+`quote-money.tsx`, `quote-screen.tsx` (the trip header and the note's place), the departure card on the quote page,
+`quotes.json`, `packages.json`, tests; an audit shot of a sent group-trip quote and of a trip's Trip details, on phone and
+desktop.
 
 - [ ] Failing tests: the trip's name is the page's heading; its date with weekday and people read in ink (no muted class);
   Price comes before Day by day; each day is its own box with "Day 1 · <title>" and its words, an arrow between days
@@ -101,6 +107,9 @@ audit shot of a sent group-trip quote on phone and desktop in the quotes audit f
   paid → Still to pay in the attention tone; fully paid → "Paid in full" in the good tone; an installment past its date in
   the bad tone; the departure card in the green tint with its day, seats left of total, pickup point and time, and its link;
   the "sent, so prices are fixed" note is the last thing on the page; a draft's form has the same section order.
+- [ ] Failing tests for the trip page: Trip details' read view shows the days as boxes ("Day 1 · Delhi to Shimla and
+  Sangla" with its words), inclusions as a ticked green list, exclusions as a crossed list, pickup points, notes and
+  cancellation notes as lists, every line whole; Name, Destination, Nights and Where it starts stay as rows.
 - [ ] Implement; take the audit shots (phone 390px and desktop 1440px) and fix what they show; run tests, typecheck, lint.
 - [ ] Commit `feat(web): the opened quote leads with its trip, its money and its plan`.
 
