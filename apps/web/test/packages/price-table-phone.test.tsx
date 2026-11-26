@@ -63,6 +63,9 @@ describe("the price table on a phone", () => {
       "data-active:text-(--brand-avatar-amber-ink)",
     );
     expect(screen.getByRole("tabpanel")).toHaveClass("bg-(--brand-avatar-amber-fill)");
+    // Every tab keeps its full-strength ink; the selected one is marked by weight and underline, not by fading the rest.
+    expect(tab("Regular").className).not.toContain("opacity-70");
+    expect(tab("Christmas")).toHaveClass("data-active:font-semibold");
   });
 
   it("removes a room type from every season with its button", async () => {
@@ -116,6 +119,7 @@ describe("the price table on a phone", () => {
     show("phone", member({ permissions: ["quotes:view"] }));
     expect(screen.queryByRole("textbox")).toBeNull();
     expect(screen.queryByRole("button", { name: /Options for/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Remove / })).toBeNull();
     expect(within(screen.getByRole("tabpanel")).getAllByText(words.notSold)).toHaveLength(1);
   });
 

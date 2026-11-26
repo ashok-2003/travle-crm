@@ -48,7 +48,12 @@ export function PriceSeasonTabs({
             <TabsTrigger
               key={column.key}
               value={column.key}
-              className={cn(tint.fill, tint.ink, tint.active, "opacity-70 data-active:opacity-100")}
+              className={cn(
+                tint.fill,
+                tint.ink,
+                tint.active,
+                "data-active:font-semibold data-active:underline data-active:underline-offset-4",
+              )}
             >
               {column.label}
             </TabsTrigger>
