@@ -35,6 +35,12 @@ describe("console page titles", { timeout: 20_000 }, () => {
       messages.consoleOrganizations.organization.title,
     ],
     ["plans", () => import("@/app/console/plans/page"), messages.consolePlatform.plans.title],
+    ["invoices", () => import("@/app/console/invoices/page"), messages.consoleInvoices.invoices.title],
+    [
+      "billing details",
+      () => import("@/app/console/invoices/billing-details/page"),
+      messages.consoleInvoices.billingDetails.title,
+    ],
     ["jobs", () => import("@/app/console/jobs/page"), messages.consolePlatform.jobs.title],
     ["platform updates", () => import("@/app/console/updates/page"), messages.console.updates.title],
     ["failed emails", () => import("@/app/console/emails/page"), messages.consolePlatform.emails.title],

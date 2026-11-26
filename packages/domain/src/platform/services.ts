@@ -10,6 +10,7 @@ import {
 } from "@travel-crm/db/platform";
 import type { JobAdministration, JobQueue } from "@travel-crm/integrations/jobs";
 import type { Logger } from "@travel-crm/integrations/logging";
+import type { RenderPlatformInvoice } from "@travel-crm/integrations/pdf";
 import type { PushSender } from "@travel-crm/integrations/push";
 import type { ObjectStorage } from "@travel-crm/integrations/storage";
 import type { RecordedEmailSender } from "../email-log/index.js";
@@ -71,6 +72,11 @@ export interface PlatformServices {
   push?: PushSender | null;
   /** The VAPID public key a super admin's browser subscribes with (VAPID_PUBLIC_KEY); null or absent without push. */
   pushPublicKey?: string | null;
+  /**
+   * Renders an invoice's PDF (the integrations PDF port). Absent in processes and tests that make no invoices; then
+   * creating one is refused (PDF_RENDERER_MISSING).
+   */
+  renderInvoice?: RenderPlatformInvoice;
 }
 
 export interface PlatformServicesOptions extends Omit<PlatformServices, "platformDb"> {

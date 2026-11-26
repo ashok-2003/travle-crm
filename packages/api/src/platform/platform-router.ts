@@ -9,6 +9,7 @@ import { dataProtectionRouter } from "./routers/data-protection.js";
 import { emailsRouter } from "./routers/emails.js";
 import { dashboardRouter, jobsRouter } from "./routers/operations.js";
 import { invitesRouter } from "./routers/invites.js";
+import { invoicesRouter } from "./routers/invoices.js";
 import { organizationsRouter } from "./routers/organizations.js";
 import { plansRouter } from "./routers/plans.js";
 import { platformStaffRouter } from "./routers/platform-staff.js";
@@ -36,6 +37,7 @@ export const platformRouter = platformT.router({
   platformStaff: platformStaffRouter,
   push: pushRouter,
   invites: invitesRouter,
+  invoices: invoicesRouter,
   usage: usageRouter,
   log: platformT.router({
     /** What platform staff and the platform's jobs did, newest first. */

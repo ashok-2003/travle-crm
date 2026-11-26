@@ -279,6 +279,8 @@
       "traveller": "Traveller",
       "person": "Customer",
       "vip_invite": "Invite",
+      "invoice": "Invoice",
+      "billing_details": "Billing details",
       "email": "Email",
       "platform": "The AI agent on WhatsApp",
       "ai_turn_trace": "AI turn"
@@ -350,6 +352,13 @@
         "created": "Made an invite",
         "cancelled": "Cancelled an invite",
         "joined": "An invited company joined"
+      },
+      "invoice": {
+        "created": "Made an invoice",
+        "cancelled": "Cancelled an invoice"
+      },
+      "billing-details": {
+        "changed": "Changed the billing details"
       },
       "email": {
         "resent": "Sent a failed email again",

@@ -10,6 +10,7 @@ import {
   LayoutDashboardIcon,
   MailWarningIcon,
   MessageCircleIcon,
+  ReceiptTextIcon,
   ScrollTextIcon,
   ServerCogIcon,
   UserCogIcon,
@@ -21,7 +22,18 @@ import { isSuperAdmin, type ConsoleStaff } from "../session/staff-context";
 export interface ConsoleNavigationItem {
   /** Also the message key in the "console.navigation" namespace. */
   key:
-    "home" | "onboard" | "invites" | "usage" | "plans" | "whatsapp" | "jobs" | "updates" | "emails" | "log" | "staff";
+    | "home"
+    | "onboard"
+    | "invites"
+    | "usage"
+    | "plans"
+    | "invoices"
+    | "whatsapp"
+    | "jobs"
+    | "updates"
+    | "emails"
+    | "log"
+    | "staff";
   href: string;
   icon: LucideIcon;
   /** Shown to super admins only. */
@@ -34,6 +46,7 @@ export const consoleNavigationItems: readonly ConsoleNavigationItem[] = [
   { key: "invites", href: consoleRoutes.invites, icon: GiftIcon, superAdminOnly: false },
   { key: "usage", href: consoleRoutes.usage, icon: ActivityIcon, superAdminOnly: false },
   { key: "plans", href: consoleRoutes.plans, icon: LayersIcon, superAdminOnly: false },
+  { key: "invoices", href: consoleRoutes.invoices, icon: ReceiptTextIcon, superAdminOnly: true },
   { key: "whatsapp", href: consoleRoutes.whatsapp, icon: MessageCircleIcon, superAdminOnly: false },
   { key: "jobs", href: consoleRoutes.jobs, icon: ServerCogIcon, superAdminOnly: false },
   { key: "updates", href: consoleRoutes.updates, icon: BellRingIcon, superAdminOnly: false },

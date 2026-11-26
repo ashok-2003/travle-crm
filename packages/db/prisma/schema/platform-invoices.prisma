@@ -1,0 +1,86 @@
+// Invoices the platform's firm makes by hand in the console: its billing details (one row), the numbers' counters and
+// the invoices themselves. The platform's own tables: no organization_id and no row-level security, and the runtime
+// role has no rights on them. An invoice is frozen once issued; only its cancelling is written afterwards.
+
+/// The firm's billing details, entered once in the console. One row (CHECK platform_billing_details_one_row).
+model PlatformBillingDetails {
+  id                Boolean  @id @default(true)
+  legalName         String   @map("legal_name")
+  address           String
+  /// The firm's GST state code: where the firm is, registered or not.
+  stateCode         String   @map("state_code")
+  pan               String?
+  /// Set only once the firm is GST-registered; without it no invoice may charge GST.
+  gstin             String?
+  phone             String?
+  email             String?
+  bankAccountName   String?  @map("bank_account_name")
+  bankAccountNumber String?  @map("bank_account_number")
+  bankIfsc          String?  @map("bank_ifsc")
+  bankNameBranch    String?  @map("bank_name_branch")
+  upiId             String?  @map("upi_id")
+  defaultTerms      String?  @map("default_terms")
+  /// Number prefixes, e.g. "PI" and "INV" (CHECK platform_billing_details_prefixes).
+  proformaPrefix    String   @default("PI") @map("proforma_prefix")
+  invoicePrefix     String   @default("INV") @map("invoice_prefix")
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  updatedBy         String?  @map("updated_by") @db.Uuid
+
+  @@map("platform_billing_details")
+}
+
+/// The last number given, per type and financial year. Taken inside the create's transaction, locked by the row, so
+/// numbers never repeat and a failed save uses none.
+model PlatformInvoiceCounter {
+  kind          String
+  financialYear String @map("financial_year")
+  value         Int
+
+  @@id([kind, financialYear])
+  @@map("platform_invoice_counter")
+}
+
+/// One invoice or pre-invoice (proforma), frozen at creation: the seller's details as they were, the amounts, and the
+/// PDF's key in storage. Never deleted; cancelling marks it and keeps its number.
+model PlatformInvoice {
+  id                 String    @id @default(uuid(7)) @db.Uuid
+  /// "proforma" or "invoice" (CHECK platform_invoice_kind_value).
+  kind               String
+  /// "PI/2026-27/001"; unique.
+  number             String    @unique
+  /// "2026-27", from the invoice date (April to March).
+  financialYear      String    @map("financial_year")
+  sequence           Int
+  issuedOn           DateTime  @map("issued_on") @db.Date
+  dueOn              DateTime? @map("due_on") @db.Date
+  billToName         String    @map("bill_to_name")
+  billToAddress      String?   @map("bill_to_address")
+  billToStateCode    String?   @map("bill_to_state_code")
+  billToGstin        String?   @map("bill_to_gstin")
+  /// [{ description, amountPaise }], before GST.
+  lines              Json
+  /// 0, 500, 1200, 1800 or 2800 (CHECK platform_invoice_rate_value).
+  gstRateBasisPoints Int       @map("gst_rate_basis_points")
+  subtotalPaise      BigInt    @map("subtotal_paise")
+  cgstPaise          BigInt    @map("cgst_paise")
+  sgstPaise          BigInt    @map("sgst_paise")
+  igstPaise          BigInt    @map("igst_paise")
+  totalPaise         BigInt    @map("total_paise")
+  notes              String?
+  /// The billing details used, as they were (a snapshot).
+  seller             Json
+  /// Where the frozen PDF is kept in object storage.
+  pdfKey             String    @map("pdf_key")
+  /// "issued" or "cancelled" (CHECK platform_invoice_status_value).
+  status             String    @default("issued")
+  cancelledAt        DateTime? @map("cancelled_at") @db.Timestamptz(6)
+  cancelledBy        String?   @map("cancelled_by") @db.Uuid
+  cancelReason       String?   @map("cancel_reason")
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdBy          String    @map("created_by") @db.Uuid
+
+  @@unique([kind, financialYear, sequence], map: "platform_invoice_sequence_key")
+  /// The list, newest first.
+  @@index([createdAt(sort: Desc), id(sort: Desc)], map: "platform_invoice_newest")
+  @@map("platform_invoice")
+}

@@ -10,6 +10,9 @@ export const consoleRoutes = {
   organization: (organizationId: string) => `/console/organizations/${organizationId}`,
   dataProtection: (organizationId: string) => `/console/organizations/${organizationId}/data-protection`,
   plans: "/console/plans",
+  /** A super admin's invoices made by hand, and the firm's billing details they carry. */
+  invoices: "/console/invoices",
+  billingDetails: "/console/invoices/billing-details",
   jobs: "/console/jobs",
   /** What is broken now and the last week's incidents, and a super admin's platform alerts on this device. */
   updates: "/console/updates",

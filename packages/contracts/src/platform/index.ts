@@ -6,6 +6,7 @@ export * from "./data-protection.js";
 export * from "./emails.js";
 export * from "./incidents.js";
 export * from "./invites.js";
+export * from "./invoices.js";
 export * from "./organizations.js";
 export * from "./platform-log.js";
 export * from "./platform-staff.js";

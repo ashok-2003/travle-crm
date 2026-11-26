@@ -10,6 +10,7 @@ import calendar from "./messages/en-IN/calendar.json";
 import common from "./messages/en-IN/common.json";
 import consoleAi from "./messages/en-IN/console-ai.json";
 import consoleGrowth from "./messages/en-IN/console-growth.json";
+import consoleInvoices from "./messages/en-IN/console-invoices.json";
 import consoleOrganizations from "./messages/en-IN/console-organizations.json";
 import consolePlatform from "./messages/en-IN/console-platform.json";
 import consoleMessages from "./messages/en-IN/console.json";
@@ -61,6 +62,7 @@ export const messages = {
   console: consoleMessages,
   consoleAi,
   consoleGrowth,
+  consoleInvoices,
   consoleOrganizations,
   consolePlatform,
   dashboard,
