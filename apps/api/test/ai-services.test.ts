@@ -310,7 +310,7 @@ describe("the reasoning model (the owner, 2026-11-25: first, but behind Gemini's
     const { asked } = stubFetch();
     const model = createAiModel(settings(azure), logger);
     const chats = ["sales_agent", "agent_image", "chat_summary", "autopilot", "agent_voice", "fill_form"] as const;
-    const rest = ["draft_packages", "change_package", "score_lead", "write_up"] as const;
+    const rest = ["draft_packages", "change_package", "score_lead", "ask_report"] as const;
     for (const feature of [...chats, ...rest]) await model?.complete({ feature, messages, user: "org" });
     const google = { url: `${GOOGLE}/chat/completions`, model: "gemini-3.5-flash-lite" };
     // Voice notes and Fill it for me stay on the keys alone: the reasoning model can't hear a recording.

@@ -241,7 +241,7 @@
     "AI_BUSY": "The AI is busy right now. Try again in a minute, or write the reply yourself.",
     "AI_UNAVAILABLE": "The AI didn't answer. Try again in a minute, or write the reply yourself.",
     "AI_MONTH_LIMIT": "This agency has used this month's AI suggestions. They start again next month.",
-    "QUOTE_NOT_WRITABLE": "This quote was declined or replaced, so there is nothing to write about it. Open the current quote.",
+    "QUOTE_NOT_WRITABLE": "The AI drafts the days only on a draft quote, and this one has already been sent.",
     "ROOMING_NOTHING_TO_READ": "No traveller on this departure has a note about their room that is not already settled, so there is nothing for the AI to read.",
     "DEPARTURE_NEEDS_DESTINATION": "Give this departure a destination first, so we know which enquiries match it.",
     "SEATS_NONE_FREE": "This departure has no empty seats to offer.",

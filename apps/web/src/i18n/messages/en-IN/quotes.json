@@ -40,7 +40,6 @@
       "lead": "Lead",
       "leadHint": "Search by name or phone.",
       "choose": "Choose a lead",
-      "noLead": "No lead chosen",
       "newLead": "Not there? Make a new lead",
       "loadFailed": "That lead didn't load."
     }

@@ -9,7 +9,6 @@ export const aiFeatures = [
   "score_lead",
   "autopilot",
   "fill_form",
-  "write_up",
   "ask_report",
   "read_requests",
   "reach_out",
