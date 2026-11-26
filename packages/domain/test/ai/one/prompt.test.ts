@@ -1,4 +1,4 @@
-// The one agent's prompt: the built-in text equals the prompt file's v9, it fills the three placeholders, and it comes
+// The one agent's prompt: the built-in text equals the prompt file's v10, it fills the three placeholders, and it comes
 // from Langfuse's real-agent prompt (production for live turns and Try it, or draft when Try it asks), else the
 // built-in text.
 import { readFileSync } from "node:fs";
@@ -24,9 +24,9 @@ function promptFileText(): string {
 }
 
 describe("the one agent's prompt", () => {
-  it("holds the prompt file's v9 text exactly", () => {
+  it("holds the prompt file's v10 text exactly", () => {
     expect(ONE_PROMPT_TEXT).toBe(promptFileText());
-    expect(BUILT_IN_ONE_PROMPT).toEqual({ version: "built-in-one-9", text: ONE_PROMPT_TEXT });
+    expect(BUILT_IN_ONE_PROMPT).toEqual({ version: "built-in-one-10", text: ONE_PROMPT_TEXT });
   });
 
   it("fills the agency, the agent and the tone, and leaves no placeholder", () => {
