@@ -38,7 +38,15 @@ export function NewQuoteDialog({
     >
       <div className="flex flex-col gap-4">
         <FormField label={t("lead")} hint={t("leadHint")}>
-          {(links) => <LeadPicker links={links} value={picked} onChange={setPicked} words={{ none: t("choose") }} />}
+          {(links) => (
+            <LeadPicker
+              links={links}
+              value={picked}
+              onChange={setPicked}
+              words={{ none: t("choose") }}
+              disabled={creating}
+            />
+          )}
         </FormField>
         <TextLink href={routes.newLead}>{t("newLead")}</TextLink>
         {picked !== null && lead.data !== undefined && <NewQuoteMenu lead={lead.data} onPending={setCreating} />}

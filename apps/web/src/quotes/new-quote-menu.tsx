@@ -39,6 +39,8 @@ export function NewQuoteMenu({ lead, onPending }: { lead: LeadDetail; onPending?
   // A dialog holding this menu stays open while the quote is made, so its success (opening the quote) is not lost.
   useEffect(() => {
     onPending?.(busy);
+    // Gone mid-make (the lead changed, the dialog closed): the dialog must not stay held.
+    return () => onPending?.(false);
   }, [busy, onPending]);
   const { trip } = lead;
   if (!mayCreate) return null;

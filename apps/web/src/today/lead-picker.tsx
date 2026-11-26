@@ -26,12 +26,14 @@ export function LeadPicker({
   value,
   onChange,
   words,
+  disabled,
 }: {
   links: FieldLinks;
   value: PickedLead | null;
   onChange: (lead: PickedLead | null) => void;
   /** Another screen's words for the empty button and for choosing no lead again (none: no way back). */
   words?: { none: string; unlink?: string };
+  disabled?: boolean | undefined;
 }) {
   const t = useTranslations("today.addTask");
   const trpc = useTRPC();
@@ -69,6 +71,7 @@ export function LeadPicker({
         onChange(lead === null ? null : { id: lead.id, name: lead.person.name });
       }}
       {...(clearLabel !== undefined && { clearLabel })}
+      disabled={disabled}
     />
   );
 }

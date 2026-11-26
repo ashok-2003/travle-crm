@@ -63,6 +63,7 @@ export function SearchCombobox<Option>({
   onChoose,
   clearLabel,
   extraOption,
+  disabled = false,
 }: {
   links: FieldLinks;
   /** The field's button, for a form that moves the focus to a field with a problem. */
@@ -79,6 +80,8 @@ export function SearchCombobox<Option>({
   /** An option to choose nothing again, offered while something is chosen. */
   clearLabel?: string;
   extraOption?: ExtraOption | undefined;
+  /** Held while what the choice starts is under way. */
+  disabled?: boolean | undefined;
 }) {
   const tCommon = useTranslations("common");
   const { apiError } = useErrorMessage();
@@ -109,6 +112,7 @@ export function SearchCombobox<Option>({
             data-slot="input-group-control"
             role="combobox"
             aria-expanded={search.open}
+            disabled={disabled}
             className="h-full flex-1 justify-between rounded-sm px-3 text-left text-base font-normal whitespace-normal"
           >
             <span className={chosen === null ? "text-muted-foreground" : "text-foreground"}>
