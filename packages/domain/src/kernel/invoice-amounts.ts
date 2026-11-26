@@ -1,7 +1,7 @@
 // What an invoice adds up to: the lines' sum, and GST on the sum as CGST and SGST (the billed company is in the firm's
 // state) or IGST, split by the kernel's indiaGst.
 import type { GstStateCode } from "@travel-crm/contracts/kernel";
-import { indiaGst, money } from "../kernel/index.js";
+import { indiaGst, money } from "./index.js";
 
 export interface InvoiceAmounts {
   subtotalPaise: number;

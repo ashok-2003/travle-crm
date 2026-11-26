@@ -80,7 +80,9 @@ CREATE UNIQUE INDEX "platform_invoice_sequence_key" ON "platform_invoice"("kind"
 ALTER TABLE "platform_billing_details"
   ADD CONSTRAINT platform_billing_details_one_row CHECK (id),
   ADD CONSTRAINT platform_billing_details_prefixes CHECK (
-    proforma_prefix ~ '^[A-Z0-9-]{1,8}$' AND invoice_prefix ~ '^[A-Z0-9-]{1,8}$');
+    proforma_prefix ~ '^[A-Z0-9-]{1,8}$' AND invoice_prefix ~ '^[A-Z0-9-]{1,8}$')
+  -- A number is unique across both kinds, and each kind counts on its own, so equal prefixes would repeat a number.
+  , ADD CONSTRAINT platform_billing_details_prefixes_differ CHECK (proforma_prefix <> invoice_prefix);
 
 ALTER TABLE "platform_invoice_counter"
   ADD CONSTRAINT platform_invoice_counter_kind_value CHECK (kind IN ('proforma', 'invoice')),

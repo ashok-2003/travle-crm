@@ -1,6 +1,8 @@
 // The firm's billing details (one row), entered in the console: who invoices are from and how to pay. Super admins only.
 import { billingDetails, type BillingDetails, type SetBillingDetailsInput } from "@travel-crm/contracts/platform";
 import type { PlatformTx } from "@travel-crm/db/platform";
+import { characterLabel, unprintableCharactersIn } from "@travel-crm/integrations/pdf";
+import { DomainError } from "../kernel/index.js";
 import { recordPlatformAudit } from "./platform-log.js";
 import type { PlatformServices } from "./services.js";
 
@@ -46,6 +48,15 @@ export async function setBillingDetails(
   input: SetBillingDetailsInput,
 ): Promise<BillingDetails> {
   const next = details(input);
+  // Every detail may print on an invoice: refused here, so one bad character can't make every later invoice fail.
+  const unprintable = unprintableCharactersIn(next);
+  if (unprintable.length > 0) {
+    throw new DomainError(
+      "VALIDATION",
+      "UNPRINTABLE_CHARACTERS",
+      `The billing details have characters the PDF can't show yet: ${unprintable.map(characterLabel).join(", ")}`,
+    );
+  }
   return services.platformDb.transaction(async (tx) => {
     const before = await readBillingDetails(tx);
     await tx.platformBillingDetails.upsert({

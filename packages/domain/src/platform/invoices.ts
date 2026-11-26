@@ -1,6 +1,6 @@
 // Invoices made by hand in the console: numbered, computed, rendered to a PDF and stored once, then frozen. A mistake is
 // fixed by cancelling and making a new one. Super admins only; every change goes in the platform log.
-import { gstStates, isGstStateCode } from "@travel-crm/contracts/kernel";
+import { gstStates, internationalPhone, isGstStateCode } from "@travel-crm/contracts/kernel";
 import {
   billingDetails as billingDetailsSchema,
   invoiceDetail as invoiceDetailSchema,
@@ -12,10 +12,20 @@ import {
   type ListInvoicesInput,
 } from "@travel-crm/contracts/platform";
 import type { PlatformTx } from "@travel-crm/db/platform";
-import type { PlatformInvoiceData } from "@travel-crm/integrations/pdf";
-import { DomainError, formatDateTime, formatMoney, money, newUuidV7, rupeesInWords } from "../kernel/index.js";
+import { characterLabel, unprintableCharactersIn, type PlatformInvoiceData } from "@travel-crm/integrations/pdf";
+import {
+  addDays,
+  DomainError,
+  formatDateTime,
+  formatMoney,
+  invoiceAmounts,
+  money,
+  parseCalendarDate,
+  newUuidV7,
+  rupeesInWords,
+  type InvoiceAmounts,
+} from "../kernel/index.js";
 import { readBillingDetails } from "./billing-details.js";
-import { invoiceAmounts, type InvoiceAmounts } from "./invoice-amounts.js";
 import { financialYearOf, invoiceNumber, takeNextSequence } from "./invoice-numbers.js";
 import { recordPlatformAudit } from "./platform-log.js";
 import type { PlatformServices } from "./services.js";
@@ -30,6 +40,8 @@ function printedDay(day: string): string {
 const dayOf = (date: Date): string => date.toISOString().slice(0, 10);
 const rupees = (paise: number): string => formatMoney(money(paise));
 const stateName = (code: string): string => gstStates.find((state) => state.code === code)?.name ?? code;
+/** "Karnataka (29)": GST invoices name a state with its code. */
+const stateText = (code: string): string => `${stateName(code)} (${code})`;
 
 function toDetail(row: InvoiceRow): InvoiceDetail {
   return invoiceDetailSchema.parse({
@@ -83,14 +95,15 @@ function pdfData(
       : [{ label: `IGST ${rate(input.gstRateBasisPoints)}`, amount: rupees(amounts.igstPaise) }];
   const sellerLines = [
     seller.address,
+    `State: ${stateText(seller.stateCode)}`,
     seller.pan === null ? null : `PAN: ${seller.pan}`,
     seller.gstin === null ? null : `GSTIN: ${seller.gstin}`,
-    seller.phone === null ? null : `Phone: ${seller.phone}`,
+    seller.phone === null ? null : `Phone: ${internationalPhone(seller.phone)}`,
     seller.email === null ? null : `Email: ${seller.email}`,
   ];
   const billToLines = [
     given(input.billTo.address),
-    input.billTo.stateCode === undefined ? null : `State: ${stateName(input.billTo.stateCode)}`,
+    input.billTo.stateCode === undefined ? null : `State: ${stateText(input.billTo.stateCode)}`,
     input.billTo.gstin === undefined ? null : `GSTIN: ${input.billTo.gstin}`,
   ];
   const paymentLines = [
@@ -121,6 +134,35 @@ function pdfData(
 }
 
 /**
+ * An invoice's date may be at most 30 days ahead, and no earlier than the start of the previous financial year: a typo
+ * (2062) would otherwise make a permanent number that can only be cancelled.
+ */
+function assertIssuedOnReasonable(issuedOn: string, now: Date): void {
+  const today = parseCalendarDate(dayOf(now));
+  const thisYearStart = Number(financialYearOf(today).slice(0, 4));
+  const earliest = `${String(thisYearStart - 1)}-04-01`;
+  if (issuedOn > addDays(today, 30) || issuedOn < earliest) {
+    throw new DomainError(
+      "VALIDATION",
+      "INVOICE_DATE_OUT_OF_RANGE",
+      "The invoice date must be within 30 days from today, and no earlier than last financial year",
+    );
+  }
+}
+
+/** Refused before a number is used: React-PDF would print other letters in place of these. */
+function assertPrintable(...parts: unknown[]): void {
+  const unprintable = unprintableCharactersIn(parts);
+  if (unprintable.length > 0) {
+    throw new DomainError(
+      "VALIDATION",
+      "UNPRINTABLE_CHARACTERS",
+      `The invoice has characters its PDF can't show yet: ${unprintable.map(characterLabel).join(", ")}`,
+    );
+  }
+}
+
+/**
  * Makes one invoice in one platform transaction: the number, the amounts, the PDF in storage, the row and the log entry.
  * Anything that throws rolls the number back with the row (a stored file of a rolled-back create is never linked).
  */
@@ -128,69 +170,77 @@ export async function createInvoice(
   services: PlatformServices,
   staff: { userId: string },
   input: CreateInvoiceInput,
+  now: Date = new Date(),
 ): Promise<InvoiceDetail> {
   const render = services.renderInvoice;
   if (render === undefined) {
     throw new DomainError("CONFLICT", "PDF_RENDERER_MISSING", "This server can't make invoice PDFs");
   }
-  return services.platformDb.transaction(async (tx) => {
-    const seller = await readBillingDetails(tx);
-    if (seller === null) throw new DomainError("CONFLICT", "BILLING_DETAILS_MISSING", "Add billing details first");
-    if (input.gstRateBasisPoints > 0) {
-      if (seller.gstin === null) throw new DomainError("CONFLICT", "GST_NEEDS_GSTIN", "GST needs the firm's GSTIN");
-      if (input.billTo.stateCode === undefined) {
-        throw new DomainError("CONFLICT", "GST_NEEDS_STATE", "GST needs the billed company's state");
+  assertIssuedOnReasonable(input.issuedOn, now);
+  // Longer than the default 5 s: the counter's lock is held while the PDF renders and uploads, which on a busy or slow
+  // server (a deploy, a slow bucket) can take several seconds; a timeout would fail the create and strand the file.
+  return services.platformDb.transaction(
+    async (tx) => {
+      const seller = await readBillingDetails(tx);
+      if (seller === null) throw new DomainError("CONFLICT", "BILLING_DETAILS_MISSING", "Add billing details first");
+      if (input.gstRateBasisPoints > 0) {
+        if (seller.gstin === null) throw new DomainError("CONFLICT", "GST_NEEDS_GSTIN", "GST needs the firm's GSTIN");
+        if (input.billTo.stateCode === undefined) {
+          throw new DomainError("CONFLICT", "GST_NEEDS_STATE", "GST needs the billed company's state");
+        }
       }
-    }
-    if (!isGstStateCode(seller.stateCode)) throw new RangeError("The saved billing details have an unknown state");
-    const financialYear = financialYearOf(input.issuedOn);
-    const sequence = await takeNextSequence(tx, input.kind, financialYear);
-    const prefix = input.kind === "proforma" ? seller.proformaPrefix : seller.invoicePrefix;
-    const number = invoiceNumber(prefix, financialYear, sequence);
-    const amounts = invoiceAmounts(
-      input.lines,
-      input.gstRateBasisPoints,
-      seller.stateCode,
-      input.billTo.stateCode ?? null,
-    );
-    const id = newUuidV7();
-    const pdfKey = `platform/invoices/${financialYear}/${id}.pdf`;
-    const pdf = await render(pdfData(input, seller, number, amounts), new Date());
-    await services.storage.put({ key: pdfKey, contentType: "application/pdf", body: pdf });
-    const row = await tx.platformInvoice.create({
-      data: {
-        id,
-        kind: input.kind,
-        number,
-        financialYear,
-        sequence,
-        issuedOn: new Date(`${input.issuedOn}T00:00:00Z`),
-        dueOn: input.dueOn === undefined ? null : new Date(`${input.dueOn}T00:00:00Z`),
-        billToName: input.billTo.name,
-        billToAddress: given(input.billTo.address),
-        billToStateCode: input.billTo.stateCode ?? null,
-        billToGstin: input.billTo.gstin ?? null,
-        lines: input.lines,
-        gstRateBasisPoints: input.gstRateBasisPoints,
-        subtotalPaise: amounts.subtotalPaise,
-        cgstPaise: amounts.cgstPaise,
-        sgstPaise: amounts.sgstPaise,
-        igstPaise: amounts.igstPaise,
-        totalPaise: amounts.totalPaise,
-        notes: given(input.notes),
-        seller: billingDetailsSchema.parse(seller),
-        pdfKey,
-        createdBy: staff.userId,
-      },
-    });
-    await recordPlatformAudit(tx, staff, {
-      action: "invoice.created",
-      targetType: "invoice",
-      targetId: id,
-      after: { number, kind: input.kind, billToName: input.billTo.name, totalPaise: amounts.totalPaise },
-    });
-    return toDetail(row);
-  });
+      if (!isGstStateCode(seller.stateCode)) throw new RangeError("The saved billing details have an unknown state");
+      assertPrintable(input, seller);
+      const financialYear = financialYearOf(input.issuedOn);
+      const sequence = await takeNextSequence(tx, input.kind, financialYear);
+      const prefix = input.kind === "proforma" ? seller.proformaPrefix : seller.invoicePrefix;
+      const number = invoiceNumber(prefix, financialYear, sequence);
+      const amounts = invoiceAmounts(
+        input.lines,
+        input.gstRateBasisPoints,
+        seller.stateCode,
+        input.billTo.stateCode ?? null,
+      );
+      const id = newUuidV7();
+      const pdfKey = `platform/invoices/${financialYear}/${id}.pdf`;
+      const pdf = await render(pdfData(input, seller, number, amounts), now);
+      await services.storage.put({ key: pdfKey, contentType: "application/pdf", body: pdf });
+      const row = await tx.platformInvoice.create({
+        data: {
+          id,
+          kind: input.kind,
+          number,
+          financialYear,
+          sequence,
+          issuedOn: new Date(`${input.issuedOn}T00:00:00Z`),
+          dueOn: input.dueOn === undefined ? null : new Date(`${input.dueOn}T00:00:00Z`),
+          billToName: input.billTo.name,
+          billToAddress: given(input.billTo.address),
+          billToStateCode: input.billTo.stateCode ?? null,
+          billToGstin: input.billTo.gstin ?? null,
+          lines: input.lines,
+          gstRateBasisPoints: input.gstRateBasisPoints,
+          subtotalPaise: amounts.subtotalPaise,
+          cgstPaise: amounts.cgstPaise,
+          sgstPaise: amounts.sgstPaise,
+          igstPaise: amounts.igstPaise,
+          totalPaise: amounts.totalPaise,
+          notes: given(input.notes),
+          seller: billingDetailsSchema.parse(seller),
+          pdfKey,
+          createdBy: staff.userId,
+        },
+      });
+      await recordPlatformAudit(tx, staff, {
+        action: "invoice.created",
+        targetType: "invoice",
+        targetId: id,
+        after: { number, kind: input.kind, totalPaise: amounts.totalPaise },
+      });
+      return toDetail(row);
+    },
+    { timeout: 20_000 },
+  );
 }
 
 /** Invoices newest first, a page at a time. */
@@ -229,20 +279,21 @@ export async function cancelInvoice(
   input: CancelInvoiceInput,
 ): Promise<InvoiceDetail> {
   return services.platformDb.transaction(async (tx) => {
-    const current = await findInvoice(tx, input.invoiceId);
-    if (current.status === "cancelled") {
-      throw new DomainError("CONFLICT", "ALREADY_CANCELLED", "This invoice is already cancelled");
-    }
-    const row = await tx.platformInvoice.update({
-      where: { id: input.invoiceId },
+    // One conditional update, so two cancels at once can't both pass: the second changes no row.
+    const changed = await tx.platformInvoice.updateMany({
+      where: { id: input.invoiceId, status: "issued" },
       data: { status: "cancelled", cancelledAt: new Date(), cancelledBy: staff.userId, cancelReason: input.reason },
     });
+    const row = await findInvoice(tx, input.invoiceId);
+    if (changed.count === 0) {
+      throw new DomainError("CONFLICT", "ALREADY_CANCELLED", "This invoice is already cancelled");
+    }
     await recordPlatformAudit(tx, staff, {
       action: "invoice.cancelled",
       targetType: "invoice",
       targetId: row.id,
       before: { status: "issued" },
-      after: { status: "cancelled", number: row.number, reason: input.reason },
+      after: { status: "cancelled", number: row.number },
     });
     return toDetail(row);
   });
