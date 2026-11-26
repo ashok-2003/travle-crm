@@ -23,6 +23,8 @@ export interface OneContext {
   messages: AiMessage[];
   /** Label to package id. */
   labels: ReadonlyMap<string, string>;
+  /** This turn's trip and brochure labels (T1, B1...): the reply may never show one. */
+  codes: readonly string[];
   newLines: NaturalChatLine[];
   /** What the turn offers. */
   tools: OneToolSchema[];
@@ -67,9 +69,10 @@ export function buildOneContext(input: OneContextInput): OneContext {
   );
   const turn = turnMessage({ ...clock, notice: input.notice, newLines });
   const labels = new Map(input.sheets.map((sheet) => [sheet.label, sheet.packageId]));
+  const brochureLabels = [...brochureLabelsOf(input.sheets).keys()];
   const all = oneToolSchemas({
     tripLabels: [...labels.keys()],
-    brochureLabels: [...brochureLabelsOf(input.sheets).keys()],
+    brochureLabels,
     voiceNotes: [...media].filter(([, one]) => one.kind === "audio").map(([ref]) => ref),
     photos: [...media].filter(([, one]) => one.kind === "image").map(([ref]) => ref),
   });
@@ -85,6 +88,7 @@ export function buildOneContext(input: OneContextInput): OneContext {
       { role: "user", content: turn },
     ],
     labels,
+    codes: [...labels.keys(), ...brochureLabels],
     media,
     newLines,
     tools: input.tools === "all" ? all : input.tools === "none" ? [] : all.filter((tool) => tool.name === "stay_quiet"),

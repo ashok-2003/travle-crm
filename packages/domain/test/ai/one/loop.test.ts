@@ -11,7 +11,7 @@ import { startNaturalTrace, type NaturalTraceBuilder } from "../../../src/ai/nat
 import type { QuoteFigures, StagedAction } from "../../../src/ai/natural/types.js";
 import type { OneContext } from "../../../src/ai/one/context.js";
 import { runOneLoop, type OneLoopIO, type OneSettings } from "../../../src/ai/one/loop.js";
-import { CODE_WORDS } from "../../../src/ai/one/reply-clean.js";
+import { codeWords } from "../../../src/ai/one/reply-check.js";
 import type { OneActionName } from "../../../src/ai/one/tools.js";
 import { parseCalendarDate } from "../../../src/kernel/index.js";
 
@@ -76,6 +76,7 @@ function contextOf(): OneContext {
       ["T1", "package-1"],
       ["T2", "package-2"],
     ]),
+    codes: ["T1", "T2", "B1", "B2"],
     newLines: [
       { id: "line-1", from: "customer", at: new Date(START - 60_000), kind: "text", text: "Kedarkantha ka rate?" },
     ],
@@ -244,17 +245,18 @@ describe("the one agent's loop", () => {
     });
   });
 
-  it("sends a reply without trip IDs or tool calls written as words", async () => {
-    model.answer({ text: "`update_lead(adults: 2)`Manali (T6) mein hotel stay hai." });
-    expect(await loop()).toMatchObject({ end: "final", messages: ["Manali mein hotel stay hai."] });
+  it("asks again when the reply shows a trip ID, then sends the clean answer unedited", async () => {
+    model.answer({ text: "Manali (T1) mein hotel stay hai." }, "Manali mein hotel stay hai.");
+    expect(await loop()).toMatchObject({ end: "final", messages: ["Manali mein hotel stay hai."], callsUsed: 2 });
+    expect(model.requests[1]?.messages.at(-1)?.content).toBe(`${APP_CHECK} ${codeWords("T1")}`);
   });
 
-  it("asks once more when the reply was only code, then leaves it to the team", async () => {
+  it("asks once more when the reply was code or a tool call as text, then leaves it to the team", async () => {
     model.answer({ text: '{"trip_id": "T3", "adults": 4}' }, "Kab ka plan hai?");
     expect(await loop()).toMatchObject({ end: "final", messages: ["Kab ka plan hai?"], callsUsed: 2 });
-    expect(model.requests[1]?.messages.at(-1)?.content).toBe(`${APP_CHECK} ${CODE_WORDS}`);
+    expect(model.requests[1]?.messages.at(-1)?.content).toBe(`${APP_CHECK} ${codeWords("code")}`);
 
-    model.answer({ text: "```json\n{}\n```" }, { text: '→ quote(trip: "T3")' });
+    model.answer({ text: "Ye raha T1" }, { text: '→ quote(trip: "T1")' });
     expect(await loop()).toMatchObject({ end: "fallback", reason: "model" });
   });
 

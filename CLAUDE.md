@@ -197,7 +197,9 @@ Start every shell command with `source ~/.nvm/nvm.sh && nvm use >/dev/null &&`.
   - a customer's photo or PDF is read once when its file is stored (`ai.read-file`, one counted call), even while a
     person answers, so the agent and the summary know what was sent; it opens no second task it already has open;
   - it reads a chat summary (`ai_chat.chat_summary`) and only the messages after its point;
-  - the reply's words have no code checks: the prompt carries those rules, and the tools keep the data checks.
+  - the reply's words have no code checks: the prompt carries those rules, and the tools keep the data checks. One
+    exception (the owner, 2026-11-26): a reply that shows a trip or brochure ID, a tool call or code is asked again
+    once, never edited; on a second miss nothing is sent and the team gets the task.
 - **Assignment** (release 4): a lead that arrives by itself (an import row or Sheets row naming no owner, the website
   form) is owned by `chooseOwner` (`packages/domain/src/crm/assignment`): a returning customer's previous owner, the first
   matching rule, then the agency's mode (the Owner, turns, fewest open leads), else Unassigned. Only the turns skip a
