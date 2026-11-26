@@ -7,11 +7,11 @@ import type { QuoteDetail } from "@travel-crm/contracts/quotes";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
+import { SectionCard } from "@/bookings/section-card";
 import { cardTints } from "@/components/card-tints";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { ResponsiveDialog } from "@/components/responsive-dialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
@@ -32,94 +32,87 @@ export function QuoteDepartureCard({ quote }: { quote: QuoteDetail }) {
   if (!seesDepartures || (quote.departure === null && !mayChange)) return null;
   const options = (list.data ?? []).filter((departure) => departure.status === "open");
   return (
-    <Card className={quote.departure === null ? undefined : cardTints.good}>
-      <CardHeader>
-        <CardTitle>
-          <h2>{t("title")}</h2>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        {quote.departure !== null && <QuoteDepartureFacts departure={quote.departure} />}
-        {quote.departure !== null && mayChange && <p className="text-muted-foreground">{t("onDescription")}</p>}
-        <RefusalAlert error={changes.setQuoteDeparture.error} />
-        {mayChange && (
-          <div className="flex flex-wrap gap-2">
+    <SectionCard title={t("title")} className={quote.departure === null ? undefined : cardTints.good}>
+      {quote.departure !== null && <QuoteDepartureFacts departure={quote.departure} />}
+      {quote.departure !== null && mayChange && <p className="text-muted-foreground">{t("onDescription")}</p>}
+      <RefusalAlert error={changes.setQuoteDeparture.error} />
+      {mayChange && (
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setOpen(true);
+            }}
+          >
+            {quote.departure === null ? t("add") : t("change")}
+          </Button>
+          {quote.departure !== null && (
             <Button
-              variant="outline"
-              onClick={() => {
-                setOpen(true);
-              }}
-            >
-              {quote.departure === null ? t("add") : t("change")}
-            </Button>
-            {quote.departure !== null && (
-              <Button
-                variant="destructive"
-                disabled={changes.setQuoteDeparture.isPending}
-                onClick={() => {
-                  changes.setQuoteDeparture.mutate(
-                    { quoteId: quote.id, departureId: null },
-                    { onSuccess: () => toast.success(t("removed")) },
-                  );
-                }}
-              >
-                {t("remove")}
-              </Button>
-            )}
-          </div>
-        )}
-        <ResponsiveDialog
-          open={open}
-          onOpenChange={(next) => {
-            if (!next) changes.setQuoteDeparture.reset();
-            setOpen(next);
-          }}
-          busy={changes.setQuoteDeparture.isPending}
-          title={t("dialogTitle")}
-          description={t("dialogDescription")}
-          footer={
-            <Button
-              disabled={chosen === "" || changes.setQuoteDeparture.isPending}
+              variant="destructive"
+              disabled={changes.setQuoteDeparture.isPending}
               onClick={() => {
                 changes.setQuoteDeparture.mutate(
-                  { quoteId: quote.id, departureId: chosen },
-                  {
-                    onSuccess: () => {
-                      toast.success(t("saved"));
-                      setOpen(false);
-                    },
-                  },
+                  { quoteId: quote.id, departureId: null },
+                  { onSuccess: () => toast.success(t("removed")) },
                 );
               }}
             >
-              {changes.setQuoteDeparture.isPending && <Spinner />}
-              {changes.setQuoteDeparture.isPending ? t("saving") : t("save")}
+              {t("remove")}
             </Button>
-          }
-        >
-          {options.length === 0 && list.data !== undefined ? (
-            <p className="text-muted-foreground">{t("none")}</p>
-          ) : (
-            <Field>
-              <FieldLabel htmlFor="quote-departure">{t("departure")}</FieldLabel>
-              <Select value={chosen} onValueChange={setChosen}>
-                <SelectTrigger id="quote-departure" className="w-full">
-                  <SelectValue placeholder={t("choose")} />
-                </SelectTrigger>
-                <SelectContent position="popper">
-                  {options.map((departure) => (
-                    <SelectItem key={departure.id} value={departure.id}>
-                      {departure.title}, {formatCalendarDay(departure.startDate)} (
-                      {t("freeSeats", { free: departure.free })})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </Field>
           )}
-          <RefusalAlert error={changes.setQuoteDeparture.error} />
-        </ResponsiveDialog>
-      </CardContent>
-    </Card>
+        </div>
+      )}
+      <ResponsiveDialog
+        open={open}
+        onOpenChange={(next) => {
+          if (!next) changes.setQuoteDeparture.reset();
+          setOpen(next);
+        }}
+        busy={changes.setQuoteDeparture.isPending}
+        title={t("dialogTitle")}
+        description={t("dialogDescription")}
+        footer={
+          <Button
+            disabled={chosen === "" || changes.setQuoteDeparture.isPending}
+            onClick={() => {
+              changes.setQuoteDeparture.mutate(
+                { quoteId: quote.id, departureId: chosen },
+                {
+                  onSuccess: () => {
+                    toast.success(t("saved"));
+                    setOpen(false);
+                  },
+                },
+              );
+            }}
+          >
+            {changes.setQuoteDeparture.isPending && <Spinner />}
+            {changes.setQuoteDeparture.isPending ? t("saving") : t("save")}
+          </Button>
+        }
+      >
+        {options.length === 0 && list.data !== undefined ? (
+          <p className="text-muted-foreground">{t("none")}</p>
+        ) : (
+          <Field>
+            <FieldLabel htmlFor="quote-departure">{t("departure")}</FieldLabel>
+            <Select value={chosen} onValueChange={setChosen}>
+              <SelectTrigger id="quote-departure" className="w-full">
+                <SelectValue placeholder={t("choose")} />
+              </SelectTrigger>
+              <SelectContent position="popper">
+                {options.map((departure) => (
+                  <SelectItem key={departure.id} value={departure.id}>
+                    {departure.title}, {formatCalendarDay(departure.startDate)} (
+                    {t("freeSeats", { free: departure.free })})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+        )}
+        <RefusalAlert error={changes.setQuoteDeparture.error} />
+      </ResponsiveDialog>
+    </SectionCard>
   );
 }
