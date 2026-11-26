@@ -77,7 +77,7 @@ async function destinations(page: Page, testInfo: TestInfo): Promise<string[]> {
   return [...bar, ...more];
 }
 
-test("support sees every destination but Failed emails and Staff, a super admin sees them too", async ({
+test("support sees every destination but Invoices, Failed emails and Staff, a super admin sees them too", async ({
   page,
   support,
   superAdmin,
@@ -91,6 +91,7 @@ test("support sees every destination but Failed emails and Staff, a super admin 
     "Invites",
     "Usage",
     "Plans",
+    "Invoices",
     "WhatsApp",
     "Jobs",
     "Platform updates",
