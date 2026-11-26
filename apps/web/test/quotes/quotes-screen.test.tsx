@@ -85,6 +85,21 @@ describe("QuotesScreen", () => {
     expect(inputsTo("quotes.list").length).toBeGreaterThan(1);
   });
 
+  it("sends no search while the box is empty or cleared, so an api from before search still lists", async () => {
+    renderQuotes(rows);
+    await screen.findByText(/Anil Rao/);
+    expect(inputsTo("quotes.list").every((input) => !Object.hasOwn(input as object, "search"))).toBe(true);
+    const box = screen.getByRole("searchbox", { name: "Search quotes" });
+    await userEvent.type(box, "ravi");
+    await waitFor(() => {
+      expect(lastInputTo("quotes.list")).toEqual({ search: "ravi" });
+    });
+    await userEvent.clear(box);
+    await waitFor(() => {
+      expect(lastInputTo("quotes.list")).toEqual({});
+    });
+  });
+
   it("finds its search again after a reload", async () => {
     window.sessionStorage.setItem("travel-crm.quotes.search", "ravi");
     renderQuotes(rows);
