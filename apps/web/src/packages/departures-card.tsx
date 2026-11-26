@@ -1,9 +1,9 @@
 "use client";
 
-// A group trip's Departures card: its calendar (a month grid on a phone, this month and the next on a wide screen), each
+// A group trip's Departures card: its calendar (a month grid, two months from 1280px), each
 // season in its own colour with a legend, a panel for the tapped day (under the months, or a sheet on a phone), and under
 // it the weekly rule, the seats and the advance in words (repeats-line.tsx). The days come from departures.calendar, a
-// month at a time, so a wide screen reads two and the arrows read the one that comes into view.
+// month at a time, so a 1280px screen reads two and the arrows read the one that comes into view.
 import type { CalendarDeparture } from "@travel-crm/contracts/departures";
 import { seasonColumns, type PackageDetail } from "@travel-crm/contracts/quotes";
 import { useTranslations } from "next-intl";
@@ -14,6 +14,7 @@ import { BOTTOM_SHEET_CLASSES } from "@/components/responsive-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { useMediaQuery } from "@/lib/use-media-query";
 import { useWideScreen } from "@/lib/use-wide-screen";
 import { cn } from "@/lib/utils";
 import { dayWithWeekday, monthOf, shiftMonth, type Day, type Month } from "./departure-calendar-days";
@@ -30,21 +31,23 @@ export function DeparturesCard({ detail }: { detail: PackageDetail }) {
   const t = useTranslations("packages.departuresCalendar");
   const headingId = useId();
   const wide = useWideScreen();
+  // Two months only where a day stays wide enough for "₹12,300" (about 1280px): below that, one month.
+  const twoMonths = useMediaQuery("(min-width: 1280px)");
   const today = useAgencyToday();
   const [month, setMonth] = useState<Month>(monthOf(today));
   const [selected, setSelected] = useState<Day | null>(null);
   const calendar = useDepartureCalendar(detail.id, month);
-  const next = useDepartureCalendar(detail.id, shiftMonth(month, 1), wide);
+  const next = useDepartureCalendar(detail.id, shiftMonth(month, 1), twoMonths);
   const columns = useMemo(() => seasonColumns(detail.seasons), [detail.seasons]);
   const byDay = useMemo(
     () =>
       new Map<Day, CalendarDeparture>(
-        [...(calendar.data ?? []), ...(wide ? (next.data ?? []) : [])].map((departure) => [
+        [...(calendar.data ?? []), ...(twoMonths ? (next.data ?? []) : [])].map((departure) => [
           departure.startDate,
           departure,
         ]),
       ),
-    [calendar.data, next.data, wide],
+    [calendar.data, next.data, twoMonths],
   );
   if (detail.kind !== "group") return null;
 
@@ -53,11 +56,12 @@ export function DeparturesCard({ detail }: { detail: PackageDetail }) {
     setSelected(null);
   };
   // A month that did not load, whichever of the shown ones: the days that did load stay out of reach until it does.
-  const failed = [calendar, ...(wide ? [next] : [])].find((month) => month.isError && month.data === undefined) ?? null;
+  const failed =
+    [calendar, ...(twoMonths ? [next] : [])].find((read) => read.isError && read.data === undefined) ?? null;
   const loading =
     calendar.data === undefined ||
     calendar.isPlaceholderData ||
-    (wide && (next.data === undefined || next.isPlaceholderData));
+    (twoMonths && (next.data === undefined || next.isPlaceholderData));
   const panel =
     selected === null ? null : loading ? (
       <LoadingRows shape="twoLines" label={t("loading")} />
@@ -74,6 +78,7 @@ export function DeparturesCard({ detail }: { detail: PackageDetail }) {
         selected={selected}
         onSelect={setSelected}
         compact={!wide}
+        twoMonths={twoMonths}
       />
     </div>
   );
@@ -104,7 +109,7 @@ export function DeparturesCard({ detail }: { detail: PackageDetail }) {
             {panel !== null && (
               <>
                 <Separator />
-                {panel}
+                <aside aria-label={t("panelLabel")}>{panel}</aside>
               </>
             )}
           </>

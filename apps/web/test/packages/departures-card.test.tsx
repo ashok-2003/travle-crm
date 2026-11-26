@@ -129,6 +129,29 @@ describe("DeparturesCard", () => {
     expect(screen.getByText("January 2027")).toBeTruthy();
   });
 
+  it("shows one month, and reads only that one, between a tablet's width and 1280px", async () => {
+    // A 1024px screen is wide, but two months would leave each day about 46px: too narrow for "₹12,300".
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) => ({
+        matches: query === "(min-width: 768px)",
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    );
+    const asked: string[] = [];
+    stubApi({
+      "departures.calendar": (input) => {
+        asked.push((input as { from: string }).from);
+        return { data: NOVEMBER };
+      },
+    });
+    renderWithApi(<DeparturesCard detail={detail} />, newQueryClient(), member({ isOwner: true }));
+    await screen.findByRole("button", { name: /^27 Nov, departure/ });
+    expect(screen.getAllByRole("grid")).toHaveLength(1);
+    expect(asked).toEqual(["2026-11-01"]);
+  });
+
   it("says when the next month did not load, with Try again, and does not wait on it for ever", async () => {
     show("wide", { "2026-12": { status: 500 } });
     expect(await screen.findByText("The departures didn't load.")).toBeTruthy();

@@ -1,6 +1,6 @@
 "use client";
 
-// The month grid of a trip's departures, on a phone (one month, compact) and on a wide screen (two): the registry
+// The month grid of a trip's departures, one month (compact on a phone), or two from 1280px: the registry
 // Calendar with a custom day. A departure's day is in its season's colour (the only thing colour says) and reads its
 // price and seats in words: "3 left" in bold when few, "Full" with the price struck through, "Cancelled" struck
 // through, "No price" in no season. The arrows move one month (the card reads the days); a tap selects a day.
@@ -32,6 +32,7 @@ export function DeparturesMonth({
   selected,
   onSelect,
   compact,
+  twoMonths,
 }: {
   columns: readonly SeasonColumn[];
   byDay: ReadonlyMap<Day, CalendarDeparture>;
@@ -41,6 +42,8 @@ export function DeparturesMonth({
   onSelect: (day: Day) => void;
   /** A phone: one month, days that fill the card, a price without its rupee sign (the day's name keeps it). */
   compact: boolean;
+  /** Two months side by side, only where each day stays wide enough for its price. */
+  twoMonths: boolean;
 }) {
   const t = useTranslations("packages.departuresCalendar");
   // Only a departure's day is coloured (the owner, 2026-11-25): by the season it falls in, else plain grey. A dated
@@ -92,9 +95,9 @@ export function DeparturesMonth({
             className={cn(
               props.className,
               // A box that grows with its words, not the registry's square or round day, and never wider than its column.
-              "h-full min-h-14 min-w-0 aspect-auto items-center justify-start gap-0.5 rounded-md p-0.5 text-inherit [&>span]:text-caption [&>span]:opacity-100",
+              "h-full min-h-14 min-w-0 max-w-full overflow-hidden aspect-auto items-center justify-start gap-0.5 rounded-md p-0.5 text-inherit [&>span]:text-caption [&>span]:opacity-100",
               // A phone's day is about 46px wide (41px at 360px): its words must fit that, so they shrink a little.
-              compact ? "[&>span]:text-micro" : "items-start p-1.5 text-left",
+              compact ? "[&>span]:text-micro [&>span]:tracking-tighter" : "items-start p-1.5 text-left",
             )}
           >
             {props.children}
@@ -135,9 +138,11 @@ export function DeparturesMonth({
       }}
       modifiers={modifiers}
       modifiersClassNames={modifiersClassNames}
-      numberOfMonths={compact ? 1 : 2}
+      numberOfMonths={twoMonths ? 2 : 1}
       classNames={{
         root: "w-full",
+        // Equal columns whatever the words in them, so a long word never widens its own day.
+        month_grid: "w-full table-fixed",
         // The registry's day without its square: a day's height comes from its words.
         day: "group/day relative h-full w-full rounded-(--cell-radius) p-0 text-center select-none",
         today: "underline",
