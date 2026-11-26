@@ -1,6 +1,7 @@
 // The quotation's PDF is issued in the quotation template's own words: the whole trip name, the day and people as
 // "Fri 4 Dec 2026 · 1 adult", whole rupees, "incl. 5% GST", what is due by when, and the lists as points. The invoice and
 // receipt stay on the sample template with their tax rows.
+import { randomUUID } from "node:crypto";
 import type { CreateQuoteInput } from "@travel-crm/contracts/quotes";
 import { issuedDocumentRenderInput } from "@travel-crm/contracts/documents";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -9,6 +10,7 @@ import {
   createQuote,
   issueQuoteInvoice,
   issueQuotePdf,
+  recordPayment,
   saveQuoteSettings,
   verifyUpi,
   setQuoteStatus,
@@ -158,6 +160,97 @@ describe("the quotation's PDF", () => {
       await withUpi("");
       const data = await issueData(await aQuote());
       expect(data).not.toHaveProperty("pay");
+    });
+
+    it("names the payee as the QR's link does: the UPI name, else the UPI id", async () => {
+      await world.inOrg((tx) =>
+        saveQuoteSettings(tx, world.manager, {
+          upiId: "noname@bank",
+          upiName: "",
+          defaultTaxRateBasisPoints: 500,
+          defaultTerms: "",
+          defaultMarkupBasisPoints: 0,
+          minMarginBasisPoints: null,
+          minMarginPerPersonPaise: null,
+        }),
+      );
+      expect(await issueData(await aQuote())).toMatchObject({ pay: { upiId: "noname@bank", name: "noname@bank" } });
+    });
+  });
+
+  describe("kept or issued anew", () => {
+    const issueOf = (quoteId: string) => world.inOrg((tx) => issueQuotePdf(tx, world.manager, quoteId, context));
+    const dataOf = async (documentId: string) =>
+      issuedDocumentRenderInput.parse(
+        (await world.inOrg((tx) => tx.issuedDocument.findUniqueOrThrow({ where: { id: documentId } }))).renderInput,
+      ).data;
+    const upi = (upiId: string) =>
+      world.inOrg((tx) =>
+        saveQuoteSettings(tx, world.manager, {
+          upiId,
+          upiName: "Sharma Holidays",
+          defaultTaxRateBasisPoints: 500,
+          defaultTerms: "",
+          defaultMarkupBasisPoints: 0,
+          minMarginBasisPoints: null,
+          minMarginPerPersonPaise: null,
+        }),
+      );
+
+    it("gives the PDF issued before while nothing on it changed", async () => {
+      await upi("sharma@bank");
+      const quote = await aQuote();
+      const first = await issueOf(quote.id);
+      expect(await issueOf(quote.id)).toEqual(first);
+    });
+
+    it("issues anew once a payment is recorded: the advance paid, the next amount to pay", async () => {
+      await upi("sharma@bank");
+      const quote = await aQuote();
+      await world.inOrg((tx) =>
+        setQuoteStatus(tx, world.manager, { quoteId: quote.id, status: "sent" }, context.now, "27"),
+      );
+      const before = await issueOf(quote.id);
+      expect(await dataOf(before.documentId)).toMatchObject({ pay: { amount: "₹3,000" } });
+      await world.inOrg((tx) =>
+        recordPayment(
+          tx,
+          world.manager,
+          {
+            quoteId: quote.id,
+            amountPaise: 300_000,
+            receivedOn: "2026-11-27",
+            method: "upi",
+            reference: "",
+            requestId: randomUUID(),
+          },
+          context.now,
+        ),
+      );
+      const after = await issueOf(quote.id);
+      expect(after.number).not.toBe(before.number);
+      const data = await dataOf(after.documentId);
+      expect(data).toMatchObject({
+        pay: { amount: "₹5,400" },
+        dues: [
+          { label: "Advance", paid: true },
+          { label: "Balance", amount: "₹5,400" },
+        ],
+      });
+      if (!("dues" in data)) throw new Error("Not a quotation");
+      expect(data.dues[1]).not.toHaveProperty("paid");
+    });
+
+    it("issues anew without the old UPI id once the id changes", async () => {
+      await upi("sharma@bank");
+      const quote = await aQuote();
+      const before = await issueOf(quote.id);
+      await upi("sharma@newbank");
+      const after = await issueOf(quote.id);
+      expect(after.number).not.toBe(before.number);
+      const text = JSON.stringify(await dataOf(after.documentId));
+      expect(text).toContain("sharma@newbank");
+      expect(text).not.toContain("sharma@bank");
     });
   });
 

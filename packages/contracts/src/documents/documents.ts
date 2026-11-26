@@ -72,7 +72,10 @@ export const quotationContent = z.strictObject({
   total: printedAmount,
   /** "incl. 5% GST"; absent when the quote carries no tax. */
   totalNote: line(60).optional(),
-  dues: z.array(z.strictObject({ label: line(120), by: line(40), amount: printedAmount })).max(12),
+  /** What is due by when; `paid` once what was received covers it (absent while it is still to pay). */
+  dues: z
+    .array(z.strictObject({ label: line(120), by: line(40), amount: printedAmount, paid: z.literal(true).optional() }))
+    .max(12),
   days: z.array(z.strictObject({ title: line(200), description: paragraph(2000).optional() })).max(60),
   inclusions: z.array(line(3000)).max(1500),
   exclusions: z.array(line(3000)).max(1500),

@@ -7,4 +7,5 @@ export { listIssuedDocuments } from "./list-issued-documents.js";
 export { renderIssuedDocumentListener, type RenderIssuedDocumentDependencies } from "./render-issued-document.js";
 export { assertMayIssueSample } from "./sample-limit.js";
 export { sampleQuotation, type SampleQuotation, type SampleQuotationLine } from "./sample-quotation.js";
+export { unchangedDocument } from "./unchanged-document.js";
 export { documentsIssuedSince } from "./usage.js";

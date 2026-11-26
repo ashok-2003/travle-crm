@@ -11,6 +11,10 @@ const encode = (text: string) =>
 
 const firstCharacters = (text: string, count: number) => Array.from(text).slice(0, count).join("");
 
+/** Who the customer pays, as their UPI app shows it: the agency's UPI name, else its UPI id. */
+export const upiPayeeName = (settings: Pick<QuoteSettings, "upiId" | "upiName">) =>
+  settings.upiName === "" ? settings.upiId : settings.upiName;
+
 /**
  * The agency's UPI id and name, and when `payment` is given the amount and a note. Null without a UPI id, or when the
  * amount asked is nothing. The name and note are cut by whole characters (no split emoji) and again, if need be, until
@@ -21,7 +25,7 @@ export function upiPayLink(
   payment?: { amountPaise: number; note: string },
 ): string | null {
   if (settings.upiId === "" || (payment !== undefined && payment.amountPaise <= 0)) return null;
-  const name = settings.upiName === "" ? settings.upiId : settings.upiName;
+  const name = upiPayeeName(settings);
   const amount =
     payment === undefined
       ? ""

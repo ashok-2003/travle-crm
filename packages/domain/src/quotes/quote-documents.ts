@@ -8,9 +8,9 @@ import {
   type IssueDocumentInput,
   type IssueQuotationInput,
 } from "@travel-crm/contracts/documents";
-import { upiPayLink, type QuoteSettings } from "@travel-crm/contracts/quotes";
+import { upiPayeeName, upiPayLink, type QuoteSettings } from "@travel-crm/contracts/quotes";
 import type { OrgTx } from "@travel-crm/db";
-import { issueDocument } from "../documents/index.js";
+import { issueDocument, unchangedDocument } from "../documents/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import {
   DomainError,
@@ -101,7 +101,7 @@ function travellersOf(quote: Quote): string {
  * The quotation in the words its PDF prints, matching the customer's page: whole rupees, dates as words. Nothing is cut
  * short: the contract's caps are the quote's own limits, so a quote that saves always issues.
  */
-function quotationContent(quote: Quote, settings: QuoteSettings, agencyName: string) {
+function quotationContent(quote: Quote, settings: QuoteSettings) {
   const day = (date: Date, weekday: boolean) => formatDayWithYear(parseCalendarDate(dayOf(date)), { weekday });
   const when = [quote.startDate === null ? "" : day(quote.startDate, true), travellersOf(quote)]
     .filter(Boolean)
@@ -113,14 +113,15 @@ function quotationContent(quote: Quote, settings: QuoteSettings, agencyName: str
     Number(quote.taxPaise),
   );
   const paidPaise = paidOf(quote);
-  const dueNow = payDueNow(
-    coveredInstallments(
-      quote.installments.map((due) => ({ amountPaise: Number(due.amountPaise), dueOn: dayOf(due.dueOn) })),
-      paidPaise,
-    ),
+  const installments = coveredInstallments(
+    quote.installments.map((due) => ({
+      label: due.label,
+      amountPaise: Number(due.amountPaise),
+      dueOn: dayOf(due.dueOn),
+    })),
     paidPaise,
-    Math.max(0, Number(quote.totalPaise) - paidPaise),
   );
+  const dueNow = payDueNow(installments, paidPaise, Math.max(0, Number(quote.totalPaise) - paidPaise));
   // The same link the customer's button opens, so the QR and the button agree.
   const link = upiPayLink(settings, { amountPaise: dueNow, note: quote.title });
   return {
@@ -133,7 +134,7 @@ function quotationContent(quote: Quote, settings: QuoteSettings, agencyName: str
             // The QR only once the agency has verified it; the id, name and amount print either way.
             ...(settings.upiVerifiedAt === null ? {} : { link }),
             upiId: settings.upiId,
-            name: settings.upiName === "" ? agencyName : settings.upiName,
+            name: upiPayeeName(settings),
             amount: formatRupees(dueNow),
           },
         }),
@@ -148,10 +149,11 @@ function quotationContent(quote: Quote, settings: QuoteSettings, agencyName: str
       : { gst: { label: gstLabel(quote.taxRateBasisPoints), amount: formatRupees(price.gstPaise) } }),
     total: formatRupees(Number(quote.totalPaise)),
     ...(price.gstPaise === null ? {} : { totalNote: `incl. ${String(quote.taxRateBasisPoints / 100)}% GST` }),
-    dues: quote.installments.map((due) => ({
+    dues: installments.map((due) => ({
       label: due.label,
-      by: day(due.dueOn, false),
-      amount: formatRupees(Number(due.amountPaise)),
+      by: formatDayWithYear(parseCalendarDate(due.dueOn), { weekday: false }),
+      amount: formatRupees(due.amountPaise),
+      ...(due.paid ? { paid: true as const } : {}),
     })),
     days: daysOf(quote).map((planned) => ({
       title: planned.title,
@@ -174,27 +176,20 @@ async function issue(
   return { documentId: document.id, number: document.number };
 }
 
-/** The quotation's PDF as the quote stands; the one issued before, when nothing changed since. */
+/**
+ * The quotation's PDF as the quote stands; the one issued before while it prints the same. A payment, a void, a change to
+ * the dues, the UPI id or the terms changes what it prints (without changing the quote's version), so it is issued anew.
+ */
 export async function issueQuotePdf(tx: OrgTx, access: MemberAccess, quoteId: string, context: DocumentContext) {
   const quote = await findQuoteForChange(tx, access, quoteId);
-  if (quote.pdfDocumentId !== null && quote.pdfVersion === quote.version) {
-    const kept = await tx.issuedDocument.findUniqueOrThrow({
-      where: { id: quote.pdfDocumentId },
-      select: { number: true },
-    });
-    return { documentId: quote.pdfDocumentId, number: kept.number };
-  }
-  const issued = await issue(
-    tx,
-    access,
-    {
-      template: "quotation",
-      content: quotationContent(quote, await quoteSettingsOf(tx), context.branding.organizationName),
-      branding: context.branding,
-    },
-    QUOTE_DOCUMENT_PREFIX,
-    context.now,
-  );
+  const input = {
+    template: "quotation" as const,
+    content: quotationContent(quote, await quoteSettingsOf(tx)),
+    branding: context.branding,
+  };
+  const kept = quote.pdfDocumentId === null ? null : await unchangedDocument(tx, quote.pdfDocumentId, input);
+  if (kept !== null) return kept;
+  const issued = await issue(tx, access, input, QUOTE_DOCUMENT_PREFIX, context.now);
   await tx.quote.update({
     where: { id: quote.id },
     data: { pdfDocumentId: issued.documentId, pdfVersion: quote.version },
