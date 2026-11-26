@@ -35,22 +35,22 @@ export function DetailsFields({ control, group }: { control: Control<TripDetails
   );
 }
 
-/** The rows of Trip details' summary that are not the itinerary's. Long words are cut to two lines: the form has them whole. */
+/** The rows of Trip details' summary that are not the itinerary's. Free text is stacked under its label, whole. */
 export function useDetailsRows(detail: PackageDetail): Detail[] {
   const t = useTranslations("packages.form");
   const notSet = useTranslations("packages.sections")("notSet");
   const words = (text: string): ReactNode =>
-    text.trim() === "" ? notSet : <span className="line-clamp-2 whitespace-pre-line">{text}</span>;
+    text.trim() === "" ? notSet : <span className="whitespace-pre-line">{text}</span>;
   return [
-    { label: t("inclusions"), value: words(detail.inclusions) },
-    { label: t("exclusions"), value: words(detail.exclusions) },
+    { label: t("inclusions"), value: words(detail.inclusions), stacked: true },
+    { label: t("exclusions"), value: words(detail.exclusions), stacked: true },
     ...(detail.kind === "group"
       ? [
-          { label: t("pickupPoints"), value: words(detail.pickupPoints) },
+          { label: t("pickupPoints"), value: words(detail.pickupPoints), stacked: true },
           { label: t("startCity"), value: detail.startCity || notSet },
         ]
       : []),
-    { label: t("notes"), value: words(detail.notes) },
-    { label: t("cancellationNotes"), value: words(detail.cancellationNotes) },
+    { label: t("notes"), value: words(detail.notes), stacked: true },
+    { label: t("cancellationNotes"), value: words(detail.cancellationNotes), stacked: true },
   ];
 }

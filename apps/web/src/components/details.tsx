@@ -3,7 +3,7 @@
 // row's end. The value wraps under the label only when the row is too narrow for both, and however long it is. A label
 // a first-time user may not know carries its info hint (InfoHint) right after it. An optional hint says more about the
 // row on a line of its own, and an optional action (copy, change) comes last. A row with an action always puts its
-// value under its label, so rows of things to copy read alike whatever their length. The Items' own spacing parts the
+// value under its label (as does `stacked`, for long free text), so rows of things to copy read alike whatever their length. The Items' own spacing parts the
 // rows: no separators.
 import type { ReactNode } from "react";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
@@ -19,12 +19,14 @@ export interface Detail {
   /** More about the row, under it ("Staff without email sign in with this code"). */
   hint?: ReactNode;
   action?: ReactNode;
+  /** The value always under its label, left-aligned and full width (long free text). */
+  stacked?: boolean;
 }
 
 export function Details({ rows }: { rows: Detail[] }) {
   return (
     <ItemGroup>
-      {rows.map(({ label, value, info, hint, action }) => (
+      {rows.map(({ label, value, info, hint, action, stacked }) => (
         <Item key={label} size="sm" role="listitem">
           <ItemContent className="flex-row flex-wrap items-baseline justify-between gap-x-4 gap-y-0.5">
             <ItemDescription>
@@ -37,7 +39,13 @@ export function Details({ rows }: { rows: Detail[] }) {
               )}
             </ItemDescription>
             {value !== undefined && (
-              <ItemTitle className={cn("flex-wrap wrap-anywhere", action !== undefined && "basis-full")}>
+              <ItemTitle
+                className={cn(
+                  "flex-wrap wrap-anywhere",
+                  (action !== undefined || stacked === true) && "basis-full",
+                  stacked === true && "text-left",
+                )}
+              >
                 {value}
               </ItemTitle>
             )}

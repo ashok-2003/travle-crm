@@ -16,7 +16,9 @@
     "fromPrice": "From {price}",
     "nextDeparture": "Next departure {day}",
     "departuresAhead": "{count, plural, =0 {No departures ahead} one {# departure ahead} other {# departures ahead}}",
-    "aiDoesNotSellBecause": "AI doesn't sell it: {reason}"
+    "aiDoesNotSellBecause": "AI doesn't sell it: {reason}",
+    "copyLink": "Copy link",
+    "openPage": "Open the page"
   },
   "sections": {
     "edit": "Edit",
@@ -454,7 +456,8 @@
     "loading": "Loading the departures",
     "calendarLabel": "Departures calendar",
     "legendTitle": "Seasons",
-    "legendRanges": "{label}, {ranges}",
+    "legendRanges": "{label} · {ranges}",
+    "rangeJoin": "and",
     "rangeBetween": "{from} to {to}",
     "rangeOnwards": "from {from} onwards",
     "price": "{price}",

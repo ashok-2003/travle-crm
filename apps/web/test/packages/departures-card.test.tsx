@@ -77,9 +77,9 @@ describe("DeparturesCard", () => {
     expect(day(/^3 Nov/).closest("td")?.className).toContain("bg-muted");
     const legend = screen.getByRole("list", { name: "Seasons" });
     const items = within(legend).getAllByRole("listitem");
-    expect(items[0]?.textContent).toContain("Regular, all other days");
+    expect(items[0]?.textContent).toContain("Regular · all other days");
     expect(items[0]?.innerHTML).toContain(seasonTint(0).fill);
-    expect(items[1]?.textContent).toContain("Diwali, 20 Nov to 22 Nov");
+    expect(items[1]?.textContent).toContain("Diwali · 20 Nov to 22 Nov");
     expect(items[1]?.innerHTML).toContain(seasonTint(1).fill);
     expect(legend.textContent).not.toContain("2099");
   });

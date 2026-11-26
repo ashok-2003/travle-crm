@@ -7,6 +7,7 @@ import { messages } from "@/i18n/messages";
 import { newQueryClient, paidSubscription, renderWithApi } from "../organization/api";
 import { heldAnswer, stubApi, type Answer } from "../support/api-stub";
 import { member } from "../support/members";
+import { aPackage, aSeason } from "./detail";
 import {
   aiQueryClient,
   flaggedChange,
@@ -73,6 +74,43 @@ describe("the AI changes card", () => {
     expect(screen.queryByText(words.title)).toBeNull();
   });
 
+  describe("once the trip has prices", () => {
+    const priced = [
+      [
+        "a group trip with a season price",
+        aPackage({ kind: "group", seasons: [aSeason("s1", "Regular", "2027-01-01", "2099-12-31", { double: 1 })] }),
+      ],
+      ["a custom trip with a From price", aPackage({ id: packageId, fromPricePaise: 500_000 })],
+      [
+        "a custom trip with a tier",
+        aPackage({ id: packageId, tiers: [{ id: "t1", name: "Standard", position: 0, lines: [] }] }),
+      ],
+    ] as const;
+    it.each(priced)(
+      "shows only a button for %s, and opens the card with the focus in What changed",
+      async (_name, detail) => {
+        render({ "packages.get": { data: { ...detail, id: packageId } } });
+        const button = await screen.findByRole("button", { name: words.title });
+        expect(screen.queryByRole("textbox", { name: words.textLabel })).toBeNull();
+        await userEvent.click(button);
+        expect(await screen.findByRole("textbox", { name: words.textLabel })).toHaveFocus();
+      },
+    );
+    it("keeps the card open for a trip with no prices", async () => {
+      render({
+        "packages.get": {
+          data: aPackage({
+            id: packageId,
+            kind: "group",
+            seasons: [aSeason("s1", "Regular", "2027-01-01", "2099-12-31")],
+          }),
+        },
+      });
+      expect(await screen.findByRole("textbox", { name: words.textLabel })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: words.title })).toBeNull();
+    });
+  });
+
   it("offers a text box, Attach and Show the changes", async () => {
     render({});
     expect(await screen.findByRole("textbox", { name: words.textLabel })).toBeInTheDocument();
@@ -128,6 +166,36 @@ describe("the AI changes card", () => {
     await show();
     expect(await screen.findByText(words.ignoredTitle)).toBeInTheDocument();
     expect(screen.getByText("Kasol 5N from 9000")).toBeInTheDocument();
+  });
+
+  it("stays open with its result when applying prices makes the trip priced", async () => {
+    let priced = false;
+    const unpriced = aPackage({
+      id: packageId,
+      kind: "group",
+      seasons: [aSeason("s1", "Regular", "2027-01-01", "2099-12-31")],
+    });
+    const withPrices = aPackage({
+      id: packageId,
+      kind: "group",
+      seasons: [aSeason("s1", "Regular", "2027-01-01", "2099-12-31", { double: 1 })],
+    });
+    const applying = afterApply(1);
+    const { client } = render({
+      "packages.get": () => ({ data: priced ? withPrices : unpriced }),
+      "ai.packageChanges.propose": { data: proposal([priceChange]) },
+      ...applying,
+      "ai.packageChanges.applyChanges": () => {
+        priced = true;
+        return applying["ai.packageChanges.applyChanges"]();
+      },
+    });
+    await show();
+    await userEvent.click(await screen.findByRole("button", { name: "Apply 1 change" }));
+    expect(await screen.findByText("1 change applied")).toBeInTheDocument();
+    await client.invalidateQueries();
+    await waitFor(() => expect(screen.getByRole("button", { name: words.undoAll })).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: words.title })).toBeNull();
   });
 
   it("applies the ticked changes, says how many, and refreshes the trip", async () => {

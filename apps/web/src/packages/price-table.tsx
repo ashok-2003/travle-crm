@@ -22,13 +22,15 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Table, TableBody, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useWideScreen } from "@/lib/use-wide-screen";
 import { useHolds } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
 import { WriteHint } from "@/subscription/write-hint";
 import { cellKey, tableInput, tableStart, type TableProblem } from "./price-table-input";
 import { seasonTint } from "./season-colours";
 import { SeasonColumnDialogs } from "./season-column-dialogs";
-import { AddRoomMenu, PriceRow, SeasonHeadCell } from "./price-table-parts";
+import { PriceSeasonTabs } from "./price-season-tabs";
+import { AddRoomMenu, PriceRow, SeasonHeadCell, type SeasonMenu } from "./price-table-parts";
 import type { ColumnAction } from "./season-column-menu";
 import { usePackageChanges, usePackageColumnChanges } from "./use-packages";
 
@@ -51,6 +53,7 @@ export function PriceTable({
 }) {
   const t = useTranslations("packages.prices");
   const mayEdit = useHolds("quotes:edit");
+  const wide = useWideScreen();
   const access = useWriteAccess("change");
   const hintId = `${useId()}-write`;
   const { savePriceTable } = usePackageChanges();
@@ -100,61 +103,80 @@ export function PriceTable({
     setAction(next);
   };
 
+  const menuFor = (column: SeasonColumn): SeasonMenu | null =>
+    mayEdit
+      ? {
+          actions: actionsOf(column, tripEnd),
+          disabled: edited || !access.allowed,
+          describedBy: edited ? hintId : undefined,
+          onOpen: (button) => {
+            opener.current = button;
+          },
+          onChoose: (next) => {
+            choose(column, next);
+          },
+        }
+      : null;
+  const onCell = (column: SeasonColumn, room: RoomType, text: string) => {
+    setCells((now) => ({ ...now, [cellKey(column, room)]: text }));
+  };
+  const onRemove = (room: RoomType) => {
+    setRows((now) => now.filter((other) => other !== room));
+  };
+
   if (columns.length === 0) return <p className="text-muted-foreground">{t("noSeasons")}</p>;
   return (
     <div className="flex flex-col gap-4">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{t("roomType")}</TableHead>
-            {columns.map((column, index) => (
-              <SeasonHeadCell
-                key={column.key}
-                column={column}
+      {wide ? (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t("roomType")}</TableHead>
+              {columns.map((column, index) => (
+                <SeasonHeadCell
+                  key={column.key}
+                  column={column}
+                  columns={columns}
+                  tint={seasonTint(index)}
+                  menu={menuFor(column)}
+                />
+              ))}
+              {mayEdit && (
+                <TableHead>
+                  <span className="sr-only">{t("removeRoomColumn")}</span>
+                </TableHead>
+              )}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((room) => (
+              <PriceRow
+                key={room}
+                room={room}
                 columns={columns}
-                tint={seasonTint(index)}
-                menu={
-                  mayEdit
-                    ? {
-                        actions: actionsOf(column, tripEnd),
-                        disabled: edited || !access.allowed,
-                        describedBy: edited ? hintId : undefined,
-                        onOpen: (button) => {
-                          opener.current = button;
-                        },
-                        onChoose: (next) => {
-                          choose(column, next);
-                        },
-                      }
-                    : null
-                }
+                cells={cells}
+                editable={mayEdit}
+                onCell={(column, text) => {
+                  onCell(column, room, text);
+                }}
+                onRemove={() => {
+                  onRemove(room);
+                }}
               />
             ))}
-            {mayEdit && (
-              <TableHead>
-                <span className="sr-only">{t("removeRoomColumn")}</span>
-              </TableHead>
-            )}
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((room) => (
-            <PriceRow
-              key={room}
-              room={room}
-              columns={columns}
-              cells={cells}
-              editable={mayEdit}
-              onCell={(column, text) => {
-                setCells((now) => ({ ...now, [cellKey(column, room)]: text }));
-              }}
-              onRemove={() => {
-                setRows((now) => now.filter((other) => other !== room));
-              }}
-            />
-          ))}
-        </TableBody>
-      </Table>
+          </TableBody>
+        </Table>
+      ) : (
+        <PriceSeasonTabs
+          columns={columns}
+          rows={rows}
+          cells={cells}
+          editable={mayEdit}
+          menuFor={menuFor}
+          onCell={onCell}
+          onRemove={onRemove}
+        />
+      )}
       {problem !== null && (
         <Alert variant="destructive">
           <AlertDescription>
