@@ -127,8 +127,6 @@ export async function acceptQuoteFromLink(
     quoteId: string;
     name: string;
     optionId?: string | undefined;
-    /** The box "Send me trip updates on WhatsApp" was ticked. */
-    tripUpdates?: boolean | undefined;
   },
   now: Date,
 ): Promise<void> {
@@ -172,10 +170,10 @@ export async function acceptQuoteFromLink(
     type: "quote.accepted",
     payload: { quoteId: quote.id, leadId: quote.leadId, confirmed: false } satisfies QuoteAcceptedEvent,
   });
-  if (input.tripUpdates === true) await recordTripUpdatesConsent(tx, quote.leadId, now);
+  await recordTripUpdatesConsent(tx, quote.leadId, now);
 }
 
-/** The customer ticked "Send me trip updates on WhatsApp" when accepting: kept in the consent ledger, with the words shown. */
+/** Accepting says yes to trip updates about this booking (never offers): kept in the consent ledger, with the words shown. */
 async function recordTripUpdatesConsent(tx: OrgTx, leadId: string, now: Date): Promise<void> {
   const lead = await tx.lead.findUnique({ where: { id: leadId }, select: { personId: true } });
   if (lead === null) return;
@@ -184,13 +182,14 @@ async function recordTripUpdatesConsent(tx: OrgTx, leadId: string, now: Date): P
       personId: lead.personId,
       purpose: "trip_updates",
       action: "granted",
-      wording: TRIP_UPDATES_WORDING,
-      wordingVersion: 1,
+      wording: ACCEPT_SMALL_PRINT,
+      wordingVersion: 2,
       source: "quote_accept",
       recordedAt: now,
     },
   });
 }
 
-/** The sentence beside the box on the quote page; the ledger keeps exactly this. */
-export const TRIP_UPDATES_WORDING = "Send me trip updates on WhatsApp.";
+/** The small print under the quote page's Accept button; the ledger keeps exactly this. */
+export const ACCEPT_SMALL_PRINT =
+  "By accepting this quote I agree to the terms and cancellation policy, and to get trip updates on WhatsApp.";

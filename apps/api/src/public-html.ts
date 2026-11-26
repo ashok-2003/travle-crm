@@ -1,7 +1,7 @@
 // What the customer-facing pages at /p/<token> share: escaping, the rupee and day words, the stylesheet and the page's
 // security headers. Plain HTML with the device's fonts; nothing is loaded from elsewhere.
 import { brand } from "@travel-crm/brand";
-import { formatMoney, money } from "@travel-crm/domain/kernel";
+import { formatMoney, formatRupees, money } from "@travel-crm/domain/kernel";
 
 export const SYSTEM_FONTS = 'system-ui,-apple-system,"Segoe UI",Roboto,sans-serif';
 
@@ -9,11 +9,20 @@ export const SYSTEM_FONTS = 'system-ui,-apple-system,"Segoe UI",Roboto,sans-seri
 export const escapeHtml = (text: string) =>
   text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 export const rupees = (paise: number) => escapeHtml(formatMoney(money(paise)));
+/** Whole rupees ("₹52,500"), for a total a customer reads rather than reconciles. */
+export const wholeRupees = (paise: number) => escapeHtml(formatRupees(paise));
 export const paragraphs = (text: string) => escapeHtml(text).replaceAll("\n", "<br>");
 
 const dayWords = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 const shortDayWords = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", timeZone: "UTC" });
 export const dayOf = (day: string) => escapeHtml(dayWords.format(new Date(`${day}T00:00:00Z`)));
+const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+/** "Fri 4 Dec 2026": a calendar day as a customer reads it at the top of a quote. */
+export function weekdayDayOf(day: string): string {
+  const date = new Date(`${day}T00:00:00Z`);
+  return `${weekdays[date.getUTCDay()] ?? ""} ${String(date.getUTCDate())} ${months[date.getUTCMonth()] ?? ""} ${String(date.getUTCFullYear())}`;
+}
 export const shortDayOf = (day: string) => escapeHtml(shortDayWords.format(new Date(`${day}T00:00:00Z`)));
 
 /** A link is shown only when it is an http(s) address; anything else (javascript:) is dropped. */
@@ -29,7 +38,8 @@ export const whatsappUs = (number: string | null) =>
 export function styles(): string {
   const { colours } = brand;
   return `
-body{margin:0;background:${colours.canvas};color:${colours.ink};font-family:${SYSTEM_FONTS};line-height:1.5}
+*{box-sizing:border-box}
+body{overflow-wrap:anywhere;margin:0;background:${colours.canvas};color:${colours.ink};font-family:${SYSTEM_FONTS};line-height:1.5}
 main{max-width:40rem;margin:0 auto;padding:1.5rem 1rem 3rem}
 header p{margin:0;color:${colours.muted}}
 h1{font-weight:600;font-size:1.6rem;margin:.25rem 0}
