@@ -139,3 +139,46 @@ describe("a draft's form", () => {
     );
   });
 });
+
+describe("the layout around the money", () => {
+  it("puts Payments after Price and before Day by day below the two columns, and in the side column from xl", async () => {
+    await open({ days: [{ title: "Manali", description: "" }] });
+    const cardOf = async (name: string) => {
+      const card = (await screen.findByRole("heading", { name })).closest("[data-slot=card]");
+      if (!(card instanceof HTMLElement)) throw new Error(`no ${name} card`);
+      return card;
+    };
+    const price = await cardOf(words.form.price);
+    const payments = await cardOf(words.money.title);
+    // Single column: the cards are ordered by CSS, Price first, then Payments, then the rest in page order.
+    expect(price.className).toContain("max-xl:-order-2");
+    expect(payments.className).toContain("max-xl:-order-1");
+    const days = await cardOf(words.form.days);
+    expect(days.className).not.toMatch(/max-xl:-order/);
+    // Wide: the plan's wrapper and the side column are boxes again, Payments in the sticky side column.
+    expect(payments.closest(".xl\\:sticky")).not.toBeNull();
+    expect(price.closest(".xl\\:sticky")).toBeNull();
+    expect(payments.closest(".xl\\:sticky")?.className).toContain("max-xl:contents");
+  });
+
+  it("leaves a draft's Payments where it was", async () => {
+    await open({ status: "draft" });
+    const card = (await screen.findByRole("heading", { name: words.money.title })).closest("[data-slot=card]");
+    expect(card?.className).not.toMatch(/max-xl:-order/);
+  });
+
+  it("leaves the departure card untinted when it only offers Add to departure", async () => {
+    await open({ status: "draft", departure: null });
+    const card = (await screen.findByRole("heading", { name: "Departure" })).closest("[data-slot=card]");
+    expect(card?.className).not.toMatch(/status-good/);
+  });
+
+  it("says when the departure's details did not load, with Try again", async () => {
+    await open(
+      { departure: { id: "0190a000-0000-7000-8000-0000000000d1", title: "Spiti", startDate: "2026-12-04" } },
+      { "departures.get": { status: 500 } },
+    );
+    expect(await screen.findByText(messages.departures.quote.loadFailed)).toBeTruthy();
+    expect(screen.getByRole("button", { name: messages.common.tryAgain })).toBeTruthy();
+  });
+});

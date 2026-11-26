@@ -98,7 +98,7 @@ export function QuoteScreen({ quoteId }: { quoteId: string }) {
                 update.mutate(input, { onSuccess: () => toast.success(t("saved")) });
               }}
             />
-            <div className="flex flex-col gap-6 xl:sticky xl:top-6">
+            <div className="flex flex-col gap-6 max-xl:contents xl:sticky xl:top-6">
               <QuoteMoney quote={data} />
               <MarginFigures quote={data} />
               <QuoteDepartureCard quote={data} />

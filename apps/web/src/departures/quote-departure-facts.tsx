@@ -5,6 +5,7 @@
 import type { QuoteDetail } from "@travel-crm/contracts/quotes";
 import { useTranslations } from "next-intl";
 import { PointList, pointsOf } from "@/components/trip-plan/point-list";
+import { LoadFailedAlert } from "@/components/load-failed-alert";
 import { TextLink } from "@/components/text-link";
 import { formatCalendarDay, formatWeekday } from "@/lib/format";
 import { departureRoute } from "@/lib/routes";
@@ -18,8 +19,12 @@ export function QuoteDepartureFacts({ departure }: { departure: NonNullable<Quot
   const trip = usePackage(templateId ?? "", templateId !== null);
   const pickup = trip.data?.pickupPoints ?? "";
   const weekday = formatWeekday(new Date(`${departure.startDate}T00:00:00Z`), { timeZone: "UTC" });
+  const failed = detail.isError ? detail : trip.isError ? trip : null;
   return (
     <div className="flex flex-col gap-2">
+      {failed !== null && (
+        <LoadFailedAlert message={t("loadFailed")} error={failed.error} onRetry={() => void failed.refetch()} />
+      )}
       <p className="font-semibold">
         <TextLink inline href={departureRoute(departure.id)}>
           {departure.title}

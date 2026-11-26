@@ -32,7 +32,7 @@ export function QuoteDepartureCard({ quote }: { quote: QuoteDetail }) {
   if (!seesDepartures || (quote.departure === null && !mayChange)) return null;
   const options = (list.data ?? []).filter((departure) => departure.status === "open");
   return (
-    <Card className={cardTints.good}>
+    <Card className={quote.departure === null ? undefined : cardTints.good}>
       <CardHeader>
         <CardTitle>
           <h2>{t("title")}</h2>

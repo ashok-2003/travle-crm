@@ -45,7 +45,7 @@ export function QuoteMoney({ quote }: { quote: QuoteDetail }) {
   const suggested = Math.min(totals.balancePaise, nextDue?.amountPaise ?? totals.balancePaise);
 
   return (
-    <Card>
+    <Card className={quote.status === "draft" ? undefined : "max-xl:-order-1"}>
       <CardHeader>
         <CardTitle>
           <h2>{t("title")}</h2>

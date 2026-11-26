@@ -276,6 +276,7 @@
     "startsOn": "{weekday} {day}",
     "seatsLeft": "{free} of {total} seats left",
     "pickup": "Pickup",
+    "loadFailed": "The departure's seats and pickup points didn't load.",
     "onDescription": "The quote's dates are the departure's. When the traveller accepts, the booking takes the seats.",
     "add": "Add to departure",
     "change": "Change departure",

@@ -56,8 +56,9 @@ export function FrozenQuote({ quote }: { quote: QuoteDetail }) {
         ? t("placeOutside")
         : (gstStates.find((state) => state.code === quote.placeOfSupply)?.name ?? quote.placeOfSupply);
   return (
-    <div className="flex flex-col gap-6">
-      <Card>
+    // Below the two columns this div is not a box, so Price and Payments (the screen's other column) can lead the plan.
+    <div className="flex flex-col gap-6 max-xl:contents">
+      <Card className="max-xl:-order-2">
         <CardHeader>
           <CardTitle>
             <h2>{t("price")}</h2>
