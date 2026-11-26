@@ -7,53 +7,27 @@
 import type { CalendarDeparture } from "@travel-crm/contracts/departures";
 import type { PackageDetail } from "@travel-crm/contracts/quotes";
 import { useTranslations } from "next-intl";
-import { useForm } from "react-hook-form";
-import { DateField } from "@/components/date-field";
 import { dayWithWeekday, type Day } from "./departure-calendar-days";
 import { AddDeparture } from "./add-departure";
 import { DepartureDay, DepartureFacts } from "./departure-day";
-
-const REAL_DAY = /^\d{4}-\d{2}-\d{2}$/;
-
-/** The day to look at, changed on a phone (where the list has no empty days to tap) by a date box. */
-function DayPicker({ day, onDayChange }: { day: Day; onDayChange: (day: Day) => void }) {
-  const t = useTranslations("packages.departuresCalendar");
-  const form = useForm<{ day: string }>({ values: { day } });
-  return (
-    <DateField
-      control={form.control}
-      name="day"
-      label={t("pickDay")}
-      onValueChange={(value) => {
-        if (REAL_DAY.test(value) && value !== day) onDayChange(value);
-      }}
-    />
-  );
-}
 
 export function DayPanel({
   detail,
   day,
   departure,
   today,
-  pickDay = false,
-  onDayChange,
 }: {
   detail: PackageDetail;
   day: Day;
   /** The departure that starts on this day, if any. */
   departure: CalendarDeparture | null;
   today: Day;
-  /** Offer a box to change the day (on a phone). */
-  pickDay?: boolean;
-  onDayChange: (day: Day) => void;
 }) {
   const t = useTranslations("packages.departuresCalendar");
   const ahead = day > today;
   return (
     <div className="flex flex-col gap-4">
       <h3 className="font-heading text-section font-semibold">{dayWithWeekday(day)}</h3>
-      {pickDay && <DayPicker day={day} onDayChange={onDayChange} />}
       {!ahead ? (
         <>
           {departure === null ? (

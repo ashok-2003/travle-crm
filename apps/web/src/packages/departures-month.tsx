@@ -1,8 +1,9 @@
 "use client";
 
-// The desktop month grid of a trip's departures (Google Calendar's month view): the registry Calendar with larger days,
-// each departure's day in its season's colour with its lowest price and seats left, "Cancelled" and "Full" where they
-// are. The arrows change the month (the card reads that month's days); tapping a day selects it for the panel.
+// The month grid of a trip's departures, on a phone (one month, compact) and on a wide screen (two): the registry
+// Calendar with a custom day. A departure's day is in its season's colour (the only thing colour says) and reads its
+// price and seats in words: "3 left" in bold when few, "Full" with the price struck through, "Cancelled" struck
+// through, "No price" in no season. The arrows move one month (the card reads the days); a tap selects a day.
 import type { CalendarDeparture } from "@travel-crm/contracts/departures";
 import type { SeasonColumn } from "@travel-crm/contracts/quotes";
 import { useTranslations } from "next-intl";
@@ -13,11 +14,11 @@ import { rupees } from "@/components/forms/money-field";
 import { Calendar, CalendarDayButton } from "@/components/ui/calendar";
 import { formatCalendarDay } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { dateOf, dayKeyOf, lowestPrice, monthOf, type Day, type Month } from "./departure-calendar-days";
+import { dateOf, dayKeyOf, FEW_SEATS, lowestPrice, monthOf, type Day, type Month } from "./departure-calendar-days";
 import { seasonTint } from "./season-colours";
 
 /** How a departure reads on its day, and in the day's spoken name. */
-export function departureWords(departure: CalendarDeparture) {
+function departureWords(departure: CalendarDeparture) {
   const price = lowestPrice(departure.prices);
   if (departure.status === "cancelled") return { kind: "cancelled", price } as const;
   return { kind: departure.seatsFree === 0 ? "full" : "open", price } as const;
@@ -30,6 +31,7 @@ export function DeparturesMonth({
   onMonthChange,
   selected,
   onSelect,
+  compact,
 }: {
   columns: readonly SeasonColumn[];
   byDay: ReadonlyMap<Day, CalendarDeparture>;
@@ -37,6 +39,8 @@ export function DeparturesMonth({
   onMonthChange: (month: Month) => void;
   selected: Day | null;
   onSelect: (day: Day) => void;
+  /** A phone: one month, days that fill the card, a price without its rupee sign (the day's name keeps it). */
+  compact: boolean;
 }) {
   const t = useTranslations("packages.departuresCalendar");
   // Only a departure's day is coloured (the owner, 2026-11-25): by the season it falls in, else plain grey. A dated
@@ -55,13 +59,11 @@ export function DeparturesMonth({
         days.filter((day) => seasonOf(day) === index).map(dateOf),
       ]),
     ),
-    unseasoned: days.filter((day) => seasonOf(day) === -1).map(dateOf),
   };
   const modifiersClassNames = {
     ...Object.fromEntries(
       columns.map((_column, index) => [`season${String(index)}`, `${seasonTint(index).fill} ${seasonTint(index).ink}`]),
     ),
-    unseasoned: "bg-muted",
   };
 
   const dayLabel = (date: Date) => {
@@ -71,7 +73,8 @@ export function DeparturesMonth({
     if (departure === undefined) return day;
     const words = departureWords(departure);
     if (words.kind === "cancelled") return t("dayCancelled", { day });
-    if (words.kind === "full") return t("dayFull", { day });
+    if (words.kind === "full")
+      return words.price === null ? t("dayFullNoPrice", { day }) : t("dayFull", { day, price: rupees(words.price) });
     return words.price === null
       ? t("dayNoPrice", { day, free: departure.seatsFree })
       : t("dayDeparture", { day, price: rupees(words.price), free: departure.seatsFree });
@@ -88,25 +91,34 @@ export function DeparturesMonth({
             {...props}
             className={cn(
               props.className,
-              // A square day box, also when selected: the registry's icon button is round, which squeezes the price.
-              "h-full items-start justify-start rounded-md p-1.5 text-left text-inherit [&>span]:opacity-100",
+              // A box that grows with its words, not the registry's square or round day, and never wider than its column.
+              "h-full min-h-14 min-w-0 aspect-auto items-center justify-start gap-0.5 rounded-md p-0.5 text-inherit [&>span]:text-caption [&>span]:opacity-100",
+              // A phone's day is about 46px wide (41px at 360px): its words must fit that, so they shrink a little.
+              compact ? "[&>span]:text-[0.6875rem] [&>span]:tracking-tight" : "items-start p-1.5 text-left",
             )}
           >
             {props.children}
             {departure !== undefined && words !== null && (
               <>
-                {words.kind === "cancelled" && <span>{t("cancelled")}</span>}
-                {words.kind === "full" && <span>{t("full")}</span>}
+                {words.kind === "cancelled" && <span className="line-through">{t("cancelled")}</span>}
+                {words.kind !== "cancelled" && words.price === null && <span>{t("noPrice")}</span>}
                 {words.kind !== "cancelled" && words.price !== null && (
-                  <span className="numbers font-medium">{rupees(words.price)}</span>
+                  <span className={cn("numbers font-medium", words.kind === "full" && "line-through")}>
+                    {compact ? rupees(words.price).replace("₹", "") : rupees(words.price)}
+                  </span>
                 )}
-                {words.kind === "open" && <span>{t("seatsLeft", { free: departure.seatsFree })}</span>}
+                {words.kind === "full" && <span>{t("full")}</span>}
+                {words.kind === "open" && (
+                  <span className={cn(departure.seatsFree <= FEW_SEATS && "font-bold")}>
+                    {t("seatsLeft", { free: departure.seatsFree })}
+                  </span>
+                )}
               </>
             )}
           </CalendarDayButton>
         );
       },
-    [byDay, t],
+    [byDay, compact, t],
   );
 
   return (
@@ -123,10 +135,16 @@ export function DeparturesMonth({
       }}
       modifiers={modifiers}
       modifiersClassNames={modifiersClassNames}
-      classNames={{ today: "underline" }}
+      numberOfMonths={compact ? 1 : 2}
+      classNames={{
+        root: "w-full",
+        // The registry's day without its square: a day's height comes from its words.
+        day: "group/day relative h-full w-full rounded-(--cell-radius) p-0 text-center select-none",
+        today: "underline",
+      }}
       components={{ DayButton: DepartureDayButton }}
       labels={{ labelDayButton: dayLabel }}
-      className="min-[360px]:[--cell-size:--spacing(16)]"
+      className="p-0"
     />
   );
 }
