@@ -7,7 +7,7 @@ import type { LeadDetail } from "@travel-crm/contracts/crm";
 import { PlusIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,7 +25,7 @@ import { useWriteAccess } from "@/subscription/write-access";
 import { MakeQuotesDialog } from "./make-quotes-dialog";
 import { useQuoteChanges, useQuotePackages, useQuoteSettings } from "./use-quotes";
 
-export function NewQuoteMenu({ lead }: { lead: LeadDetail }) {
+export function NewQuoteMenu({ lead, onPending }: { lead: LeadDetail; onPending?: (pending: boolean) => void }) {
   const t = useTranslations("quotes.lead");
   const router = useRouter();
   const mayCreate = useHolds("quotes:create");
@@ -36,6 +36,10 @@ export function NewQuoteMenu({ lead }: { lead: LeadDetail }) {
   const menuButton = useRef<HTMLButtonElement>(null);
   const [making, setMaking] = useState<{ id: string; name: string } | null>(null);
   const busy = create.isPending;
+  // A dialog holding this menu stays open while the quote is made, so its success (opening the quote) is not lost.
+  useEffect(() => {
+    onPending?.(busy);
+  }, [busy, onPending]);
   const { trip } = lead;
   if (!mayCreate) return null;
   const start = () => {

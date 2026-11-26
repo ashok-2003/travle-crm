@@ -339,7 +339,8 @@ function searchFilter(search: string | undefined) {
   const text = search?.trim() ?? "";
   if (text === "") return {};
   const digits = /^[+\d\s()-]+$/.test(text) ? text.replace(/\D/g, "") : "";
-  const contains = { contains: text, mode: "insensitive" } as const;
+  // Prisma passes LIKE's wildcards through, so "%" and "_" are escaped to be letters.
+  const contains = { contains: text.replace(/[\\%_]/g, "\\$&"), mode: "insensitive" } as const;
   return {
     OR: [
       { title: contains },

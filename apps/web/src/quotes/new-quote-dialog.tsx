@@ -25,11 +25,13 @@ export function NewQuoteDialog({
 }) {
   const t = useTranslations("quotes.list.newQuote");
   const [picked, setPicked] = useState<PickedLead | null>(null);
+  const [creating, setCreating] = useState(false);
   const lead = useLead(picked?.id ?? "", { enabled: picked !== null });
   return (
     <ResponsiveDialog
       open={open}
       onOpenChange={onOpenChange}
+      busy={creating}
       title={t("title")}
       description={t("description")}
       returnFocusTo={returnFocusTo}
@@ -39,7 +41,7 @@ export function NewQuoteDialog({
           {(links) => <LeadPicker links={links} value={picked} onChange={setPicked} words={{ none: t("choose") }} />}
         </FormField>
         <TextLink href={routes.newLead}>{t("newLead")}</TextLink>
-        {picked !== null && lead.data !== undefined && <NewQuoteMenu lead={lead.data} />}
+        {picked !== null && lead.data !== undefined && <NewQuoteMenu lead={lead.data} onPending={setCreating} />}
         {picked !== null && lead.isError && (
           <LoadFailedAlert message={t("loadFailed")} error={lead.error} onRetry={() => void lead.refetch()} />
         )}

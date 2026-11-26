@@ -5,7 +5,8 @@ import type { OrgTx } from "@travel-crm/db";
 const OPEN = ["awaiting_payment", "proof_received"];
 
 /**
- * "waiting" while the lead's seats on the quote's departure are held, "hold_expired" once they are not; a quote that is
+ * "waiting" while the lead's seats on the quote's departure are held, "hold_expired" once they are not (a hold that lapsed, was released or was converted while the booking is still open all
+ * read so); a quote that is
  * accepted or declined, whose booking is confirmed or cancelled, or that no AI booking points at, has no entry.
  */
 export async function paymentWaitsOf(

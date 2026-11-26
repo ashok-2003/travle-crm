@@ -22,6 +22,8 @@ describe("searching the quotes list", () => {
       };
       await make("asha", "Asha Verma", "+919876543210", "Goa beach week", world.seller.userId);
       await make("ravi", "रवि शर्मा", "+919811100000", "Spiti circuit", world.seller.userId);
+      await make("wild", "Kiran Joshi", "+919833300000", "Goa 98 100% a_t", world.seller.userId);
+      await make("plain", "Kiran Das", "+919844498000", "Kullu", world.seller.userId);
       await make("other", "Asha Nair", "+919822200000", "Goa again", world.manager.userId);
     });
   });
@@ -53,9 +55,19 @@ describe("searching the quotes list", () => {
     expect(await found("spiti")).toEqual([ids.ravi]);
   });
 
+  it("takes % and _ as letters, not wildcards", async () => {
+    expect(await found("%")).toEqual([ids.wild]);
+    expect(await found("a_t")).toEqual([ids.wild]);
+    expect(await found("o_a")).toEqual([]);
+  });
+
+  it("reads text with letters and digits as a name or title, not a phone", async () => {
+    expect(await found("Goa 98")).toEqual([ids.wild]);
+  });
+
   it("lists everything for an empty search", async () => {
-    expect(await found("  ")).toHaveLength(3);
-    expect(await found(undefined)).toHaveLength(3);
+    expect(await found("  ")).toHaveLength(5);
+    expect(await found(undefined)).toHaveLength(5);
   });
 
   it("stays within the member's scope", async () => {
