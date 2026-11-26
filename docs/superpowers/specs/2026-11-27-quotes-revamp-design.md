@@ -79,6 +79,13 @@ colour. The customer's link page and the PDF are older than the app's design and
    then the photos, highlights, the same blue day boxes, inclusions as green ticks, exclusions as crosses, notes, and the
    enquiry form and "WhatsApp us" at the end.
 
+10. **A UPI QR wherever the customer pays** (owner, 2026-11-27): the customer's page (Pay now) and the PDF (a Pay box) show a
+    QR of the same `upi://pay` link the "Pay by UPI" button uses: the agency's UPI id, its name, the amount due now and the
+    quote's number as the note, with the UPI id and name in text beside it. Settings → Payment details shows the agency's QR
+    with "Scan it once and pay ₹1 to check it". The uploaded QR picture stays only for an agency with no UPI id. Later, in
+    its own PR: the AI's WhatsApp payment message, an Inbox "Send payment QR" action, the traveller's trip page and balance
+    reminders.
+
 Everything above ships in one PR with the Packages revamp (owner: "we will push all these together").
 
 ## Not in this change

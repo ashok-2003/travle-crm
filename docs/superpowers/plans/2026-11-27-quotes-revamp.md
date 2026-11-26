@@ -155,3 +155,23 @@ signed-in app's providers).
 - [ ] Implement; take phone and desktop shots of a published trip page (the rates-packages audit has one) and fix what
   they show; run the package-pages tests, typecheck, lint, and the package pages journey.
 - [ ] Commit `feat(web): the public trip page reads like the quote, with its plan in day boxes`.
+
+### Task 7: A UPI QR wherever the customer pays (owner, 2026-11-27)
+
+**Files:** the customer's quote page (`apps/api/src/quote-page.ts`: the Pay now section), the quotation PDF (the `quotation`
+template in `packages/integrations/src/pdf/` and its content), the agency's payment details settings screen in
+`apps/web/src` (a preview), a small shared QR helper (the web app already pins `uqr` 0.1.3 for two-factor setup: use the same
+library and version wherever the QR is drawn: an inline SVG on the page, an image in the PDF), tests.
+
+**Interfaces:** the QR encodes exactly the `upi://pay` link the page's "Pay by UPI" button already uses (payee UPI id, the
+agency's name, the amount due now, INR, and the quote's number as the note), built in one place and shared.
+
+- [ ] Failing tests: the page's Pay now section has a QR (an inline SVG, no script, an accessible name "UPI QR to pay ₹3,000
+  to <agency>"), with the UPI id and the agency's name in text beside it and the amount; the QR decodes to the same link as
+  the button (decode it in the test, or assert the encoded payload); no QR without a UPI id (the uploaded QR picture, if the
+  agency has one, shows instead); the PDF's quotation has a Pay box with the QR image, the UPI id, the agency's name and the
+  amount due now when there is one; the settings screen shows the agency's QR preview (no amount) with "Scan it once and
+  pay ₹1 to check it", or nothing without a UPI id.
+- [ ] Implement; render the PDF and shoot the page at 390px and look at both; scan-check: decode the rendered QR (a QR
+  decoder in a test, or `zbarimg` if present) and compare with the link.
+- [ ] Commit `feat(quotes): a upi qr with the amount due on the customer's page, the pdf and settings`.
