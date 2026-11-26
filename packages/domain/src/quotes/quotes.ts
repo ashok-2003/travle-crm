@@ -31,6 +31,7 @@ import {
   toSummary,
 } from "./quote-rows.js";
 import { assertTakesStandInPayments } from "./placeholder-payments.js";
+import { countsOf, seatsSoldAndHeld } from "./seat-counts.js";
 import { quoteSettingsOf } from "./settings.js";
 import { quoteMoney } from "./totals.js";
 
@@ -69,9 +70,25 @@ function columnsOf(fields: Fields, context: QuoteContext) {
 
 const seesMargin = (access: MemberAccess) => access.permissions.has("money:view_margin");
 
-/** A quote row as the member reads it: the margin warning for all, its figures and the lines' costs only for whoever may see them. */
+/**
+ * A quote row as the member reads it: the margin warning for all, its figures and the lines' costs only for whoever may
+ * see them, and its departure's free seats.
+ */
 async function detailOf(tx: OrgTx, access: MemberAccess, row: Parameters<typeof toDetail>[0]): Promise<QuoteDetail> {
-  return toDetail(row, { settings: await quoteSettingsOf(tx), seesMargin: seesMargin(access) });
+  const { departure } = row;
+  const [settings, seats] = await Promise.all([
+    quoteSettingsOf(tx),
+    departure === null ? null : seatsSoldAndHeld(tx, [departure.id], new Date()),
+  ]);
+  const taken = departure === null ? undefined : seats?.get(departure.id);
+  return toDetail(row, {
+    settings,
+    seesMargin: seesMargin(access),
+    departureFree:
+      departure === null || taken === undefined
+        ? undefined
+        : countsOf(departure.seatsTotal, taken.sold, taken.held).free,
+  });
 }
 
 /**

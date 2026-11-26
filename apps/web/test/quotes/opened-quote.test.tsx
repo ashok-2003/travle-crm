@@ -5,22 +5,30 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { messages } from "@/i18n/messages";
 import { QuoteScreen } from "@/quotes/quote-screen";
-import { renderScreen } from "../leads/screen";
-import { aPackage } from "../packages/detail";
+import type { SignedInMember } from "@/session/me-context";
+import { owner, renderScreen } from "../leads/screen";
 import { stubApi } from "../support/api-stub";
+import { member } from "../support/members";
 import { aQuote } from "./quote";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }));
 
 const words = messages.quotes;
-const open = async (changes: Parameters<typeof aQuote>[0], extra: Record<string, unknown> = {}) => {
-  stubApi({
-    "quotes.get": { data: aQuote(changes) },
-    "departures.get": { data: { seatsTotal: 20, free: 7, templateId: "0190a000-0000-7000-8000-000000000001" } },
-    "packages.get": { data: aPackage({ pickupPoints: "Delhi ISBT Kashmere Gate, 6 pm\nChandigarh, 11 pm" }) },
-    ...extra,
-  });
-  renderScreen(<QuoteScreen quoteId="0199a000-0000-7000-8000-0000000000a1" />, { width: "wide" });
+const departure = {
+  id: "0190a000-0000-7000-8000-0000000000d1",
+  title: "Spiti",
+  startDate: "2026-12-04",
+  seatsTotal: 20,
+  free: 7,
+  pickupPoints: "Delhi ISBT Kashmere Gate, 6 pm\nChandigarh, 11 pm",
+};
+const open = async (
+  changes: Parameters<typeof aQuote>[0],
+  extra: Record<string, unknown> = {},
+  me: SignedInMember = owner,
+) => {
+  stubApi({ "quotes.get": { data: aQuote(changes) }, ...extra });
+  renderScreen(<QuoteScreen quoteId="0199a000-0000-7000-8000-0000000000a1" />, { width: "wide", me });
   return screen.findByRole("heading", { level: 1 });
 };
 const money = (paid: number, balance: number) => ({
@@ -107,17 +115,18 @@ describe("an opened sent quote", () => {
   });
 
   it("shows the departure in green with its day, seats left of total, pickup point and a link", async () => {
-    await open({ departure: { id: "0190a000-0000-7000-8000-0000000000d1", title: "Spiti", startDate: "2026-12-04" } });
-    const card = (await screen.findByRole("heading", { name: "Departure" })).closest("[data-slot=card]");
-    if (!(card instanceof HTMLElement)) throw new Error("no departure card");
+    // Operations: sees quotes and departures, may not change a quote; everything on the card comes with the quote.
+    await open({ departure }, {}, member({ permissions: ["quotes:view", "departures:view"] }));
+    const card = screen.getByRole("region", { name: "Departure" });
     expect(card.className).toMatch(/status-good/);
-    expect(await within(card).findByText(/7 of 20 seats left/)).toBeTruthy();
+    expect(within(card).getByText(/7 of 20 seats left/)).toBeTruthy();
     expect(within(card).getByText(/Fri 4 Dec/)).toBeTruthy();
-    expect(await within(card).findByText("Delhi ISBT Kashmere Gate, 6 pm")).toBeTruthy();
+    expect(within(card).getByText("Delhi ISBT Kashmere Gate, 6 pm")).toBeTruthy();
     expect(within(card).getByRole("link", { name: /Spiti/ })).toHaveAttribute(
       "href",
       expect.stringContaining("0190a000"),
     );
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("ends with the note that the prices are fixed", async () => {
@@ -209,12 +218,12 @@ describe("the layout around the money", () => {
     expect(card?.className).not.toMatch(/status-good/);
   });
 
-  it("says when the departure's details did not load, with Try again", async () => {
-    await open(
-      { departure: { id: "0190a000-0000-7000-8000-0000000000d1", title: "Spiti", startDate: "2026-12-04" } },
-      { "departures.get": { status: 500 } },
-    );
-    expect(await screen.findByText(messages.departures.quote.loadFailed)).toBeTruthy();
-    expect(screen.getByRole("button", { name: messages.common.tryAgain })).toBeTruthy();
+  it("shows the departure's day alone when an older api sends no seats or pickup points", async () => {
+    await open({
+      departure: { id: departure.id, title: departure.title, startDate: departure.startDate } as typeof departure,
+    });
+    const card = screen.getByRole("region", { name: "Departure" });
+    expect(within(card).getByText(/Fri 4 Dec/)).toBeTruthy();
+    expect(within(card).queryByText(/seats left/)).toBeNull();
   });
 });

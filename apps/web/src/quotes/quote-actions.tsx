@@ -173,7 +173,7 @@ export function QuoteActions({
         )}
         {mayEdit && editsInPlace && (
           <Button variant="outline" asChild>
-            <Link href="#quote-form" onClick={onEdit}>
+            <Link href="#quote-form" {...(onEdit === undefined ? {} : { onClick: onEdit })}>
               {editLabel}
             </Link>
           </Button>

@@ -22,7 +22,7 @@ import { parseCalendarDate, systemActor } from "../../src/kernel/index.js";
 import { eraseCustomerParts } from "../../src/platform/erase-customer.js";
 import { getQuote, updateQuote } from "../../src/quotes/index.js";
 import { aQuote } from "../bookings/support.js";
-import { aBookingOn, aDeparture, aSellersLead, now, openWorld, type World } from "./support.js";
+import { aBookingOn, aDeparture, aSellersLead, now, openWorld, operations, type World } from "./support.js";
 
 const context = { supplierStateCode: "27", now };
 
@@ -171,6 +171,28 @@ describe("a departure's waitlist, quotes, money and Today", () => {
     });
     await world.inOrg((tx) => setQuoteDeparture(tx, world.seller, { quoteId: draft.id, departureId: null }));
     expect((await world.inOrg((tx) => getQuote(tx, world.seller, draft.id))).departure).toBeNull();
+  });
+
+  it("reads a quote's departure with its seats left of total and its trip's pickup points, for whoever sees the quote", async () => {
+    const departure = await world.inOrg(async (tx) => {
+      const trip = await tx.quoteTemplate.create({
+        data: { name: "Spiti", title: "Spiti", kind: "group", pickupPoints: "Delhi ISBT, 6 pm\nChandigarh, 11 pm" },
+        select: { id: true },
+      });
+      const made = await aDeparture(tx, { seatsTotal: 12, startDate: "2026-12-09", endDate: "2026-12-14" });
+      await tx.departure.update({ where: { id: made.id }, data: { templateId: trip.id } });
+      return made;
+    });
+    await aBookingOn(world, departure.id, { adults: 3 });
+    const { quote } = await world.inOrg((tx) => aQuote(tx, { ownerUserId: world.seller.userId, status: "sent" }));
+    await world.inOrg((tx) => tx.quote.update({ where: { id: quote.id }, data: { departureId: departure.id } }));
+    // Operations sees quotes and departures but may not change a quote (packages.get is the editors').
+    expect((await world.inOrg((tx) => getQuote(tx, operations(world), quote.id))).departure).toMatchObject({
+      id: departure.id,
+      seatsTotal: 12,
+      free: 9,
+      pickupPoints: "Delhi ISBT, 6 pm\nChandigarh, 11 pm",
+    });
   });
 
   it("works out a departure's profit from its bookings' price and its own costs", async () => {
