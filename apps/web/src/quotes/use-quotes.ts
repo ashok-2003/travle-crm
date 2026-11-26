@@ -3,14 +3,15 @@
 // Quotes' reads and changes (step 3, P0): the lists, one quote, its money, its PDFs and its link. A change loads again
 // the quote, the lists that show it, and the lead whose stage it may move.
 import type { ListQuotesInput } from "@travel-crm/contracts/quotes";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { refusalOf } from "@/data/api-error";
 import { useTRPC, useTRPCClient } from "@/data/trpc";
 import { useRefreshWork } from "@/data/use-refresh-work";
 
 export function useQuotes(input: ListQuotesInput) {
   const trpc = useTRPC();
-  return useQuery(trpc.quotes.list.queryOptions(input));
+  // The rows in view stay while a search or chip loads, so the table does not jump to a skeleton and back.
+  return useQuery({ ...trpc.quotes.list.queryOptions(input), placeholderData: keepPreviousData });
 }
 
 export function useLeadQuotes(leadId: string) {

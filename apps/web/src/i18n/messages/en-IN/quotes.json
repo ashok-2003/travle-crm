@@ -4,11 +4,13 @@
     "sent": "Sent",
     "accepted": "Accepted",
     "declined": "Declined",
-    "replaced": "Replaced"
+    "replaced": "Replaced",
+    "waiting": "Waiting for payment",
+    "hold_expired": "Hold expired"
   },
   "list": {
     "title": "Quotes",
-    "intro": "Every quote with what it is worth and what is still to be paid. Make a quote from a lead's page.",
+    "intro": "Every quote with what it is worth and what is still to be paid.",
     "filterLabel": "Show",
     "filters": {
       "all": "All",
@@ -26,8 +28,22 @@
     "loadFailed": "Quotes didn't load.",
     "retry": "Try again",
     "loading": "Loading quotes",
-    "empty": "No quotes yet. Open a lead and choose New quote.",
-    "noneHere": "No quotes here."
+    "empty": "No quotes yet. Choose New quote.",
+    "noneHere": "No quotes here.",
+    "search": "Search quotes",
+    "searchPlaceholder": "Customer, phone or trip",
+    "noMatch": "No quote matches that search.",
+    "new": "New quote",
+    "newQuote": {
+      "title": "New quote",
+      "description": "A quote is made on a lead. Choose the lead first.",
+      "lead": "Lead",
+      "leadHint": "Search by name or phone.",
+      "choose": "Choose a lead",
+      "noLead": "No lead chosen",
+      "newLead": "Not there? Make a new lead",
+      "loadFailed": "That lead didn't load."
+    }
   },
   "lead": {
     "title": "Quotes",

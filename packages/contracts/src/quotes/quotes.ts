@@ -83,6 +83,8 @@ export const listQuotesInput = z.strictObject({
   status: quoteStatus.optional(),
   /** Only quotes with money still to come. */
   balanceDue: z.boolean().optional(),
+  /** A customer's name, a phone's digits or a trip's title. */
+  search: z.string().max(80).optional(),
 });
 export type ListQuotesInput = z.infer<typeof listQuotesInput>;
 
@@ -189,6 +191,10 @@ export const payment = z.object({
 });
 export type Payment = z.infer<typeof payment>;
 
+/** A quote behind an AI booking nobody has paid yet: "waiting" while the seats are held, "hold_expired" once they lapse. */
+export const quotePaymentWait = z.enum(["waiting", "hold_expired"]);
+export type QuotePaymentWait = z.infer<typeof quotePaymentWait>;
+
 export const quoteSummary = z.object({
   id: recordId,
   leadId: recordId,
@@ -196,6 +202,7 @@ export const quoteSummary = z.object({
   title: z.string(),
   startDate: calendarDate.nullable(),
   status: quoteStatus,
+  paymentWait: quotePaymentWait.nullable(),
   totals: quoteTotals,
   updatedAt: z.iso.datetime(),
 });
