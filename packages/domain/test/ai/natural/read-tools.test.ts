@@ -131,7 +131,7 @@ describe("the natural agent's read tools", () => {
         await januarySeason(tx, brahmatal);
       });
       const { result } = await read("find_trips", { query: "trips in January?" }, midNovember);
-      expect(result).toMatch(/^Trip ID: T2\nName: Brahmatal Trek\n/u);
+      expect(result).toMatch(/^Name: Brahmatal Trek\nID for tools: T2\n/u);
       expect(result).toContain(
         "\nDates: Fri 1 Jan 2027, Sat 2 Jan 2027, Sun 3 Jan 2027, Mon 4 Jan 2027, Tue 5 Jan 2027 and 26 more\n",
       );
@@ -152,7 +152,7 @@ describe("the natural agent's read tools", () => {
         "\nDates: Sat 6 Feb 2027, Sat 13 Feb 2027, Sat 20 Feb 2027, Sat 27 Feb 2027\n",
       );
       expect((await read("quote", { trip_id: "T1", date: "2027-02-13", adults: 2 }, midNovember)).result).toBe(
-        "T1 Kedarkantha Trek, Sat 13 Feb 2027, 2 adults: triple ₹9,499 per person, GST included; total ₹18,998; " +
+        "Kedarkantha Trek, Sat 13 Feb 2027, 2 adults: triple ₹9,499 per person, GST included; total ₹18,998; " +
           "advance ₹3,000 per person, ₹6,000 in all; seats: open",
       );
     });
@@ -177,7 +177,7 @@ describe("the natural agent's read tools", () => {
       const entries = (await read("find_trips", { query: "trek" })).result.split("\n\n");
       expect(entries).toHaveLength(5);
       expect((await read("find_trips", { query: "Brahmatal trek" })).result).toMatch(
-        /^Trip ID: T2\nName: Brahmatal Trek\n/u,
+        /^Name: Brahmatal Trek\nID for tools: T2\n/u,
       );
     });
   });
@@ -191,7 +191,7 @@ describe("the natural agent's read tools", () => {
         tx.quoteTemplate.update({ where: { id: kedarkantha }, data: { notes, pickupPoints: pickups.join("\n") } }),
       );
       const { result, figures } = await read("get_trip", { trip_id: "T1" });
-      expect(result.split("\n").slice(0, 2)).toEqual(["Trip ID: T1", "Name: Kedarkantha Trek"]);
+      expect(result.split("\n").slice(0, 2)).toEqual(["Name: Kedarkantha Trek", "ID for tools: T1"]);
       expect(result).toContain(`Notes: ${notes}`);
       expect(result).toContain(`Pickup points: ${pickups.join("; ")}`);
       expect(figures).toBeNull();
@@ -199,7 +199,7 @@ describe("the natural agent's read tools", () => {
       const [inPrompt] = await sheets();
       expect(tripInFull(inPrompt ?? expect.unreachable(), today)).not.toContain("Summit at 3,800 m.");
       // The label is the turn's own.
-      expect((await read("get_trip", { trip_id: "T2" })).result).toMatch(/^Trip ID: T2\nName: Brahmatal Trek\n/u);
+      expect((await read("get_trip", { trip_id: "T2" })).result).toMatch(/^Name: Brahmatal Trek\nID for tools: T2\n/u);
     });
   });
 
@@ -211,7 +211,7 @@ describe("the natural agent's read tools", () => {
         tx.departure.findFirstOrThrow({ where: { templateId: kedarkantha, startDate: day("2026-12-12") } }),
       );
       expect(result).toBe(
-        "T1 Kedarkantha Trek, Sat 12 Dec, 2 adults: triple ₹9,499 per person, GST included; total ₹18,998; " +
+        "Kedarkantha Trek, Sat 12 Dec, 2 adults: triple ₹9,499 per person, GST included; total ₹18,998; " +
           "advance ₹3,000 per person, ₹6,000 in all; seats: open",
       );
       expect(figures).toEqual({
@@ -257,7 +257,7 @@ describe("the natural agent's read tools", () => {
         room: "double",
       });
       expect(result).toBe(
-        "T1 Kedarkantha Trek, Sat 19 Dec, 2 adults, 1 child (8): triple ₹9,499, child with bed ₹6,000 per person " +
+        "Kedarkantha Trek, Sat 19 Dec, 2 adults, 1 child (8): triple ₹9,499, child with bed ₹6,000 per person " +
           "(triple is the only room this trip sells), GST included; total ₹24,998; " +
           "advance ₹3,000 per person, ₹9,000 in all; seats: open",
       );

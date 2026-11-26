@@ -43,19 +43,19 @@ export function brochuresBlock(sheets: readonly TripSheet[]): string | null {
   const entries = labels.map((one) =>
     [
       "",
-      `Brochure ID: ${one.label}`,
-      `Trip: ${one.tripLabel} ${oneLine(titles.get(one.tripLabel) ?? "")}`,
       `Name: ${one.name}`,
+      `Trip: ${oneLine(titles.get(one.tripLabel) ?? "")}`,
       `About: ${one.description ?? "no description yet"}`,
+      `ID for send_brochure: ${one.label}`,
     ].join("\n"),
   );
   return ["## Brochures", BROCHURE_ID_RULE, ...entries].join("\n");
 }
 
-/** "Brochures sent in this chat: B2 <name>; B5 <name>.", or null when none of them was sent. */
+/** "Brochures sent in this chat: <name>; <name>.", or null when none of them was sent. */
 export function sentBrochuresLine(sheets: readonly TripSheet[], sentFileIds: readonly string[]): string | null {
   const sent = new Set(sentFileIds);
   const gone = [...brochureLabelsOf(sheets).values()].filter((one) => sent.has(one.attachmentId));
   if (gone.length === 0) return null;
-  return `Brochures sent in this chat: ${gone.map((one) => `${one.label} ${one.name}`).join("; ")}.`;
+  return `Brochures sent in this chat: ${gone.map((one) => one.name).join("; ")}.`;
 }

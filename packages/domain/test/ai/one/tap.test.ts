@@ -199,7 +199,7 @@ describe("a tap on the offer card", () => {
     expect(await replaced.bookings()).toBe(0);
     const notice = turnBlockOf(replaced.model.requests.at(-1));
     expect(notice).toContain("on an offer that is no longer live (Kedarkantha Trek; Sat 19 Dec · 2 adults");
-    expect(notice).toContain("The live offer is T1 ");
+    expect(notice).toContain("The live offer is Kedarkantha Trek, ");
     expect(notice).toContain("3 adults, triple, total ₹28,497.");
 
     // The agency's automation wrote after the card: the offer is no longer the one they answer.
@@ -218,7 +218,7 @@ describe("a tap on the offer card", () => {
     expect(await other.turn(await other.taps(`book:${randomUUID()}`, 240), liveAt(300))).toBe("replied");
     expect(await other.bookings()).toBe(0);
     expect(turnBlockOf(other.model.requests.at(-1))).toContain(
-      'They tapped "Book these seats" on an offer that is no longer live. Nothing was booked. The live offer is T1 ',
+      'They tapped "Book these seats" on an offer that is no longer live. Nothing was booked. The live offer is Kedarkantha Trek, ',
     );
   });
 
@@ -230,7 +230,7 @@ describe("a tap on the offer card", () => {
     expect(await seats.turn(await seats.taps(`book:${offerId}`, 240), liveAt(300))).toBe("replied");
     expect(await seats.bookings()).toBe(0);
     const notice = turnBlockOf(seats.model.requests.at(-1));
-    expect(notice).toContain('They tapped "Book these seats" on the offer (T1 ');
+    expect(notice).toContain('They tapped "Book these seats" on the offer (Kedarkantha Trek, ');
     expect(notice).toContain(
       "The seats couldn't be held: 1 left on Sat 19 Dec and the party is 2; open with seats: Sat 5 Dec, Sat 12 Dec, " +
         "Sat 26 Dec. Nothing was sent; reply again.",
@@ -277,7 +277,7 @@ describe("a tap on the offer card", () => {
     expect(held).toBe(true);
     expect(await on.bookings()).toBe(0);
     const notice = turnBlockOf(on.model.requests.at(-1));
-    expect(notice).toContain('They tapped "Book these seats" on the offer (T1 ');
+    expect(notice).toContain('They tapped "Book these seats" on the offer (Kedarkantha Trek, ');
     expect(notice).toContain("The seats couldn't be held: ");
     expect(notice).toContain("Open: Sat 5 Dec, Sat 12 Dec, Sat 26 Dec. Nothing was sent; reply again.");
     // Nothing went with the refused hold: the model's line goes under the tap's own token.
@@ -293,7 +293,7 @@ describe("a tap on the offer card", () => {
     expect(await on.turn(await on.taps(`change:${offerId}`, 240, CHANGE_TITLE), liveAt(300))).toBe("replied");
     expect(await on.bookings()).toBe(0);
     const notice = turnBlockOf(on.model.requests.at(-1));
-    expect(notice).toContain('They tapped "Change something" on the offer (T1 ');
+    expect(notice).toContain('They tapped "Change something" on the offer (Kedarkantha Trek, ');
     expect(notice).toContain("2 adults, triple, total ₹18,998). Ask what they'd like to change.");
     expect((await on.outbound()).at(-1)?.body).toBe(answerWords);
   });
@@ -323,7 +323,9 @@ describe("a tap on the offer card", () => {
     );
     expect(await on.turn(tap, liveAt(300))).toBe("replied");
     expect(on.model.requests.length).toBeGreaterThan(calls);
-    expect(turnBlockOf(on.model.requests[calls])).toContain('They tapped "Book these seats" on the live offer (T1 ');
+    expect(turnBlockOf(on.model.requests[calls])).toContain(
+      'They tapped "Book these seats" on the live offer (Kedarkantha Trek, ',
+    );
     expect(turnBlockOf(on.model.requests[calls])).toContain(
       "and wrote more. Nothing is booked yet: answer what they wrote, and book on these terms if they still want them.",
     );

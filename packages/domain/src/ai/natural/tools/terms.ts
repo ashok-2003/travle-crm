@@ -49,11 +49,11 @@ export function sameTerms(a: BookingTerms, b: BookingTerms): boolean {
   return toldMatches(a, b) && a.payInFull === b.payInFull;
 }
 
-/** "T1 Kedarkantha Trek, Sat 19 Dec, 2 adults, double", and "paying in full" when they are. */
+/** "Kedarkantha Trek, Sat 19 Dec, 2 adults, double", and "paying in full" when they are. */
 export function termsWords(terms: BookingTerms, sheets: readonly TripSheet[], today: CalendarDate): string {
   const sheet = sheets.find((one) => one.packageId === terms.packageId);
   return [
-    sheet === undefined ? "a trip not on sale now" : `${sheet.label} ${fenced(sheet.title)}`,
+    sheet === undefined ? "a trip not on sale now" : fenced(sheet.title),
     formatShortDay(parseCalendarDate(terms.startsOn), today),
     travellerWords(terms.adults, terms.childrenAges),
     terms.room === null ? null : roomNames[terms.room],

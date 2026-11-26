@@ -73,7 +73,7 @@ function headOf(sheet: TripSheet): (string | null)[] {
   ]
     .filter(isText)
     .join(" · ");
-  return [`Trip ID: ${sheet.label}`, `Name: ${sheet.title}`, where === "" ? null : `Where: ${where}`];
+  return [`Name: ${sheet.title}`, `ID for tools: ${sheet.label}`, where === "" ? null : `Where: ${where}`];
 }
 
 /** The main stops: each day title's first place, without the start city or a repeat, 4 at most. */

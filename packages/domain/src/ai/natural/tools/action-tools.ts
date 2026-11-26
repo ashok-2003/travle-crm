@@ -206,7 +206,7 @@ function saidOf(context: ActionContext, asked: Asked<typeof updateLeadArguments>
     const otherTrip = leadTrip !== null && leadTrip !== sheet.packageId;
     said.push({
       field: "destination",
-      words: `trip ${sheet.label}`,
+      words: `trip ${fenced(sheet.title)}`,
       noted: sheet.title,
       set: { packageId: sheet.packageId },
       // A person's place, named by a trip that goes there; at their place, the lead's other trip is theirs to choose.
@@ -345,7 +345,7 @@ function chatNamed(context: ActionContext, sheet: TripSheet, words: string): boo
 function sendBrochure(context: ActionContext, label: string, words: string): StageOutcome {
   const sheet = context.sheets.find((one) => one.label === label);
   if (sheet === undefined) return UNPARSED;
-  const trip = `${sheet.label} ${fenced(sheet.title)}`;
+  const trip = fenced(sheet.title);
   if (context.facts.sentTripIds.includes(sheet.packageId)) {
     return refused(`${trip}'s brochure went in this chat already; point them to it, or answer in words`);
   }
@@ -376,7 +376,7 @@ function sendOneBrochure(context: ActionContext, label: string): StageOutcome {
       caption: brochure.name,
       resend: [brochure.attachmentId],
     },
-    `goes with your reply: ${label} ${brochure.name}, and ${String(fileIds.length - 1)} photos${again}`,
+    `goes with your reply: ${brochure.name}, and ${String(fileIds.length - 1)} photos${again}`,
   );
 }
 
