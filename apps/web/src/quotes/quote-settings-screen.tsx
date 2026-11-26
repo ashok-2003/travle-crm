@@ -11,7 +11,6 @@ import {
 } from "@travel-crm/contracts/quotes";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
-import { QrCode } from "@/account/qr-code";
 import { BackToSettings } from "@/components/back-to-settings";
 import { ErrorState } from "@/components/error-state";
 import { checked } from "@/components/forms/checked";
@@ -28,6 +27,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { NoteField } from "@/leads/form/note-field";
 import { basisPointsOf, percentText } from "@/lib/percent";
 import { useWriteAccess } from "@/subscription/write-access";
+import { UpiQrPreview } from "./upi-qr-preview";
 import { useQuoteSettings, useSaveQuoteSettings } from "./use-quotes";
 
 interface Values {
@@ -124,14 +124,13 @@ function SettingsForm({ saved }: { saved: QuoteSettings }) {
             disabled={save.isPending}
           />
           {link === null ? null : (
-            <div className="flex flex-col items-start gap-2">
-              <QrCode
-                value={link}
-                label={t("upiQrLabel", { upiId: saved.upiId })}
-                className="size-40 text-foreground"
-              />
-              <p className="text-muted-foreground">{t("upiQrTest")}</p>
-            </div>
+            <UpiQrPreview
+              link={link}
+              upiId={saved.upiId}
+              verifiedAt={saved.upiVerifiedAt}
+              verifiedByName={saved.upiVerifiedByName}
+              writeHint={access.hint}
+            />
           )}
           <SelectField
             control={form.control}

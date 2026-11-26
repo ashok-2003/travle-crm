@@ -45,6 +45,7 @@
     "ORGANIZATION_SUSPENDED": "Your organization is suspended. Only an Owner can export or remove staff.",
     "ORGANIZATION_CANCELLED": "Your organization's subscription has ended.",
     "MODULE_NOT_ON_PLAN": "Your organization's plan doesn't include this.",
+    "UPI_ID_MISSING": "Save a UPI id first, then verify its QR.",
     "PROFILE_NOT_SAVED": "Save your business details in Settings first.",
     "AI_TRACE_NOT_FOUND": "This turn isn't kept any more: a trace is kept 14 days, and goes at once when its customer is erased.",
     "AI_TRACE_CURSOR_GONE": "That place in the list is gone: the turn was removed. Load the list again.",

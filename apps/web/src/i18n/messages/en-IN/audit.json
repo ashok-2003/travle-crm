@@ -242,7 +242,9 @@
       "departure-changed": "Put a quote on a departure, or took it off"
     },
     "quote-settings": {
-      "changed": "Changed how quotes are paid and taxed"
+      "changed": "Changed how quotes are paid and taxed",
+      "upi-verified": "Verified the UPI QR: scanned it, paid ₹1 and saw it arrive",
+      "upi-verification-cleared": "Cleared the UPI QR's verification, because the UPI id changed"
     },
     "trip-cost": {
       "added": "Added a supplier cost to a booking",

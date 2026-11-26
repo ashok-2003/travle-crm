@@ -76,6 +76,20 @@ export function useSaveQuoteSettings() {
   );
 }
 
+/** Marks the UPI QR verified; `onVerified` closes the confirmation, from the mutation's own options (a dropped callback can't). */
+export function useVerifyUpi(onVerified: () => void) {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+  return useMutation(
+    trpc.quotes.verifyUpi.mutationOptions({
+      onSuccess: async () => {
+        await queryClient.invalidateQueries({ queryKey: trpc.quotes.settings.pathKey() });
+        onVerified();
+      },
+    }),
+  );
+}
+
 const pause = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 /**

@@ -1,6 +1,7 @@
 // The quotes settings screen previews the agency's UPI QR (no amount) with the words to test it, and shows nothing
 // without a UPI id.
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { encode } from "uqr";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { upiPayLink } from "@travel-crm/contracts/quotes";
@@ -18,6 +19,15 @@ const settings = {
   defaultMarkupBasisPoints: 0,
   minMarginBasisPoints: null,
   minMarginPerPersonPaise: null,
+  upiVerifiedAt: null,
+  upiVerifiedBy: null,
+  upiVerifiedByName: null,
+};
+const verified = {
+  ...settings,
+  upiVerifiedAt: "2026-11-27T10:10:00.000Z",
+  upiVerifiedBy: "0199e7a0-0000-7000-8000-000000000001",
+  upiVerifiedByName: "Ashok Kumar",
 };
 
 describe("the UPI QR preview in quote settings", () => {
@@ -38,11 +48,42 @@ describe("the UPI QR preview in quote settings", () => {
     expect(screen.getByText(words.upiQrTest)).toBeVisible();
   });
 
+  it("unverified: says to verify it, and confirming records the verification and then says who and when", async () => {
+    const api = stubApi({ "quotes.settings": { data: settings }, "quotes.verifyUpi": { data: verified } });
+    renderWithApi(<QuoteSettingsScreen />, newQueryClient());
+    expect(await screen.findByText(words.upiUnverified)).toBeVisible();
+    await userEvent.click(screen.getByRole("button", { name: words.upiVerify }));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).getByText(words.upiVerifyConfirm)).toBeVisible();
+    api.answer("quotes.settings", { data: verified });
+    await userEvent.click(within(dialog).getByRole("button", { name: words.upiVerifyAction }));
+    expect(await screen.findByText("Verified by Ashok Kumar on 27 Nov, 3:40 pm")).toBeVisible();
+    expect(api.calls).toContain("quotes.verifyUpi");
+    expect(screen.queryByRole("button", { name: words.upiVerify })).toBeNull();
+    expect(screen.queryByText(words.upiUnverified)).toBeNull();
+  });
+
+  it("verified: shows who and when in the agency's time, with no button; a former member is named as such", async () => {
+    stubApi({ "quotes.settings": { data: { ...verified, upiVerifiedByName: null } } });
+    renderWithApi(<QuoteSettingsScreen />, newQueryClient());
+    expect(await screen.findByText(`Verified by ${words.upiVerifiedFormerMember} on 27 Nov, 3:40 pm`)).toBeVisible();
+    expect(screen.queryByRole("button", { name: words.upiVerify })).toBeNull();
+  });
+
+  it("from an older api with no verification fields, it reads as unverified", async () => {
+    const older = Object.fromEntries(Object.entries(settings).filter(([key]) => !key.startsWith("upiVerified")));
+    stubApi({ "quotes.settings": { data: older } });
+    renderWithApi(<QuoteSettingsScreen />, newQueryClient());
+    expect(await screen.findByText(words.upiUnverified)).toBeVisible();
+  });
+
   it("shows nothing without a UPI id", async () => {
     stubApi({ "quotes.settings": { data: { ...settings, upiId: "" } } });
     renderWithApi(<QuoteSettingsScreen />, newQueryClient());
     expect(await screen.findByLabelText(words.upiId)).toBeVisible();
     expect(screen.queryByRole("img")).toBeNull();
     expect(screen.queryByText(words.upiQrTest)).toBeNull();
+    expect(screen.queryByText(words.upiUnverified)).toBeNull();
+    expect(screen.queryByRole("button", { name: words.upiVerify })).toBeNull();
   });
 });
