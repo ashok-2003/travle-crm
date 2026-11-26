@@ -27,7 +27,7 @@ const trip = () =>
 
 const show = (width: "phone" | "wide" = "phone", me = member({ isOwner: true })) => {
   stubApi({ "packages.savePriceTable": { data: null } });
-  renderScreen(<PricesCard detail={trip()} />, { width, me });
+  return renderScreen(<PricesCard detail={trip()} />, { width, me });
 };
 const field = (room: string, season: string) => screen.getByRole("textbox", { name: `${room}, ${season}` });
 const tab = (name: string) => screen.getByRole("tab", { name });
@@ -70,11 +70,27 @@ describe("the price table on a phone", () => {
 
   it("removes a room type from every season with its button", async () => {
     show();
-    await userEvent.click(screen.getByRole("button", { name: "Remove Quad" }));
+    await userEvent.click(screen.getByRole("button", { name: "Remove Quad from every season" }));
     expect(screen.queryByRole("textbox", { name: "Quad, Regular" })).toBeNull();
     await userEvent.click(tab("Christmas"));
     expect(screen.queryByRole("textbox", { name: "Quad, Christmas" })).toBeNull();
     expect(field("Triple", "Christmas")).toBeTruthy();
+  });
+
+  it("stays on the season chosen when the saved trip is read again", async () => {
+    const { rerender } = show();
+    await userEvent.click(tab("Christmas"));
+    const saved = trip();
+    const [regular, ...others] = saved.seasons;
+    if (regular === undefined) throw new Error("the trip has seasons");
+    // The saved prices come back different, so the table starts over from them.
+    rerender(
+      <PricesCard
+        detail={{ ...saved, seasons: [{ ...regular, prices: { ...regular.prices, quad: 650_000 } }, ...others] }}
+      />,
+    );
+    expect(tab("Christmas")).toHaveAttribute("data-state", "active");
+    expect(field("Triple", "Christmas")).toHaveValue("8,500");
   });
 
   it("keeps a typed price across seasons, and Save sends what the table sends", async () => {

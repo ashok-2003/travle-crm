@@ -45,9 +45,14 @@ function actionsOf(column: SeasonColumn, tripEnd: string): ColumnAction[] {
 
 export function PriceTable({
   detail,
+  chosen,
+  onChoose,
   onEdited,
 }: {
   detail: PackageDetail;
+  /** The season a phone shows, held by the card so that it outlives this table's restart after a save. */
+  chosen: string | null;
+  onChoose: (key: string) => void;
   /** Tells the page whether the table holds changes not saved. */
   onEdited: (edited: boolean) => void;
 }) {
@@ -169,6 +174,8 @@ export function PriceTable({
       ) : (
         <PriceSeasonTabs
           columns={columns}
+          chosen={chosen}
+          onChoose={onChoose}
           rows={rows}
           cells={cells}
           editable={mayEdit}

@@ -5,7 +5,6 @@
 import type { RoomType, SeasonColumn } from "@travel-crm/contracts/quotes";
 import { Trash2Icon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
 import { rupees } from "@/components/forms/money-field";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -19,6 +18,8 @@ import { seasonDates } from "./season-words";
 
 export function PriceSeasonTabs({
   columns,
+  chosen,
+  onChoose,
   rows,
   cells,
   editable,
@@ -27,6 +28,9 @@ export function PriceSeasonTabs({
   onRemove,
 }: {
   columns: readonly SeasonColumn[];
+  /** The season shown, kept by the card above so that a saved trip read again does not send it back to the first. */
+  chosen: string | null;
+  onChoose: (key: string) => void;
   rows: readonly RoomType[];
   cells: Cells;
   editable: boolean;
@@ -37,10 +41,9 @@ export function PriceSeasonTabs({
   const t = useTranslations("packages.prices");
   const tDates = useTranslations("packages.departuresCalendar");
   const tRooms = useTranslations("packages.form.roomTypeNames");
-  const [chosen, setChosen] = useState<string | null>(null);
   const current = columns.find((column) => column.key === chosen) ?? columns[0];
   return (
-    <Tabs value={current?.key} onValueChange={setChosen}>
+    <Tabs value={current?.key} onValueChange={onChoose}>
       <TabsList className="w-full justify-start overflow-x-auto">
         {columns.map((column, index) => {
           const tint = seasonTint(index);
@@ -98,7 +101,7 @@ export function PriceSeasonTabs({
                     <Button
                       variant="ghost"
                       size="icon"
-                      aria-label={t("removeRoom", { room: tRooms(room) })}
+                      aria-label={t("removeRoomEverywhere", { room: tRooms(room) })}
                       onClick={() => {
                         onRemove(room);
                       }}
