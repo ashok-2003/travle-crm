@@ -9,6 +9,7 @@ import { useState } from "react";
 import { rupees } from "@/components/forms/money-field";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { cn } from "@/lib/utils";
 import { PriceCell } from "./price-cell";
 import { cellKey, type Cells } from "./price-table-input";
 import type { SeasonMenu } from "./price-table-parts";
@@ -44,7 +45,11 @@ export function PriceSeasonTabs({
         {columns.map((column, index) => {
           const tint = seasonTint(index);
           return (
-            <TabsTrigger key={column.key} value={column.key} className={`${tint.fill} ${tint.ink}`}>
+            <TabsTrigger
+              key={column.key}
+              value={column.key}
+              className={cn(tint.fill, tint.ink, tint.active, "opacity-70 data-active:opacity-100")}
+            >
               {column.label}
             </TabsTrigger>
           );

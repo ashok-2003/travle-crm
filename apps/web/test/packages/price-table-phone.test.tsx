@@ -54,6 +54,26 @@ describe("the price table on a phone", () => {
     expect(screen.getByRole("tabpanel")).toHaveClass("bg-(--brand-avatar-sage-fill)");
   });
 
+  it("tints the selected tab in its season's fill and ink", async () => {
+    show();
+    await userEvent.click(tab("Christmas"));
+    expect(tab("Christmas")).toHaveAttribute("data-state", "active");
+    expect(tab("Christmas")).toHaveClass(
+      "data-active:bg-(--brand-avatar-amber-fill)",
+      "data-active:text-(--brand-avatar-amber-ink)",
+    );
+    expect(screen.getByRole("tabpanel")).toHaveClass("bg-(--brand-avatar-amber-fill)");
+  });
+
+  it("removes a room type from every season with its button", async () => {
+    show();
+    await userEvent.click(screen.getByRole("button", { name: "Remove Quad" }));
+    expect(screen.queryByRole("textbox", { name: "Quad, Regular" })).toBeNull();
+    await userEvent.click(tab("Christmas"));
+    expect(screen.queryByRole("textbox", { name: "Quad, Christmas" })).toBeNull();
+    expect(field("Triple", "Christmas")).toBeTruthy();
+  });
+
   it("keeps a typed price across seasons, and Save sends what the table sends", async () => {
     show();
     await userEvent.click(tab("Christmas"));
