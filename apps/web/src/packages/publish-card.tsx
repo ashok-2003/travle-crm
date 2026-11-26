@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { routes } from "@/lib/routes";
 import { useHolds } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
+import { pageAddress } from "./page-address";
 import { usePackageChanges } from "./use-packages";
 
 export function PublishCard({ detail }: { detail: PackageDetail }) {
@@ -22,10 +23,7 @@ export function PublishCard({ detail }: { detail: PackageDetail }) {
   const mayPublish = useHolds("settings:manage");
   const access = useWriteAccess("change");
   const { setPublished } = usePackageChanges();
-  const address =
-    detail.slug === null || typeof window === "undefined"
-      ? null
-      : `${window.location.origin}/a/${detail.agencyCode}/${detail.slug}`;
+  const address = pageAddress(detail);
   const ready = detail.gaps.length === 0;
   return (
     <SectionCard title={t("title")}>
@@ -58,13 +56,13 @@ export function PublishCard({ detail }: { detail: PackageDetail }) {
       )}
       {detail.published && address !== null && (
         <div className="flex max-w-xl items-center gap-2">
-          <Input readOnly value={address} aria-label={t("addressLabel")} className="numbers" />
-          <CopyButton value={address} label={t("copy")} />
+          <Input readOnly value={address.full} aria-label={t("addressLabel")} className="numbers" />
+          <CopyButton value={address.full} label={t("copy")} />
         </div>
       )}
       {detail.published && address !== null && (
         <div>
-          <TextLink href={`/a/${detail.agencyCode}/${detail.slug ?? ""}`} newTab>
+          <TextLink href={address.path} newTab>
             {t("open")}
           </TextLink>
         </div>

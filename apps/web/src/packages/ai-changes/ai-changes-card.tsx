@@ -7,7 +7,9 @@ import type { UndoPackageChangesResult } from "@travel-crm/contracts/ai";
 import { SparklesIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
+import type { PackageDetail } from "@travel-crm/contracts/quotes";
 import { usePackage } from "../use-packages";
+import { Button } from "@/components/ui/button";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { cardTints } from "@/components/card-tints";
@@ -37,6 +39,12 @@ export function AiChangesCard({ packageId }: { packageId: string }) {
   return available ? <Box packageId={packageId} /> : null;
 }
 
+/** A trip that already has prices: a group trip with any priced season cell, a custom trip with a From price or a tier. */
+const hasPrices = (detail: PackageDetail): boolean =>
+  detail.kind === "group"
+    ? detail.seasons.some((season) => Object.values(season.prices).some((price) => price !== null))
+    : detail.fromPricePaise !== null || detail.tiers.length > 0;
+
 function Box({ packageId }: { packageId: string }) {
   const t = useTranslations("packages.aiChanges");
   const [text, setText] = useState("");
@@ -50,7 +58,10 @@ function Box({ packageId }: { packageId: string }) {
   const [working, setWorking] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const uploaded = useRef(new Map<File, string>());
-  const seasons = usePackage(packageId).data?.seasons;
+  const detail = usePackage(packageId).data;
+  const seasons = detail?.seasons;
+  // Once the trip has prices the box is a button; opening it puts the cursor in "What changed".
+  const [opened, setOpened] = useState(false);
   const propose = useProposeChanges();
   const upload = useUploadChangeInput();
   const latest = useLatestChangeRun(packageId, true);
@@ -129,6 +140,7 @@ function Box({ packageId }: { packageId: string }) {
           working={working}
           fileProblem={!filesAreAllowed(files)}
           onShow={() => void show(false)}
+          focusOnMount={opened}
         />
         <RefusalAlert error={error} />
         {proposal && proposal.questions.length > 0 && (
@@ -157,6 +169,21 @@ function Box({ packageId }: { packageId: string }) {
       </div>
     );
   };
+  if (detail !== undefined && hasPrices(detail) && !opened) {
+    return (
+      <div>
+        <Button
+          variant="outline"
+          onClick={() => {
+            setOpened(true);
+          }}
+        >
+          <SparklesIcon aria-hidden="true" />
+          {t("title")}
+        </Button>
+      </div>
+    );
+  }
   return (
     <Card className={cardTints.ai}>
       <CardHeader>

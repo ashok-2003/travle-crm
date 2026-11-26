@@ -7,6 +7,7 @@ import { messages } from "@/i18n/messages";
 import { newQueryClient, paidSubscription, renderWithApi } from "../organization/api";
 import { heldAnswer, stubApi, type Answer } from "../support/api-stub";
 import { member } from "../support/members";
+import { aPackage, aSeason } from "./detail";
 import {
   aiQueryClient,
   flaggedChange,
@@ -71,6 +72,40 @@ describe("the AI changes card", () => {
   it("is not there when the plan has no AI", () => {
     render({}, newQueryClient({ ...paidSubscription, modules: ["crm"] }));
     expect(screen.queryByText(words.title)).toBeNull();
+  });
+
+  describe("once the trip has prices", () => {
+    const priced = [
+      [
+        "a group trip with a season price",
+        aPackage({ kind: "group", seasons: [aSeason("s1", "Regular", "2027-01-01", "2099-12-31", { double: 1 })] }),
+      ],
+      ["a custom trip with a From price", aPackage({ id: packageId, fromPricePaise: 500_000 })],
+      ["a custom trip with a tier", aPackage({ id: packageId, tiers: [{ id: "t1", name: "Standard" } as never] })],
+    ] as const;
+    it.each(priced)(
+      "shows only a button for %s, and opens the card with the focus in What changed",
+      async (_name, detail) => {
+        render({ "packages.get": { data: { ...detail, id: packageId } } });
+        const button = await screen.findByRole("button", { name: words.title });
+        expect(screen.queryByRole("textbox", { name: words.textLabel })).toBeNull();
+        await userEvent.click(button);
+        expect(await screen.findByRole("textbox", { name: words.textLabel })).toHaveFocus();
+      },
+    );
+    it("keeps the card open for a trip with no prices", async () => {
+      render({
+        "packages.get": {
+          data: aPackage({
+            id: packageId,
+            kind: "group",
+            seasons: [aSeason("s1", "Regular", "2027-01-01", "2099-12-31")],
+          }),
+        },
+      });
+      expect(await screen.findByRole("textbox", { name: words.textLabel })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: words.title })).toBeNull();
+    });
   });
 
   it("offers a text box, Attach and Show the changes", async () => {
