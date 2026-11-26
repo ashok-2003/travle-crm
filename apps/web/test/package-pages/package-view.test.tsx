@@ -3,6 +3,7 @@
 // An older api's answer (the release window) has no number: it still parses, and WhatsApp opens the contact phone.
 import { publicPackageAnswer, type PublicPackage } from "@travel-crm/contracts/package-pages";
 import { render, screen } from "@testing-library/react";
+import { NextIntlClientProvider } from "next-intl";
 import { createTranslator } from "next-intl";
 import { describe, expect, it, vi } from "vitest";
 import { PackageView } from "@/package-pages/package-view";
@@ -18,7 +19,20 @@ vi.mock("@/package-pages/enquiry-section", () => ({ EnquirySection: () => null }
 
 const words = messages.packagePages.page;
 
-function pageWith(agency: Pick<PublicPackage["agency"], "phone" | "whatsapp">): PublicPackage {
+async function renderView(page: PublicPackage) {
+  const view = await PackageView({ page });
+  return render(
+    <NextIntlClientProvider locale={locale} messages={messages}>
+      {view}
+    </NextIntlClientProvider>,
+  );
+}
+
+function pageWith(
+  agency: Pick<PublicPackage["agency"], "phone" | "whatsapp">,
+  trip: Partial<PublicPackage["package"]> = {},
+  departures: PublicPackage["departures"] = [],
+): PublicPackage {
   return {
     agency: {
       name: "Agency",
@@ -42,25 +56,26 @@ function pageWith(agency: Pick<PublicPackage["agency"], "phone" | "whatsapp">): 
       cancellationNotes: "",
       fromPricePaise: null,
       photos: [],
+      ...trip,
     },
-    departures: [],
+    departures,
     form: { openedToken: "t", turnstileSiteKey: null, months: [], consentLine: "" },
   };
 }
 
 describe("PackageView", () => {
   it("dials the contact phone and opens WhatsApp on the main number", async () => {
-    render(await PackageView({ page: pageWith({ phone: "+919820012345", whatsapp: "+919800000072" }) }));
+    await renderView(pageWith({ phone: "+919820012345", whatsapp: "+919800000072" }));
     expect(screen.getByRole("link", { name: words.call })).toHaveAttribute("href", "tel:+919820012345");
     expect(screen.getByRole("link", { name: words.whatsapp })).toHaveAttribute("href", "https://wa.me/919800000072");
   });
 
   it("shows each way only when the agency has it", async () => {
-    const { unmount } = render(await PackageView({ page: pageWith({ phone: null, whatsapp: "+919800000072" }) }));
+    const { unmount } = await renderView(pageWith({ phone: null, whatsapp: "+919800000072" }));
     expect(screen.queryByRole("link", { name: words.call })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: words.whatsapp })).toBeVisible();
     unmount();
-    render(await PackageView({ page: pageWith({ phone: null, whatsapp: null }) }));
+    await renderView(pageWith({ phone: null, whatsapp: null }));
     expect(screen.queryByRole("link", { name: words.call })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: words.whatsapp })).not.toBeInTheDocument();
   });
@@ -74,7 +89,63 @@ describe("PackageView", () => {
     );
     expect(answer.success).toBe(true);
     if (!answer.success || !answer.data.available) throw new Error("the older answer did not parse");
-    render(await PackageView({ page: answer.data.page }));
+    await renderView(answer.data.page);
     expect(screen.getByRole("link", { name: words.whatsapp })).toHaveAttribute("href", "https://wa.me/919820012345");
+  });
+
+  it("reads in order: the trip's name, nights and price, the next dates in words, then the plan as boxes and points", async () => {
+    const departure = (id: string, startDate: string, word: "open" | "filling" | "full") => ({
+      id,
+      startDate,
+      endDate: startDate,
+      pricePaise: null,
+      word,
+    });
+    await renderView(
+      pageWith(
+        { phone: null, whatsapp: "+919800000072" },
+        {
+          name: "Kedarnath yatra",
+          nights: 5,
+          fromPricePaise: 3200000,
+          highlights: ["Darshan"],
+          days: [{ title: "Arrive", description: "Meet at Haridwar" }],
+          inclusions: "Hotels\nBreakfast",
+          exclusions: "Flights",
+          cancellationNotes: "Free to cancel 30 days before.",
+        },
+        [departure("d1", "2027-10-16", "open"), departure("d2", "2027-10-23", "full")],
+      ),
+    );
+    expect(screen.getByRole("heading", { level: 1, name: "Kedarnath yatra" })).toBeVisible();
+    expect(screen.getByText("5 nights")).toBeVisible();
+    expect(screen.getByText(/32,000/)).toBeVisible();
+    const next = screen.getByText(words.nextDepartures);
+    expect(next.parentElement).toHaveTextContent(words.words.open);
+    expect(next.parentElement).toHaveTextContent(words.words.full);
+    expect(next.parentElement).not.toHaveTextContent(/seat/i);
+    expect(screen.getByRole("link", { name: words.askAbout })).toHaveAttribute("href", "#enquire");
+    expect(screen.getByText("Day 1 · Arrive")).toBeVisible();
+    const included = screen.getByRole("heading", { name: words.inclusions }).parentElement;
+    expect(included?.querySelectorAll('[data-mark="tick"]')).toHaveLength(2);
+    const excluded = screen.getByRole("heading", { name: words.exclusions }).parentElement;
+    expect(excluded?.querySelectorAll('[data-mark="cross"]')).toHaveLength(1);
+    expect(screen.getByText("Free to cancel 30 days before.")).toBeVisible();
+    const order = [
+      "Kedarnath yatra",
+      "Darshan",
+      "Day 1 · Arrive",
+      "Hotels",
+      "Flights",
+      "Free to cancel 30 days before.",
+    ];
+    const text = document.body.textContent;
+    const positions = order.map((part) => text.indexOf(part));
+    expect([...positions].sort((a, b) => a - b)).toEqual(positions);
+  });
+
+  it("shows no next-departures line when there are no dates", async () => {
+    await renderView(pageWith({ phone: null, whatsapp: null }));
+    expect(screen.queryByText(words.nextDepartures)).not.toBeInTheDocument();
   });
 });

@@ -1,5 +1,6 @@
-// An agency's package page (release 7b), server-rendered so a link preview and a search engine read it: the photos, what the
-// trip is and costs, the day plan, what is included, the dates, and the enquiry form. Everything on it is what the agency chose
+// An agency's package page (release 7b), server-rendered so a link preview and a search engine read it: the trip's name, nights
+// and price, its next dates in words, then the photos, the day plan in boxes, what is and is not included, the dates and the
+// enquiry form, and WhatsApp us at the end. Everything on it is what the agency chose
 // to publish: no cost, margin, supplier or seat count. Call dials the agency's contact phone; WhatsApp opens its main
 // WhatsApp number (the api gives the contact phone when no number is connected).
 import type { PublicPackage } from "@travel-crm/contracts/package-pages";
@@ -8,9 +9,10 @@ import { MessageCircleIcon, PhoneIcon } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { PageTitle } from "@/components/page-title";
 import { TextLink } from "@/components/text-link";
+import { DayBoxes } from "@/components/trip-plan/day-boxes";
+import { PointList } from "@/components/trip-plan/point-list";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { formatRupees } from "@/lib/format";
+import { formatCalendarDay, formatRupees } from "@/lib/format";
 import { AgencyHeader } from "./agency-header";
 import { EnquirySection } from "./enquiry-section";
 import { PageFrame } from "./page-frame";
@@ -27,6 +29,7 @@ export async function PackageView({ page }: { page: PublicPackage }) {
   const facts = [trip.nights === null ? null : t("nights", { count: trip.nights }), trip.destinationName].filter(
     (fact): fact is string => fact !== null,
   );
+  const nextDepartures = page.departures.slice(0, 3);
   return (
     <PageFrame agency={agency}>
       <AgencyHeader agency={agency} withList />
@@ -39,25 +42,25 @@ export async function PackageView({ page }: { page: PublicPackage }) {
               ? t("onEnquiry")
               : t("fromPrice", { price: formatRupees(money(trip.fromPricePaise)) })}
           </p>
+          {nextDepartures.length > 0 && (
+            <p className="text-muted-foreground">
+              <span className="font-semibold text-foreground">{t("nextDepartures")}</span>{" "}
+              {nextDepartures
+                .map((departure) => `${formatCalendarDay(departure.startDate)} · ${t(`words.${departure.word}`)}`)
+                .join(", ")}
+            </p>
+          )}
           <p className="max-w-[65ch] whitespace-pre-line [overflow-wrap:anywhere]">{trip.summary}</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button asChild>
-            <a href="#enquire">{t("enquire")}</a>
+            <a href="#enquire">{t("askAbout")}</a>
           </Button>
           {agency.phone !== null && (
             <Button variant="outline" asChild>
               <a href={`tel:${agency.phone}`}>
                 <PhoneIcon aria-hidden="true" />
                 {t("call")}
-              </a>
-            </Button>
-          )}
-          {whatsapp !== null && (
-            <Button variant="outline" asChild>
-              <a href={`https://wa.me/${digitsOf(whatsapp)}`} target="_blank" rel="noopener noreferrer">
-                <MessageCircleIcon aria-hidden="true" />
-                {t("whatsapp")}
               </a>
             </Button>
           )}
@@ -110,58 +113,36 @@ export async function PackageView({ page }: { page: PublicPackage }) {
           <h2 id="days" className="text-section font-semibold">
             {t("days")}
           </h2>
-          <ol className="flex flex-col gap-4">
-            {trip.days.map((day, index) => (
-              <li key={`${String(index)}-${day.title}`}>
-                <h3 className="font-semibold">
-                  {t("dayLabel", { day: index + 1 })}: {day.title}
-                </h3>
-                {day.description !== "" && <p className="whitespace-pre-line">{day.description}</p>}
-              </li>
-            ))}
-          </ol>
+          <DayBoxes days={trip.days} />
         </section>
       )}
 
-      {(trip.inclusions !== "" || trip.exclusions !== "") && (
-        <section className="grid gap-4 md:grid-cols-2">
-          {trip.inclusions !== "" && (
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  <h2>{t("inclusions")}</h2>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="whitespace-pre-line">{trip.inclusions}</p>
-              </CardContent>
-            </Card>
-          )}
-          {trip.exclusions !== "" && (
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  <h2>{t("exclusions")}</h2>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="whitespace-pre-line">{trip.exclusions}</p>
-              </CardContent>
-            </Card>
-          )}
-        </section>
-      )}
-
-      {trip.cancellationNotes !== "" && (
-        <section aria-labelledby="cancellation" className="flex flex-col gap-3">
-          <h2 id="cancellation" className="text-section font-semibold">
-            {t("cancellation")}
-          </h2>
-          <p className="max-w-[65ch] whitespace-pre-line">{trip.cancellationNotes}</p>
-        </section>
+      {(
+        [
+          ["inclusions", trip.inclusions, "included"],
+          ["exclusions", trip.exclusions, "excluded"],
+          ["cancellation", trip.cancellationNotes, "plain"],
+        ] as const
+      ).map(
+        ([key, text, tone]) =>
+          text.trim() !== "" && (
+            <section key={key} className="flex flex-col gap-3">
+              <h2 className="text-section font-semibold">{t(key)}</h2>
+              <PointList text={text} tone={tone} />
+            </section>
+          ),
       )}
 
       <EnquirySection code={agency.code} page={page} />
+
+      {whatsapp !== null && (
+        <Button variant="outline" asChild className="self-start">
+          <a href={`https://wa.me/${digitsOf(whatsapp)}`} target="_blank" rel="noopener noreferrer">
+            <MessageCircleIcon aria-hidden="true" />
+            {t("whatsapp")}
+          </a>
+        </Button>
+      )}
 
       {(agency.about !== "" || agency.instagramUrl !== null) && (
         <footer className="flex flex-col gap-2">

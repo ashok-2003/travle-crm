@@ -9,6 +9,7 @@ export function aQuote(changes: Partial<QuoteDetail> = {}): QuoteDetail {
     title: "Manali 5 days",
     startDate: "2026-12-04",
     status: "sent",
+    paymentWait: null,
     totals: {
       subtotalPaise: 5_000_000,
       taxPaise: 250_000,
