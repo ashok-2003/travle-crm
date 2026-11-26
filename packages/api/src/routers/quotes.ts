@@ -23,6 +23,7 @@ import {
   quoteLink,
   quoteList,
   quoteSettings,
+  type QuoteSettings,
   recordPaymentInput,
   saveQuoteSettingsInput,
   setQuoteStatusInput,
@@ -31,7 +32,7 @@ import {
 import { z } from "zod";
 import { quoteSaved, recordFillApplied } from "@travel-crm/domain/ai";
 import { assertPdfCanBeMade, getIssuedDocument } from "@travel-crm/domain/documents";
-import type { MemberAccess } from "@travel-crm/domain/identity";
+import type { Identity, MemberAccess } from "@travel-crm/domain/identity";
 import { calendarDateIn, DomainError } from "@travel-crm/domain/kernel";
 import {
   addInstallment,
@@ -58,6 +59,7 @@ import {
   recordPayment,
   removeInstallment,
   saveQuoteSettings,
+  verifyUpi,
   setQuoteStatus,
   updateQuote,
   voidPayment,
@@ -68,12 +70,25 @@ import { ratesOnDate as ratesOnDateOf } from "@travel-crm/domain/suppliers";
 import type { Context } from "../context.js";
 import { agencyToday } from "../package-departures-gate.js";
 import { freshProcedure, orgProcedure } from "../procedures.js";
+import { memberNames } from "../member-names.js";
 import { router } from "../trpc.js";
 import { currentLogo } from "./logo.js";
 
 type MemberContext = Pick<Context, "db" | "files" | "identity" | "profiles"> & { member: MemberAccess };
 
 const viewer = orgProcedure.requires("quotes:view");
+
+/** The settings with the name of whoever verified the UPI QR, from identity (null for a former member). */
+async function named(
+  ctx: { identity: Identity; member: { organizationId: string } },
+  settings: QuoteSettings,
+): Promise<QuoteSettings> {
+  const names = await memberNames(ctx.identity, ctx.member.organizationId, [settings.upiVerifiedBy]);
+  return {
+    ...settings,
+    upiVerifiedByName: settings.upiVerifiedBy === null ? null : (names[settings.upiVerifiedBy] ?? null),
+  };
+}
 const maker = orgProcedure.requires("quotes:create");
 const editor = orgProcedure.requires("quotes:edit");
 // What changes a quote or its money is read from the database, never the five-minute session cache.
@@ -337,7 +352,7 @@ export const quotesRouter = router({
 
   /** The agency's quote settings. The markup and the minimum margin are for whoever may see margins or manage settings. */
   settings: viewer.output(quoteSettings).query(async ({ ctx }) => {
-    const settings = await ctx.db.forOrg(ctx.member.organizationId, (tx) => quoteSettingsOf(tx));
+    const settings = await named(ctx, await ctx.db.forOrg(ctx.member.organizationId, (tx) => quoteSettingsOf(tx)));
     if (ctx.member.permissions.has("money:view_margin") || ctx.member.permissions.has("settings:manage"))
       return settings;
     return { ...settings, defaultMarkupBasisPoints: 0, minMarginBasisPoints: null, minMarginPerPersonPaise: null };
@@ -363,8 +378,17 @@ export const quotesRouter = router({
     .requires("settings:manage")
     .input(saveQuoteSettingsInput)
     .output(quoteSettings)
-    .mutation(({ ctx, input }) =>
-      ctx.db.forOrg(ctx.member.organizationId, (tx) => saveQuoteSettings(tx, ctx.member, input)),
+    .mutation(async ({ ctx, input }) =>
+      named(ctx, await ctx.db.forOrg(ctx.member.organizationId, (tx) => saveQuoteSettings(tx, ctx.member, input))),
+    ),
+
+  /** Someone scanned the agency's UPI QR, paid ₹1 and saw it arrive: customers then see the QR. A money setting, read afresh. */
+  verifyUpi: freshProcedure
+    .requires("settings:manage")
+    .input(z.strictObject({}))
+    .output(quoteSettings)
+    .mutation(async ({ ctx }) =>
+      named(ctx, await ctx.db.forOrg(ctx.member.organizationId, (tx) => verifyUpi(tx, ctx.member, new Date()))),
     ),
 
   /** The dashboard's money: accepted, received, still to come and overdue. */
