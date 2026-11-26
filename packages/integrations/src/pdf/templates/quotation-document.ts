@@ -103,24 +103,30 @@ function dues(style: Styles, data: QuotationDocumentData): ReactElement | null {
 /** The Pay box: the UPI link as a QR (vector, so it prints crisp), with the words to pay by hand. */
 function payBox(style: Styles, data: QuotationDocumentData): ReactElement | null {
   if (!data.pay) return null;
-  const { size, path } = qrSquares(data.pay.link);
+  const code = data.pay.link === undefined ? null : qrSquares(data.pay.link);
   return createElement(
     View,
     { style: { ...style.section }, wrap: false },
     createElement(
       View,
       { style: style.payBox },
-      createElement(
-        Svg,
-        { style: style.qr, viewBox: `0 0 ${String(size)} ${String(size)}` },
-        createElement(Rect, { x: 0, y: 0, width: size, height: size, fill: "#ffffff" }),
-        createElement(Path, { d: path, fill: "#000000" }),
-      ),
+      code === null
+        ? null
+        : createElement(
+            Svg,
+            { style: style.qr, viewBox: `0 0 ${String(code.size)} ${String(code.size)}` },
+            createElement(Rect, { x: 0, y: 0, width: code.size, height: code.size, fill: "#ffffff" }),
+            createElement(Path, { d: code.path, fill: "#000000" }),
+          ),
       createElement(
         View,
         { style: style.words },
         createElement(Text, { style: style.payTitle }, `Pay ${data.pay.amount} now`),
-        createElement(Text, { style: style.payText }, "Scan with any UPI app, or pay to this UPI id:"),
+        createElement(
+          Text,
+          { style: style.payText },
+          code === null ? "Pay by UPI to this UPI id:" : "Scan with any UPI app, or pay to this UPI id:",
+        ),
         createElement(Text, { style: { ...style.payText, fontWeight: 600 } }, data.pay.upiId),
         createElement(Text, { style: style.payText }, data.pay.name),
       ),

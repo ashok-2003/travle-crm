@@ -57,8 +57,10 @@ export const sampleDocumentContent = z.strictObject({
 export const quotationContent = z.strictObject({
   title: line(200),
   customer: line(200),
-  /** The Pay box: the agency's UPI link (drawn as a QR), its id and name, and what is due now; absent without a UPI id. */
-  pay: z.strictObject({ link: line(400), upiId: line(120), name: line(120), amount: printedAmount }).optional(),
+  /** The Pay box: the agency's UPI link (drawn as a QR, only once the agency verified it), its id and name, and what is due now; absent without a UPI id. */
+  pay: z
+    .strictObject({ link: line(400).optional(), upiId: line(120), name: line(120), amount: printedAmount })
+    .optional(),
   /** "Fri 4 Dec 2026 · 2 adults, 1 child". */
   when: line(120).optional(),
   // The caps hold any quote that saves: 50 lines, 60 days, 12 payments, and free-text lists of up to 3000 characters.

@@ -190,7 +190,32 @@ describe("the customer's quote page", () => {
     );
   });
 
+  const verifyUpi = (upiId = "agency@bank") =>
+    server.db.forOrg(agency.organizationId, (tx) =>
+      tx.quoteSettings.updateMany({
+        data: { upiVerifiedAt: new Date(), upiVerifiedBy: crypto.randomUUID(), upiVerifiedUpiId: upiId },
+      }),
+    );
+  const unverifyUpi = () =>
+    server.db.forOrg(agency.organizationId, (tx) =>
+      tx.quoteSettings.updateMany({ data: { upiVerifiedAt: null, upiVerifiedBy: null, upiVerifiedUpiId: null } }),
+    );
+
+  it("draws no QR while the UPI QR is unverified, or verified for another UPI id; the id and button stay", async () => {
+    const made = await aQuote();
+    await post(made.path, { name: "Meera Iyer" });
+    for (const setup of [unverifyUpi, () => verifyUpi("old@bank")]) {
+      await setup();
+      const { html } = await page(made.path);
+      expect(html).not.toContain("UPI QR");
+      expect(html).toContain("Pay by UPI");
+      expect(html).toContain("<strong>agency@bank</strong>");
+    }
+    await unverifyUpi();
+  });
+
   it("draws the UPI QR in the Pay now section: the button's own link, named for a screen reader, no script", async () => {
+    await verifyUpi();
     const made = await aQuote();
     await post(made.path, { name: "Meera Iyer" });
     const { html } = await page(made.path);
@@ -201,6 +226,7 @@ describe("the customer's quote page", () => {
     expect(qr?.[0]).toBe(qrSvg(href, `UPI QR to pay ₹52,500 to ${qr?.[1] ?? ""}`));
     expect(html).toContain("<strong>agency@bank</strong>");
     expect(html).not.toContain("<script");
+    await unverifyUpi();
   });
 
   it("draws no QR without a UPI id", async () => {

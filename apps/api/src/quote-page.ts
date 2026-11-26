@@ -126,7 +126,7 @@ export function quotePage(
   const pay =
     quote.payLink === null || quote.balancePaise === 0
       ? ""
-      : `<h2>Pay ${wholeRupees(quote.payPaise)} now</h2><div class="pay"><div class="qr">${qrSvg(quote.payLink, `UPI QR to pay ${wholeRupees(quote.payPaise)} to ${agencyName}`)}</div><div><a class="button" href="${escapeHtml(quote.payLink)}">Pay by UPI</a><p>Scan the code with any UPI app, or pay to UPI id <strong>${escapeHtml(quote.upiId)}</strong>.</p><p>The money goes straight to ${escapeHtml(agencyName)}.</p></div></div>`;
+      : `<h2>Pay ${wholeRupees(quote.payPaise)} now</h2><div class="pay">${quote.upiVerified ? `<div class="qr">${qrSvg(quote.payLink, `UPI QR to pay ${wholeRupees(quote.payPaise)} to ${agencyName}`)}</div>` : ""}<div><a class="button" href="${escapeHtml(quote.payLink)}">Pay by UPI</a><p>${quote.upiVerified ? "Scan the code with any UPI app, or pay" : "Pay"} to UPI id <strong>${escapeHtml(quote.upiId)}</strong>.</p><p>The money goes straight to ${escapeHtml(agencyName)}.</p></div></div>`;
   // A booking the agency has yet to confirm: the traveller may already say they paid.
   const claiming = extras.trip !== null && extras.trip.status === "requested" && accepted;
   const pendingClaims = extras.trip?.claims.filter((claim) => claim.status === "pending") ?? [];

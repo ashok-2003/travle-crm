@@ -10,6 +10,7 @@ import {
   issueQuoteInvoice,
   issueQuotePdf,
   saveQuoteSettings,
+  verifyUpi,
   setQuoteStatus,
 } from "../../src/quotes/index.js";
 import { aLead } from "../crm/support/records.js";
@@ -124,6 +125,7 @@ describe("the quotation's PDF", () => {
 
     it("carries the link, the UPI id, the name and the amount due now when the agency has a UPI id", async () => {
       await withUpi("sharma@bank");
+      await world.inOrg((tx) => verifyUpi(tx, world.manager, context.now));
       const quote = await aQuote();
       const data = await issueData(quote);
       expect(data).toMatchObject({
@@ -134,6 +136,22 @@ describe("the quotation's PDF", () => {
           link: `upi://pay?pa=sharma%40bank&pn=Sharma%20Holidays&am=3000.00&cu=INR&tn=${encodeURIComponent(Array.from(title).slice(0, 50).join("")).replace(/[()]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)}`,
         },
       });
+    });
+
+    it("draws its QR (carries the link) only once the UPI QR is verified for the current UPI id", async () => {
+      // Changing the id clears whatever an earlier test verified.
+      await withUpi("reset@bank");
+      await withUpi("sharma@bank");
+      const unverified = await issueData(await aQuote());
+      expect(unverified).toMatchObject({ pay: { upiId: "sharma@bank", amount: "₹3,000" } });
+      expect(unverified).not.toHaveProperty("pay.link");
+      await world.inOrg((tx) => verifyUpi(tx, world.manager, context.now));
+      const verified = await issueData(await aQuote());
+      expect(verified).toHaveProperty("pay.link");
+      expect(JSON.stringify(verified)).toContain("upi://pay?pa=sharma%40bank");
+      // A new UPI id was never scanned.
+      await withUpi("sharma@other");
+      expect(await issueData(await aQuote())).not.toHaveProperty("pay.link");
     });
 
     it("has none without a UPI id", async () => {

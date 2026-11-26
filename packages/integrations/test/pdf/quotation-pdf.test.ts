@@ -72,6 +72,18 @@ describe("the quotation template", () => {
     expect(pdf.length).toBeGreaterThan(without.length);
   });
 
+  it("prints the Pay box without a QR when the link is not given (the UPI QR is unverified)", async () => {
+    const pay = { upiId: "agency@bank", name: "Sharma Holidays", amount: "₹3,000" };
+    const withBox = await renderPdf("quotation", { issuedAt, data: { ...quotation, pay }, branding });
+    const { text } = await pdfText(withBox);
+    expect(text).toContain("Pay ₹3,000 now");
+    expect(text).toContain("agency@bank");
+    expect(text).not.toContain("Scan with any UPI app");
+    const link = "upi://pay?pa=agency%40bank&pn=Sharma%20Holidays&am=3000.00&cu=INR&tn=Goa";
+    const withQr = await renderPdf("quotation", { issuedAt, data: { ...quotation, pay: { ...pay, link } }, branding });
+    expect(withQr.length).toBeGreaterThan(withBox.length);
+  });
+
   it("leaves out the parts a quotation does not have", async () => {
     const bare = {
       ...quotation,

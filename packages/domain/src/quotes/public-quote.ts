@@ -37,6 +37,8 @@ export interface PublicQuote {
   upiId: string;
   /** Opens the customer's UPI app for what is due next (or the balance); null without a UPI id. */
   payLink: string | null;
+  /** The agency verified its UPI QR for this UPI id (paid ₹1 and saw it arrive): only then does the page draw the QR. */
+  upiVerified: boolean;
   payPaise: number;
   /**
    * The other options the agency sent this customer for the same enquiry (a 3-star and a 4-star), this one among them:
@@ -101,6 +103,7 @@ export async function publicQuoteOf(tx: OrgTx, quoteId: string): Promise<PublicQ
     acceptedName: quote.acceptedName,
     installments,
     upiId: settings.upiId,
+    upiVerified: settings.upiVerifiedAt !== null,
     payLink: upiPayLink(settings, { amountPaise: payPaise, note: quote.title }),
     payPaise,
   };

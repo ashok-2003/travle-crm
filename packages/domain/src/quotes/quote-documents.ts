@@ -130,7 +130,8 @@ function quotationContent(quote: Quote, settings: QuoteSettings, agencyName: str
       ? {}
       : {
           pay: {
-            link,
+            // The QR only once the agency has verified it; the id, name and amount print either way.
+            ...(settings.upiVerifiedAt === null ? {} : { link }),
             upiId: settings.upiId,
             name: settings.upiName === "" ? agencyName : settings.upiName,
             amount: formatRupees(dueNow),

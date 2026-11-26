@@ -30,8 +30,8 @@ export interface QuotationDocumentData {
   number: string;
   issuedOn: string;
   customer: string;
-  /** The Pay box: the UPI link drawn as a QR, the UPI id and name, and the amount due now. */
-  pay?: { link: string; upiId: string; name: string; amount: string } | undefined;
+  /** The Pay box: the UPI link drawn as a QR (when given), the UPI id and name, and the amount due now. */
+  pay?: { link?: string | undefined; upiId: string; name: string; amount: string } | undefined;
   when?: string | undefined;
   lines: { description: string; detail?: string | undefined; amount: string }[];
   gst?: { label: string; amount: string } | undefined;
