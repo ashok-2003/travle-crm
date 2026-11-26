@@ -7,6 +7,7 @@ import { AI_INPUT_RECORD_TYPE, aiInputImageTypes, aiRateSheetFileTypes } from "@
 import { RATE_SHEET_PHOTOS_MAX, type RateSheetProposal, type ReadRateSheetInput } from "@travel-crm/contracts/ai";
 import type { Database, OrgTx } from "@travel-crm/db";
 import type { AiModel, AiPart } from "@travel-crm/integrations/ai";
+import type { AiPrompts } from "@travel-crm/integrations/prompts";
 import type { Spreadsheets } from "@travel-crm/integrations/spreadsheets";
 import type { Files } from "../../files/index.js";
 import { organizationTimeZone, type MemberAccess } from "../../identity/index.js";
@@ -17,7 +18,9 @@ import { modelRefusal, refuse } from "../refusals.js";
 import { aiEnabled } from "../settings.js";
 import { hashOf } from "../suggest.js";
 import { MONTHLY_AI_LIMIT, recordTokens, releaseAiCall, reserveAiCall, usedThisMonth } from "../usage.js";
-import { rateSheetPrompt } from "./prompt.js";
+import { managedPrompt } from "../managed-prompt.js";
+import { RATE_SHEET_PROMPT_NAME, rateSheetInstructions, rateSheetPrompt } from "./prompt.js";
+import { RATE_SHEET_PROMPT_TEXT } from "./prompt-text.js";
 import { proposedRates, rowHash } from "./rows.js";
 import { excelParts, pdfParts, type SheetPart } from "./source.js";
 
@@ -92,7 +95,13 @@ async function sourceOf(
 }
 
 export async function readRateSheet(
-  { db, model, files, spreadsheets }: { db: Database; model: AiModel; files: Files; spreadsheets: Spreadsheets },
+  {
+    db,
+    model,
+    files,
+    spreadsheets,
+    prompts,
+  }: { db: Database; model: AiModel; files: Files; spreadsheets: Spreadsheets; prompts?: AiPrompts | undefined },
   access: MemberAccess,
   input: ReadRateSheetInput,
   now: Date,
@@ -136,9 +145,16 @@ export async function readRateSheet(
   const giveBack = () => db.forOrg(organizationId, (tx) => releaseAiCall(tx, now, checked.timeZone));
   let result;
   try {
+    const instructions = await managedPrompt(prompts, RATE_SHEET_PROMPT_NAME, RATE_SHEET_PROMPT_TEXT);
     result = await model.complete({
       feature: "read_rates",
-      messages: rateSheetPrompt(part === null ? { photos: "photos" in source ? source.photos : [] } : { part }),
+      messages: rateSheetPrompt(
+        part === null ? { photos: "photos" in source ? source.photos : [] } : { part },
+        rateSheetInstructions(instructions.text),
+      ),
+      ...(instructions.source === undefined
+        ? {}
+        : { prompt: { name: instructions.source.name, version: instructions.source.version } }),
       json: true,
       maxTokens: 6000,
       // Opaque: the agency's id, never a person's.
