@@ -56,20 +56,23 @@ export const sampleDocumentContent = z.strictObject({
  */
 export const quotationContent = z.strictObject({
   title: line(200),
-  customer: line(120),
+  customer: line(200),
   /** "Fri 4 Dec 2026 · 2 adults, 1 child". */
   when: line(120).optional(),
+  // The caps hold any quote that saves: 50 lines, 60 days, 12 payments, and free-text lists of up to 3000 characters.
   lines: z
     .array(z.strictObject({ description: line(500), detail: line(300).optional(), amount: printedAmount }))
-    .max(200),
+    .max(50),
+  /** The GST as one row, the total less the lines (so the rows add up); absent when the quote carries no tax. */
+  gst: z.strictObject({ label: line(40), amount: printedAmount }).optional(),
   total: printedAmount,
   /** "incl. 5% GST"; absent when the quote carries no tax. */
   totalNote: line(60).optional(),
-  dues: z.array(z.strictObject({ label: line(120), by: line(40), amount: printedAmount })).max(24),
+  dues: z.array(z.strictObject({ label: line(120), by: line(40), amount: printedAmount })).max(12),
   days: z.array(z.strictObject({ title: line(200), description: paragraph(2000).optional() })).max(60),
-  inclusions: z.array(line(300)).max(100),
-  exclusions: z.array(line(300)).max(100),
-  notes: z.array(line(500)).max(100),
+  inclusions: z.array(line(3000)).max(1500),
+  exclusions: z.array(line(3000)).max(1500),
+  notes: z.array(line(3000)).max(1500),
 });
 
 export const issueDocumentInput = z.strictObject({

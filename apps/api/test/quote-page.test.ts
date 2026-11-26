@@ -45,7 +45,7 @@ describe("the customer's quote page", () => {
       body: new URLSearchParams(fields).toString(),
     });
 
-  async function aQuote(title = "Goa 4 days") {
+  async function aQuote(title = "Goa 4 days", taxed = true) {
     const made = await server.db.forOrg(agency.organizationId, async (tx) => {
       const person = await tx.person.create({
         data: { name: "Meera Iyer", email: `m-${crypto.randomUUID()}@example.test` },
@@ -69,8 +69,9 @@ describe("the customer's quote page", () => {
           exclusions: "Flights",
           notes: "Carry ID",
           subtotalPaise: 50_000_00n,
-          taxPaise: 2_500_00n,
-          totalPaise: 52_500_00n,
+          ...(taxed
+            ? { taxRateBasisPoints: 500, taxPaise: 2_500_00n, totalPaise: 52_500_00n }
+            : { totalPaise: 50_000_00n }),
         },
       });
       return { personId: person.id, leadId: lead.id, quoteId: quote.id };
@@ -108,11 +109,21 @@ describe("the customer's quote page", () => {
       ),
     ).toBe(true);
     expect(html).toContain("₹52,500");
-    expect(inOrder(positions(html, "<h2>Price</h2>", "Hotel × 1", "₹50,000", 'class="total">₹52,500'))).toBe(true);
+    // The lines, one GST row that makes them add up (50,000 + 2,500 = 52,500), then the total.
+    expect(
+      inOrder(positions(html, "<h2>Price</h2>", "Hotel × 1", "₹50,000", "GST 5%", "₹2,500", 'class="total">₹52,500')),
+    ).toBe(true);
     expect(html).not.toContain("52,500.00");
-    expect(html).not.toMatch(/CGST|SGST|GST 5%/);
+    expect(html).not.toMatch(/CGST|SGST/);
     expect(html).not.toContain("<script");
     expect(response.headers.get("content-security-policy")).not.toContain("script-src");
+  });
+
+  it("shows no GST row on a quote without tax", async () => {
+    const { path } = await aQuote("Goa 4 days", false);
+    const { html } = await page(path);
+    expect(html).toContain("₹50,000");
+    expect(html).not.toMatch(/GST|CGST|SGST/);
   });
 
   it("has no tick boxes, one Accept button, and a small-print line linking to the terms on the page", async () => {

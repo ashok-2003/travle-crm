@@ -29,8 +29,9 @@ function styles(theme: PdfTheme) {
     words: { flexGrow: 1, flexShrink: 1, flexBasis: 0, paddingRight: 12 },
     small: { fontSize: 8, color: theme.muted, marginTop: 2 },
     amount: { flexShrink: 0, fontFamily: theme.fonts.numbers, color: theme.ink, textAlign: "right" },
-    total: { marginTop: 10, fontFamily: theme.fonts.ui, fontSize: 16, fontWeight: 600, color: theme.money },
-    totalNote: { fontFamily: theme.fonts.ui, fontSize: 10, fontWeight: 400, color: theme.muted },
+    totalLine: { flexDirection: "row", alignItems: "flex-end", gap: 5, marginTop: 10 },
+    total: { fontFamily: theme.fonts.numbers, fontSize: 16, fontWeight: 600, color: theme.money },
+    totalNote: { fontSize: 10, color: theme.muted, marginBottom: 2 },
     day: { backgroundColor: sky.fill, borderRadius: 6, padding: 9 },
     dayTitle: { fontWeight: 600, color: sky.ink },
     dayText: { color: sky.ink, marginTop: 3, lineHeight: 1.35 },
@@ -66,12 +67,13 @@ function price(style: Styles, data: QuotationDocumentData): ReactElement {
     style,
     "Price",
     ...data.lines.map((line, index) => priceRow(style, index, line.description, line.detail, line.amount)),
-    // One run of text, "Total ₹8,999 (incl. 5% GST)", the way the quote page says it.
+    data.gst ? priceRow(style, data.lines.length, data.gst.label, undefined, data.gst.amount) : null,
+    // "Total ₹8,999 (incl. 5% GST)": the total in the numbers font as one run, the note beside it as its own.
     createElement(
-      Text,
-      { style: style.total, wrap: false },
-      `Total ${data.total}`,
-      data.totalNote ? createElement(Text, { style: style.totalNote }, ` (${data.totalNote})`) : null,
+      View,
+      { style: style.totalLine, wrap: false },
+      createElement(Text, { style: style.total }, `Total ${data.total}`),
+      data.totalNote ? createElement(Text, { style: style.totalNote }, `(${data.totalNote})`) : null,
     ),
   );
 }

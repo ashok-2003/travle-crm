@@ -4,7 +4,7 @@
 // form posts back to the same link.
 import { brand } from "@travel-crm/brand";
 import type { PublicTrip } from "@travel-crm/domain/bookings";
-import { ACCEPT_SMALL_PRINT, type PublicQuote } from "@travel-crm/domain/quotes";
+import { ACCEPT_SMALL_PRINT, gstLabel, wholeRupeePrice, type PublicQuote } from "@travel-crm/domain/quotes";
 import { randomBytes } from "node:crypto";
 import {
   dayOf,
@@ -92,12 +92,22 @@ export function quotePage(
         `<li><strong>Day ${String(index + 1)}: ${escapeHtml(day.title)}</strong>${day.description === "" ? "" : `<p>${paragraphs(day.description)}</p>`}</li>`,
     )
     .join("");
-  const lines = quote.items
-    .map(
-      (item) =>
-        `<tr><td>${escapeHtml(item.description)} × ${String(item.quantity)}${item.detail === "" ? "" : `<small>${escapeHtml(item.detail)}</small>`}</td><td class="n">${wholeRupees(item.amountPaise)}</td></tr>`,
-    )
-    .join("");
+  // Whole rupees, each line rounded, then one GST row that makes the rows add up to the total.
+  const price = wholeRupeePrice(
+    quote.items.map((item) => item.amountPaise),
+    quote.totalPaise,
+    quote.taxPaise,
+  );
+  const lines =
+    quote.items
+      .map(
+        (item, index) =>
+          `<tr><td>${escapeHtml(item.description)} × ${String(item.quantity)}${item.detail === "" ? "" : `<small>${escapeHtml(item.detail)}</small>`}</td><td class="n">${wholeRupees(price.linesPaise[index] ?? 0)}</td></tr>`,
+      )
+      .join("") +
+    (price.gstPaise === null
+      ? ""
+      : `<tr><td>${gstLabel(quote.taxRateBasisPoints)}</td><td class="n">${wholeRupees(price.gstPaise)}</td></tr>`);
   const dues = quote.installments
     .map(
       (due) =>

@@ -15,11 +15,12 @@ import {
   DomainError,
   formatMoney,
   formatRupees,
-  formatShortDay,
+  formatDayWithYear,
   money,
   parseCalendarDate,
   type TaxComponent,
 } from "../kernel/index.js";
+import { gstLabel, wholeRupeePrice } from "./whole-rupees.js";
 import { dayOf, daysOf, findQuoteForChange, findQuoteInScope, itemsOf, paidOf } from "./quote-rows.js";
 import { quoteMoney, TOUR_OPERATOR_SAC } from "./totals.js";
 
@@ -82,11 +83,7 @@ const pointsOf = (text: string) =>
   text
     .split("\n")
     .map((line) => line.replace(/^\s*[-•*✓✗]\s*/, "").trim())
-    .filter((line) => line !== "")
-    .map((line) => cut(line, 300));
-
-/** "Fri 4 Dec 2026": the year is always shown, so a "today" of a long-gone year makes formatShortDay add it. */
-const dayWithYear = (day: string) => formatShortDay(parseCalendarDate(day), parseCalendarDate("1900-01-01"));
+    .filter((line) => line !== "");
 
 /** "1 adult, 2 children". */
 function travellersOf(quote: Quote): string {
@@ -98,31 +95,43 @@ function travellersOf(quote: Quote): string {
     .join(", ");
 }
 
-/** The quotation in the words its PDF prints, matching the customer's page: whole rupees, dates as words. */
+/**
+ * The quotation in the words its PDF prints, matching the customer's page: whole rupees, dates as words. Nothing is cut
+ * short: the contract's caps are the quote's own limits, so a quote that saves always issues.
+ */
 function quotationContent(quote: Quote) {
-  const when = [quote.startDate === null ? "" : dayWithYear(dayOf(quote.startDate)), travellersOf(quote)]
+  const day = (date: Date, weekday: boolean) => formatDayWithYear(parseCalendarDate(dayOf(date)), { weekday });
+  const when = [quote.startDate === null ? "" : day(quote.startDate, true), travellersOf(quote)]
     .filter(Boolean)
     .join(" · ");
-  const lines = itemsOf(quote).map((item) => ({
-    description: cut(`${item.description} × ${String(item.quantity)}`, 500),
-    ...(item.detail === "" ? {} : { detail: cut(item.detail, 300) }),
-    amount: formatRupees(item.unitPricePaise * item.quantity),
-  }));
+  const items = itemsOf(quote);
+  const price = wholeRupeePrice(
+    items.map((item) => item.unitPricePaise * item.quantity),
+    Number(quote.totalPaise),
+    Number(quote.taxPaise),
+  );
   return {
-    title: cut(quote.title, 200),
-    customer: cut(quote.lead.person.name, 120),
+    title: quote.title,
+    customer: quote.lead.person.name,
     ...(when === "" ? {} : { when }),
-    lines,
+    lines: items.map((item, index) => ({
+      description: `${item.description} × ${String(item.quantity)}`,
+      ...(item.detail === "" ? {} : { detail: item.detail }),
+      amount: formatRupees(price.linesPaise[index] ?? 0),
+    })),
+    ...(price.gstPaise === null
+      ? {}
+      : { gst: { label: gstLabel(quote.taxRateBasisPoints), amount: formatRupees(price.gstPaise) } }),
     total: formatRupees(Number(quote.totalPaise)),
-    ...(Number(quote.taxPaise) > 0 ? { totalNote: `incl. ${String(quote.taxRateBasisPoints / 100)}% GST` } : {}),
+    ...(price.gstPaise === null ? {} : { totalNote: `incl. ${String(quote.taxRateBasisPoints / 100)}% GST` }),
     dues: quote.installments.map((due) => ({
-      label: cut(due.label, 120),
-      by: dayWithYear(dayOf(due.dueOn)),
+      label: due.label,
+      by: day(due.dueOn, false),
       amount: formatRupees(Number(due.amountPaise)),
     })),
-    days: daysOf(quote).map((day) => ({
-      title: cut(day.title, 200),
-      ...(day.description.trim() === "" ? {} : { description: cut(day.description.trim(), 2000) }),
+    days: daysOf(quote).map((planned) => ({
+      title: planned.title,
+      ...(planned.description.trim() === "" ? {} : { description: planned.description.trim() }),
     })),
     inclusions: pointsOf(quote.inclusions),
     exclusions: pointsOf(quote.exclusions),

@@ -14,6 +14,7 @@ const quotation: QuotationDocumentData = {
   customer: "Meera Iyer",
   when: "Fri 4 Dec 2026 · 1 adult",
   lines: [{ description: "Strangers Trip × 1", detail: "Shared tempo traveller", amount: "₹8,570" }],
+  gst: { label: "GST 5%", amount: "₹429" },
   total: "₹8,999",
   totalNote: "incl. 5% GST",
   dues: [{ label: "Advance", by: "1 Dec 2026", amount: "₹3,000" }],
@@ -36,6 +37,8 @@ describe("the quotation template", () => {
       "Fri 4 Dec 2026 · 1 adult",
       "Strangers Trip × 1",
       "₹8,570",
+      "GST 5%",
+      "₹429",
       "Total ₹8,999 (incl. 5% GST)",
       "Advance",
       "By 1 Dec 2026",
@@ -57,12 +60,21 @@ describe("the quotation template", () => {
   });
 
   it("leaves out the parts a quotation does not have", async () => {
-    const bare = { ...quotation, totalNote: undefined, dues: [], days: [], inclusions: [], exclusions: [], notes: [] };
+    const bare = {
+      ...quotation,
+      gst: undefined,
+      totalNote: undefined,
+      dues: [],
+      days: [],
+      inclusions: [],
+      exclusions: [],
+      notes: [],
+    };
     const { text } = await pdfText(
       await renderPdf("quotation", { issuedAt, data: bare, branding: { organizationName: "Sharma Holidays" } }),
     );
     expect(text).toContain("Total ₹8,999");
-    expect(text).not.toMatch(/incl\.|To pay|day by day|Included|Not included|Notes|Terms/);
+    expect(text).not.toMatch(/GST|incl\.|To pay|day by day|Included|Not included|Notes|Terms/);
   });
 
   it("refuses the sample's content", async () => {

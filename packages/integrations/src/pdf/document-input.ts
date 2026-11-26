@@ -32,6 +32,7 @@ export interface QuotationDocumentData {
   customer: string;
   when?: string | undefined;
   lines: { description: string; detail?: string | undefined; amount: string }[];
+  gst?: { label: string; amount: string } | undefined;
   total: string;
   totalNote?: string | undefined;
   dues: { label: string; by: string; amount: string }[];
