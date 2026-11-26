@@ -52,7 +52,7 @@ export const aiDeparturesRouter = router({
         throw new DomainError("CONFLICT", "AI_NOT_READY", "The AI isn't set up on this server yet");
       }
       const agencyName = (await ctx.identity.organizationProfile(ctx.member.organizationId))?.name ?? "the agency";
-      return writeSeatMessage(ctx.db, ctx.ai, ctx.member, input, { agencyName, now: new Date() });
+      return writeSeatMessage(ctx.db, ctx.ai, ctx.member, input, { agencyName, now: new Date(), prompts: ctx.prompts });
     }),
 
   /** The staff member opened the message in WhatsApp: the lead is marked as offered this departure. */

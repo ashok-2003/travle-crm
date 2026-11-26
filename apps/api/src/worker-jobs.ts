@@ -458,6 +458,7 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
               subscriptions,
               logger,
               ...(dependencies.jobs === undefined ? {} : { queue: dependencies.jobs }),
+              ...(dependencies.prompts === undefined ? {} : { prompts: dependencies.prompts }),
             }),
           ]),
       ...(ai === null
@@ -468,7 +469,14 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
               logger,
               ...(dependencies.jobs === undefined ? {} : { queue: dependencies.jobs }),
             }),
-            aiReadFileHandler({ db, files, ai, readText: documentText, logger }),
+            aiReadFileHandler({
+              db,
+              files,
+              ai,
+              readText: documentText,
+              logger,
+              ...(dependencies.prompts === undefined ? {} : { prompts: dependencies.prompts }),
+            }),
           ]),
       {
         queue: WEBHOOK_PROCESS_QUEUE,

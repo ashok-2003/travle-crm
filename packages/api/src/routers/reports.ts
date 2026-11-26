@@ -95,6 +95,7 @@ export const reportsRouter = router({
         input.question,
         catalogue,
         now,
+        ctx.prompts,
       );
       if (chosen.kind === "cannot") {
         // The three nearest, filled up from the reports every member has when the AI named fewer.

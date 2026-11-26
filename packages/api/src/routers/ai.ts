@@ -292,7 +292,7 @@ export const aiRouter = router({
         throw new DomainError("CONFLICT", "AI_NOT_READY", "The AI isn't set up on this server yet");
       }
       const agencyName = (await ctx.identity.organizationProfile(ctx.member.organizationId))?.name ?? "the agency";
-      return suggestReply(ctx.db, ctx.ai, ctx.member, input, { agencyName, now: new Date() });
+      return suggestReply(ctx.db, ctx.ai, ctx.member, input, { agencyName, now: new Date(), prompts: ctx.prompts });
     }),
 
   /** A message for the customer about a quote, in the chosen language and for the chosen channel; never sent by itself. */
@@ -305,7 +305,7 @@ export const aiRouter = router({
         throw new DomainError("CONFLICT", "AI_NOT_READY", "The AI isn't set up on this server yet");
       }
       const agencyName = (await ctx.identity.organizationProfile(ctx.member.organizationId))?.name ?? "the agency";
-      return writeUpQuote(ctx.db, ctx.ai, ctx.member, input, { agencyName, now: new Date() });
+      return writeUpQuote(ctx.db, ctx.ai, ctx.member, input, { agencyName, now: new Date(), prompts: ctx.prompts });
     }),
 
   /** The ads that brought chats, newest first, and the package each promotes. */
