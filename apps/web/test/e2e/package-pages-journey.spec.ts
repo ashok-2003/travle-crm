@@ -71,11 +71,14 @@ test("a visitor reads a published package and the enquiry arrives as a lead; a p
   const response = await visit.goto(address);
   expect(response?.status()).toBe(200);
   await expect(visit.getByRole("heading", { level: 1, name: "Kedarnath yatra" })).toBeVisible();
-  await expect(visit.getByText("From ₹32,000 per person")).toBeVisible();
+  await expect(visit.locator("p", { hasText: "From ₹32,000 per person" }).first()).toBeVisible();
   await expect(visit.getByText("5 nights")).toBeVisible();
   await expect(visit.getByText("Darshan at Kedarnath")).toBeVisible();
   await expect(visit.getByText("Free to cancel 30 days before.")).toBeVisible();
   await expect(visit.getByText("A family agency in Dehradun, running yatras since 2009.")).toBeVisible();
+  // The submit button is off while the bot check runs and fades in when it is ready: scan only once it has settled.
+  await expect(visit.getByRole("button", { name: "Send enquiry" })).toBeEnabled();
+  await visit.waitForTimeout(400);
   await expectAccessible(visit);
   // The page holds what the agency published and nothing it paid or keeps.
   const html = await visit.content();
@@ -159,6 +162,8 @@ test("a visitor joins an open departure and a full one's waitlist, each landing 
   await fillTime(visit);
   await visit.getByRole("button", { name: /^Join the departure on/ }).click();
   await expect(visit.getByRole("heading", { name: /^Join the departure on/ })).toBeVisible();
+  await expect(visit.locator('button[type="submit"]')).toBeEnabled();
+  await visit.waitForTimeout(400);
   await expectAccessible(visit);
   const phone = newPhone();
   await fillVisitor(visit, { name: "Dev Malhotra", phone });

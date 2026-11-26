@@ -10,6 +10,7 @@ const pageMessages = {
   websiteForm: messages.websiteForm,
   errors: messages.errors,
   forms: messages.forms,
+  tripPlan: messages.tripPlan,
 };
 
 export default function PackagePagesLayout({ children }: { children: ReactNode }) {

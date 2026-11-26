@@ -23,6 +23,7 @@ describe("EnquirySection", () => {
       ],
     };
     renderWithApi(<EnquirySection code="acme" page={page as never} />, newQueryClient());
-    expect(screen.getByText("From ₹12,500 per person")).toBeTruthy();
+    expect(screen.getByText("₹12,500")).toBeTruthy();
+    expect(screen.getByText("₹12,500").closest("p, div")).toHaveTextContent("From ₹12,500 per person");
   });
 });

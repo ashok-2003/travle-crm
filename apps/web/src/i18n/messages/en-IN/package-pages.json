@@ -2,7 +2,7 @@
   "page": {
     "allPackages": "All packages",
     "nights": "{count, plural, one {# night} other {# nights}}",
-    "fromPrice": "From {price} per person",
+    "fromPrice": "From <number>{price}</number> per person",
     "onEnquiry": "Price on enquiry",
     "askAbout": "Ask about this trip",
     "nextDepartures": "Next departures",
@@ -17,7 +17,7 @@
     "departures": "Departures",
     "departuresIntro": "Fixed dates for a group. Pick one to join.",
     "departureDates": "{from} to {to}",
-    "departurePrice": "From {price} per person",
+    "departurePrice": "From <number>{price}</number> per person",
     "words": {
       "open": "Open",
       "filling": "Filling fast",

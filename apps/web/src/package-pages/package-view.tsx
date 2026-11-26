@@ -6,6 +6,7 @@
 import type { PublicPackage } from "@travel-crm/contracts/package-pages";
 import { money } from "@travel-crm/domain/kernel";
 import { MessageCircleIcon, PhoneIcon } from "lucide-react";
+import type { ReactNode } from "react";
 import { getTranslations } from "next-intl/server";
 import { PageTitle } from "@/components/page-title";
 import { TextLink } from "@/components/text-link";
@@ -16,6 +17,8 @@ import { formatCalendarDay, formatRupees } from "@/lib/format";
 import { AgencyHeader } from "./agency-header";
 import { EnquirySection } from "./enquiry-section";
 import { PageFrame } from "./page-frame";
+
+const number = (chunks: ReactNode) => <span className="numbers">{chunks}</span>;
 
 const digitsOf = (phone: string) => phone.replace(/\D/g, "");
 
@@ -37,10 +40,10 @@ export async function PackageView({ page }: { page: PublicPackage }) {
         <div className="flex flex-col gap-2">
           <PageTitle className="[overflow-wrap:anywhere]">{trip.name}</PageTitle>
           {facts.length > 0 && <p className="text-muted-foreground">{facts.join(" · ")}</p>}
-          <p className="numbers text-section font-semibold">
+          <p className="text-section font-semibold">
             {trip.fromPricePaise === null
               ? t("onEnquiry")
-              : t("fromPrice", { price: formatRupees(money(trip.fromPricePaise)) })}
+              : t.rich("fromPrice", { price: formatRupees(money(trip.fromPricePaise)), number })}
           </p>
           {nextDepartures.length > 0 && (
             <p className="text-muted-foreground">
