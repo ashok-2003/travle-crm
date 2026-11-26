@@ -5,45 +5,31 @@
 // on that the AI cannot sell yet says the first thing it needs, as the trip's own page does), and Delete. New
 // package starts an empty one; a quote's Save as package and the AI's drafts make one too.
 import type { QuotePackage } from "@travel-crm/contracts/quotes";
-import { PackageIcon, Trash2Icon } from "lucide-react";
+import { PackageIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useState, type RefObject } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { ErrorState } from "@/components/error-state";
-import { rupees } from "@/components/forms/money-field";
 import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
-import { StatusBadge } from "@/components/status-badge";
-import { TextLink } from "@/components/text-link";
-import { Button } from "@/components/ui/button";
-import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
-import { packageRoute } from "@/lib/routes";
+import { useWideScreen } from "@/lib/use-wide-screen";
 import { useQuoteChanges, useQuotePackages } from "@/quotes/use-quotes";
 import { useHolds } from "@/session/me-context";
 import { NewPackageDialog } from "./new-package-dialog";
-
-function useSummary() {
-  const t = useTranslations("packages.list");
-  return (one: QuotePackage) => {
-    const nights = one.nights ?? 0;
-    if (one.kind === "group") return t("summaryGroup", { nights, departures: one.departuresAhead });
-    if (one.tierCount > 0) return t("summaryTiers", { days: one.days, tiers: one.tierCount });
-    if (one.subtotalPaise > 0) return t("summary", { days: one.days, price: rupees(one.subtotalPaise) });
-    if (one.fromPricePaise !== null) return t("summaryFrom", { nights, price: rupees(one.fromPricePaise) });
-    return t("summaryCustom", { nights });
-  };
-}
+import { PackagesRows } from "./packages-rows";
+import { PackagesTable } from "./packages-table";
 
 export function PackagesScreen() {
   const t = useTranslations("packages.list");
   const tCommon = useTranslations("common");
-  const tReasons = useTranslations("packages.sell.reasons");
   const packages = useQuotePackages();
   const mayEdit = useHolds("quotes:edit");
   const { deletePackage } = useQuoteChanges();
+  const wide = useWideScreen();
   const [deleting, setDeleting] = useState<QuotePackage | null>(null);
-  const summary = useSummary();
+  // Kept after the dialog closes: Radix gives the focus back once it has, and the ref must still be there.
+  const [openedBy, setOpenedBy] = useState<RefObject<HTMLButtonElement | null>>();
   const body = () => {
     if (packages.data === undefined) {
       return packages.isError ? (
@@ -58,49 +44,15 @@ export function PackagesScreen() {
       );
     }
     if (packages.data.length === 0) return <EmptyState icon={PackageIcon} message={t("none")} />;
-    return (
-      <ItemGroup>
-        {packages.data.map((one) => (
-          <Item key={one.id} size="sm">
-            <ItemContent>
-              <ItemTitle>
-                {mayEdit ? (
-                  <TextLink inline href={packageRoute(one.id)}>
-                    {one.name}
-                  </TextLink>
-                ) : (
-                  one.name
-                )}
-              </ItemTitle>
-              <ItemDescription className="numbers">{summary(one)}</ItemDescription>
-            </ItemContent>
-            {(one.published || one.aiSellable) && (
-              <ItemActions>
-                {one.aiSells && <StatusBadge tone="good">{t("aiSells")}</StatusBadge>}
-                {one.aiGap !== null && (
-                  <StatusBadge tone="neutral">{t("aiBlocked", { reason: tReasons(one.aiGap) })}</StatusBadge>
-                )}
-                {one.published && <StatusBadge tone="good">{t("published")}</StatusBadge>}
-              </ItemActions>
-            )}
-            {mayEdit && (
-              <ItemActions>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  aria-label={t("deleteNamed", { name: one.name })}
-                  onClick={() => {
-                    setDeleting(one);
-                  }}
-                >
-                  <Trash2Icon aria-hidden="true" />
-                </Button>
-              </ItemActions>
-            )}
-          </Item>
-        ))}
-      </ItemGroup>
-    );
+    const list = {
+      packages: packages.data,
+      mayEdit,
+      onDelete: (one: QuotePackage, returnTo: RefObject<HTMLButtonElement | null>) => {
+        setOpenedBy(returnTo);
+        setDeleting(one);
+      },
+    };
+    return wide ? <PackagesTable {...list} /> : <PackagesRows {...list} />;
   };
   return (
     <div className="flex max-w-[1000px] flex-col gap-6">
@@ -114,6 +66,7 @@ export function PackagesScreen() {
         title={t("deleteTitle", { name: deleting?.name ?? "" })}
         description={t("deleteDescription")}
         action={t("delete")}
+        returnFocusTo={openedBy}
         request={deletePackage}
         onConfirm={() => {
           if (deleting === null) return;

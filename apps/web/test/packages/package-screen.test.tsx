@@ -57,6 +57,7 @@ const listed = (detail: PackageDetail, departuresAhead: number): QuotePackage =>
   aiSells: detail.sellable && detail.sellGaps.length === 0,
   aiGap: detail.sellGaps[0] ?? null,
   departuresAhead,
+  nextDeparture: null,
 });
 
 /** Opens the trip's page over an api that has the trip, its departures and its place in the Packages list. */

@@ -56,16 +56,27 @@
     "none": "No packages yet. Choose New package, or save a quote as one.",
     "summary": "{days, plural, =0 {No days} one {# day} other {# days}} · {price} before GST",
     "summaryTiers": "{days, plural, =0 {No days} one {# day} other {# days}} · {tiers, plural, one {# tier} other {# tiers}}",
-    "summaryFrom": "{nights, plural, =0 {Custom trip} one {Custom trip · # night} other {Custom trip · # nights}} · From {price}",
     "summaryCustom": "{nights, plural, =0 {Custom trip} one {Custom trip · # night} other {Custom trip · # nights}}",
-    "summaryGroup": "{nights, plural, =0 {Group trip} one {Group trip · # night} other {Group trip · # nights}} · {departures, plural, =0 {no departures ahead} one {# departure ahead} other {# departures ahead}}",
-    "published": "Page published",
-    "aiSells": "AI sells it",
     "delete": "Delete",
-    "deleteNamed": "Delete {name}",
     "deleteTitle": "Delete {name}?",
     "deleteDescription": "Quotes made from it stay as they are.",
-    "aiBlocked": "AI doesn't sell it: {reason}"
+    "aiBlocked": "AI doesn't sell it: {reason}",
+    "kindGroup": "{nights, plural, =0 {Group trip} one {Group trip · # night} other {Group trip · # nights}}",
+    "fromPrice": "From {price}",
+    "seatsLeft": "{free} left",
+    "full": "Full",
+    "departuresAhead": "{count, plural, =0 {no departures ahead} one {# departure ahead} other {# departures ahead}}",
+    "aiOff": "AI off",
+    "noDeparturesAhead": "No departures ahead",
+    "moreFor": "More for {name}",
+    "columns": {
+      "trip": "Trip",
+      "from": "From",
+      "next": "Next departure",
+      "departures": "Departures",
+      "status": "Status",
+      "actions": "Actions"
+    }
   },
   "create": {
     "new": "New package",
