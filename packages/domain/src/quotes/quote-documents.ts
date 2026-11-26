@@ -6,11 +6,20 @@ import {
   QUOTE_DOCUMENT_PREFIX,
   RECEIPT_DOCUMENT_PREFIX,
   type IssueDocumentInput,
+  type IssueQuotationInput,
 } from "@travel-crm/contracts/documents";
 import type { OrgTx } from "@travel-crm/db";
 import { issueDocument } from "../documents/index.js";
 import type { MemberAccess } from "../identity/index.js";
-import { DomainError, formatMoney, money, type TaxComponent } from "../kernel/index.js";
+import {
+  DomainError,
+  formatMoney,
+  formatRupees,
+  formatShortDay,
+  money,
+  parseCalendarDate,
+  type TaxComponent,
+} from "../kernel/index.js";
 import { dayOf, daysOf, findQuoteForChange, findQuoteInScope, itemsOf, paidOf } from "./quote-rows.js";
 import { quoteMoney, TOUR_OPERATOR_SAC } from "./totals.js";
 
@@ -68,25 +77,66 @@ function moneyTotals(quote: Quote, context: DocumentContext) {
   ];
 }
 
-function quotationNotes(quote: Quote): string | undefined {
-  const parts = [
-    quote.startDate === null
-      ? ""
-      : `Travel from ${dayOf(quote.startDate)}, ${String(quote.adults)} adults, ${String(quote.children)} children`,
-    daysOf(quote)
-      .map(
-        (day, index) =>
-          `Day ${String(index + 1)}: ${day.title}${day.description === "" ? "" : ` - ${day.description}`}`,
-      )
-      .join("\n"),
-    quote.inclusions === "" ? "" : `Inclusions:\n${quote.inclusions}`,
-    quote.exclusions === "" ? "" : `Exclusions:\n${quote.exclusions}`,
-    quote.notes,
-  ].filter((part) => part.trim() !== "");
-  return parts.length === 0 ? undefined : cut(parts.join("\n\n"), 2000);
+/** A free-text list as its points, one per line, without a typed bullet (as the customer's page shows it). */
+const pointsOf = (text: string) =>
+  text
+    .split("\n")
+    .map((line) => line.replace(/^\s*[-•*✓✗]\s*/, "").trim())
+    .filter((line) => line !== "")
+    .map((line) => cut(line, 300));
+
+/** "Fri 4 Dec 2026": the year is always shown, so a "today" of a long-gone year makes formatShortDay add it. */
+const dayWithYear = (day: string) => formatShortDay(parseCalendarDate(day), parseCalendarDate("1900-01-01"));
+
+/** "1 adult, 2 children". */
+function travellersOf(quote: Quote): string {
+  return [
+    quote.adults > 0 ? `${String(quote.adults)} adult${quote.adults === 1 ? "" : "s"}` : "",
+    quote.children > 0 ? `${String(quote.children)} child${quote.children === 1 ? "" : "ren"}` : "",
+  ]
+    .filter(Boolean)
+    .join(", ");
 }
 
-async function issue(tx: OrgTx, access: MemberAccess, input: IssueDocumentInput, prefix: string, now: Date) {
+/** The quotation in the words its PDF prints, matching the customer's page: whole rupees, dates as words. */
+function quotationContent(quote: Quote) {
+  const when = [quote.startDate === null ? "" : dayWithYear(dayOf(quote.startDate)), travellersOf(quote)]
+    .filter(Boolean)
+    .join(" · ");
+  const lines = itemsOf(quote).map((item) => ({
+    description: cut(`${item.description} × ${String(item.quantity)}`, 500),
+    ...(item.detail === "" ? {} : { detail: cut(item.detail, 300) }),
+    amount: formatRupees(item.unitPricePaise * item.quantity),
+  }));
+  return {
+    title: cut(quote.title, 200),
+    customer: cut(quote.lead.person.name, 120),
+    ...(when === "" ? {} : { when }),
+    lines,
+    total: formatRupees(Number(quote.totalPaise)),
+    ...(Number(quote.taxPaise) > 0 ? { totalNote: `incl. ${String(quote.taxRateBasisPoints / 100)}% GST` } : {}),
+    dues: quote.installments.map((due) => ({
+      label: cut(due.label, 120),
+      by: dayWithYear(dayOf(due.dueOn)),
+      amount: formatRupees(Number(due.amountPaise)),
+    })),
+    days: daysOf(quote).map((day) => ({
+      title: cut(day.title, 200),
+      ...(day.description.trim() === "" ? {} : { description: cut(day.description.trim(), 2000) }),
+    })),
+    inclusions: pointsOf(quote.inclusions),
+    exclusions: pointsOf(quote.exclusions),
+    notes: pointsOf(quote.notes),
+  };
+}
+
+async function issue(
+  tx: OrgTx,
+  access: MemberAccess,
+  input: IssueDocumentInput | IssueQuotationInput,
+  prefix: string,
+  now: Date,
+) {
   const document = await issueDocument(tx, access, { ...input, prefix }, now);
   return { documentId: document.id, number: document.number };
 }
@@ -101,21 +151,10 @@ export async function issueQuotePdf(tx: OrgTx, access: MemberAccess, quoteId: st
     });
     return { documentId: quote.pdfDocumentId, number: kept.number };
   }
-  const notes = quotationNotes(quote);
   const issued = await issue(
     tx,
     access,
-    {
-      template: "sample",
-      content: {
-        title: cut(`Quotation: ${quote.title}`, 80),
-        recipient: recipientOf(quote),
-        rows: priceRows(quote),
-        totals: moneyTotals(quote, context),
-        ...(notes === undefined ? {} : { notes }),
-      },
-      branding: context.branding,
-    },
+    { template: "quotation", content: quotationContent(quote), branding: context.branding },
     QUOTE_DOCUMENT_PREFIX,
     context.now,
   );

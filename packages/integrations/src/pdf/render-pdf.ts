@@ -8,6 +8,7 @@ import { normalisedText, UnprintableTextError, unprintableCharactersIn } from ".
 // imported: code that only checks text or reads document types (the domain) never evaluates React-PDF.
 const templates = {
   sample: async () => (await import("./templates/sample-document.js")).sampleDocument,
+  quotation: async () => (await import("./templates/quotation-document.js")).quotationDocument,
 } satisfies Record<PdfTemplate, unknown>;
 
 /** The same value with every string normalised for printing. Bytes (a logo) and dates are kept as they are. */

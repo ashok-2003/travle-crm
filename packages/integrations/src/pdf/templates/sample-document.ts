@@ -112,6 +112,7 @@ function section(style: Styles, label: string, text: string | undefined): ReactE
 }
 
 export function sampleDocument({ data, branding, issuedAt }: PdfInput): ReactElement<DocumentProps> {
+  if (!("rows" in data)) throw new TypeError("The sample template needs the sample document's content");
   const theme = pdfTheme(branding);
   const style = styles(theme);
   return createElement(

@@ -23,8 +23,8 @@ const paragraph = (max: number) =>
 /** An amount as it is printed, already formatted by the caller, e.g. "₹12,50,000.00". */
 const printedAmount = line(24);
 
-/** The templates the renderer knows. The Foundation ships one; quotes and invoices add theirs. */
-export const pdfTemplate = z.enum(["sample"]);
+/** The templates the renderer knows: the sample (invoices and receipts too) and the quotation's own. */
+export const pdfTemplate = z.enum(["sample", "quotation"]);
 
 /** The organization's own branding on a document, as it was when the document was issued. */
 export const documentBranding = z.strictObject({
@@ -50,12 +50,45 @@ export const sampleDocumentContent = z.strictObject({
   notes: paragraph(2000).optional(),
 });
 
+/**
+ * What the quotation template says, in the words it prints (the quote page's layout): the trip, when and for whom, the
+ * price lines and the total, what is due by when, the days as boxes, inclusions, exclusions and notes as points.
+ */
+export const quotationContent = z.strictObject({
+  title: line(200),
+  customer: line(120),
+  /** "Fri 4 Dec 2026 · 2 adults, 1 child". */
+  when: line(120).optional(),
+  lines: z
+    .array(z.strictObject({ description: line(500), detail: line(300).optional(), amount: printedAmount }))
+    .max(200),
+  total: printedAmount,
+  /** "incl. 5% GST"; absent when the quote carries no tax. */
+  totalNote: line(60).optional(),
+  dues: z.array(z.strictObject({ label: line(120), by: line(40), amount: printedAmount })).max(24),
+  days: z.array(z.strictObject({ title: line(200), description: paragraph(2000).optional() })).max(60),
+  inclusions: z.array(line(300)).max(100),
+  exclusions: z.array(line(300)).max(100),
+  notes: z.array(line(500)).max(100),
+});
+
 export const issueDocumentInput = z.strictObject({
-  template: pdfTemplate,
+  template: z.literal("sample"),
   content: sampleDocumentContent,
   branding: documentBranding,
 });
 export type IssueDocumentInput = z.infer<typeof issueDocumentInput>;
+
+/** A quotation to issue: the quotation template's content and the agency's branding. */
+export const issueQuotationInput = z.strictObject({
+  template: z.literal("quotation"),
+  content: quotationContent,
+  branding: documentBranding,
+});
+export type IssueQuotationInput = z.infer<typeof issueQuotationInput>;
+
+/** Any document the domain can issue. */
+export const issuableDocumentInput = z.union([issueDocumentInput, issueQuotationInput]);
 
 /** The sample template's full data: the content, plus the number and date issuing gave it. */
 export const sampleDocumentData = z.strictObject({
@@ -65,7 +98,16 @@ export const sampleDocumentData = z.strictObject({
 });
 
 /** An issued document's content and branding exactly as issued. The PDF is rendered from this alone. */
-export const issuedDocumentRenderInput = z.strictObject({ data: sampleDocumentData, branding: documentBranding });
+export const quotationDocumentData = z.strictObject({
+  ...quotationContent.shape,
+  number: line(40),
+  issuedOn: line(40),
+});
+
+export const issuedDocumentRenderInput = z.strictObject({
+  data: z.union([sampleDocumentData, quotationDocumentData]),
+  branding: documentBranding,
+});
 export type IssuedDocumentRenderInput = z.infer<typeof issuedDocumentRenderInput>;
 
 export const issuedDocumentSummary = z.strictObject({
