@@ -195,7 +195,7 @@ describe("the customer's quote page", () => {
     await post(made.path, { name: "Meera Iyer" });
     const { html } = await page(made.path);
     const href = /<a class="button" href="([^"]+)">Pay by UPI/.exec(html)?.[1]?.replaceAll("&amp;", "&") ?? "";
-    expect(href).toMatch(/^upi:\/\/pay\?pa=agency%40bank&pn=.+&am=52500\.00&cu=INR&tn=Goa\+4\+days$/);
+    expect(href).toMatch(/^upi:\/\/pay\?pa=agency%40bank&pn=.+&am=52500\.00&cu=INR&tn=Goa%204%20days$/);
     const qr = /<svg role="img" aria-label="UPI QR to pay ₹52,500 to ([^"]+)"[\s\S]*?<\/svg>/.exec(html);
     expect(qr).not.toBeNull();
     expect(qr?.[0]).toBe(qrSvg(href, `UPI QR to pay ₹52,500 to ${qr?.[1] ?? ""}`));

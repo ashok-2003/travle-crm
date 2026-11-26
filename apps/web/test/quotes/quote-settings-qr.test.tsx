@@ -30,7 +30,7 @@ describe("the UPI QR preview in quote settings", () => {
     renderWithApi(<QuoteSettingsScreen />, newQueryClient());
     const code = await screen.findByRole("img", { name: words.upiQrLabel.replace("{upiId}", "sharma@bank") });
     const link = upiPayLink(settings);
-    expect(link).toBe("upi://pay?pa=sharma%40bank&pn=Sharma+Holidays&cu=INR");
+    expect(link).toBe("upi://pay?pa=sharma%40bank&pn=Sharma%20Holidays&cu=INR");
     const darkModules = encode(link ?? "", { ecc: "M", border: 2 })
       .data.flat()
       .filter(Boolean).length;

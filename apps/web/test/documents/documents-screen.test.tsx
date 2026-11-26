@@ -55,6 +55,28 @@ afterEach(() => {
 });
 
 describe("DocumentsScreen", () => {
+  it("names a quotation's template in words, never as its message key", async () => {
+    screenIs("wide");
+    renderScreen({
+      "documents.list": {
+        data: {
+          documents: [
+            {
+              ...document("QT-2026-0001", "2026-10-14T05:30:00.000Z", "ready"),
+              template: "quotation",
+              title: "Goa 4 days",
+            },
+          ],
+          nextCursor: null,
+        },
+      },
+    });
+    const row = (await screen.findAllByRole("row"))[1];
+    if (!row) throw new Error("a row expected");
+    expect(within(row).getByText(words.templates.quotation)).toBeVisible();
+    expect(row).not.toHaveTextContent("templates.quotation");
+  });
+
   it("is a table on wide screens, newest first, each with its status and times in the organization's zone", async () => {
     screenIs("wide");
     renderScreen();

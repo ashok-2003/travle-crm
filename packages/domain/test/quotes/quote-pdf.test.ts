@@ -131,7 +131,7 @@ describe("the quotation's PDF", () => {
           upiId: "sharma@bank",
           name: "Sharma Holidays",
           amount: "₹3,000",
-          link: `upi://pay?pa=sharma%40bank&pn=Sharma+Holidays&am=3000.00&cu=INR&${new URLSearchParams({ tn: title.slice(0, 50) }).toString()}`,
+          link: `upi://pay?pa=sharma%40bank&pn=Sharma%20Holidays&am=3000.00&cu=INR&tn=${encodeURIComponent(Array.from(title).slice(0, 50).join("")).replace(/[()]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)}`,
         },
       });
     });

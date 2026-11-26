@@ -3,7 +3,7 @@ import { encode } from "uqr";
 import { describe, expect, it } from "vitest";
 import { qrSquares, qrSvg } from "../../src/qr/index.js";
 
-const link = "upi://pay?pa=agency%40bank&pn=Sharma+Holidays&am=3000.00&cu=INR&tn=Goa";
+const link = "upi://pay?pa=agency%40bank&pn=Sharma%20Holidays&am=3000.00&cu=INR&tn=Goa";
 
 describe("the QR helper", () => {
   it("draws one square for every dark module of the link's code", () => {

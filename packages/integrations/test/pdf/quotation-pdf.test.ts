@@ -60,7 +60,7 @@ describe("the quotation template", () => {
   });
 
   it("prints a Pay box with the QR of the link, the UPI id, the agency's name and the amount due now", async () => {
-    const link = "upi://pay?pa=agency%40bank&pn=Sharma+Holidays&am=3000.00&cu=INR&tn=Goa";
+    const link = "upi://pay?pa=agency%40bank&pn=Sharma%20Holidays&am=3000.00&cu=INR&tn=Goa";
     const pay = { link, upiId: "agency@bank", name: "Sharma Holidays", amount: "₹3,000" };
     const pdf = await renderPdf("quotation", { issuedAt, data: { ...quotation, pay }, branding });
     const { text } = await pdfText(pdf);
