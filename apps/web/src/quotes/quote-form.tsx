@@ -232,75 +232,6 @@ export function QuoteForm({
         <Card>
           <CardHeader>
             <CardTitle>
-              <h2>{t("days")}</h2>
-            </CardTitle>
-            <CardAction>
-              <Button
-                type="button"
-                variant="outline"
-                disabled={busy}
-                onClick={() => {
-                  days.append({ title: "", description: "" });
-                }}
-              >
-                <PlusIcon aria-hidden="true" />
-                {t("addDay")}
-              </Button>
-            </CardAction>
-          </CardHeader>
-          <CardContent>
-            <AiMark paths={["quote.days"]}>
-              {days.fields.length === 0 ? (
-                <p className="text-muted-foreground">{t("noDays")}</p>
-              ) : (
-                <ItemGroup className="gap-3">
-                  {days.fields.map((day, index) => (
-                    <Item key={day.id} variant="muted" role="listitem" className="items-start">
-                      <ItemContent className="gap-2">
-                        <FormField label={t("dayTitle", { day: index + 1 })}>
-                          {(links) => (
-                            <Input
-                              {...links}
-                              placeholder={t("dayTitlePlaceholder")}
-                              {...form.register(dayField(index, "title"))}
-                              disabled={busy}
-                            />
-                          )}
-                        </FormField>
-                        <FormField label={t("dayDescription")}>
-                          {(links) => (
-                            <Textarea
-                              {...links}
-                              rows={2}
-                              {...form.register(dayField(index, "description"))}
-                              disabled={busy}
-                            />
-                          )}
-                        </FormField>
-                      </ItemContent>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        aria-label={t("removeDay", { day: index + 1 })}
-                        disabled={busy}
-                        onClick={() => {
-                          days.remove(index);
-                        }}
-                      >
-                        <Trash2Icon aria-hidden="true" />
-                      </Button>
-                    </Item>
-                  ))}
-                </ItemGroup>
-              )}
-            </AiMark>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>
               <h2>{t("price")}</h2>
             </CardTitle>
             <CardAction className="flex flex-wrap justify-end gap-2">
@@ -433,6 +364,75 @@ export function QuoteForm({
                 ]}
               />
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              <h2>{t("days")}</h2>
+            </CardTitle>
+            <CardAction>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={busy}
+                onClick={() => {
+                  days.append({ title: "", description: "" });
+                }}
+              >
+                <PlusIcon aria-hidden="true" />
+                {t("addDay")}
+              </Button>
+            </CardAction>
+          </CardHeader>
+          <CardContent>
+            <AiMark paths={["quote.days"]}>
+              {days.fields.length === 0 ? (
+                <p className="text-muted-foreground">{t("noDays")}</p>
+              ) : (
+                <ItemGroup className="gap-3">
+                  {days.fields.map((day, index) => (
+                    <Item key={day.id} variant="muted" role="listitem" className="items-start">
+                      <ItemContent className="gap-2">
+                        <FormField label={t("dayTitle", { day: index + 1 })}>
+                          {(links) => (
+                            <Input
+                              {...links}
+                              placeholder={t("dayTitlePlaceholder")}
+                              {...form.register(dayField(index, "title"))}
+                              disabled={busy}
+                            />
+                          )}
+                        </FormField>
+                        <FormField label={t("dayDescription")}>
+                          {(links) => (
+                            <Textarea
+                              {...links}
+                              rows={2}
+                              {...form.register(dayField(index, "description"))}
+                              disabled={busy}
+                            />
+                          )}
+                        </FormField>
+                      </ItemContent>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label={t("removeDay", { day: index + 1 })}
+                        disabled={busy}
+                        onClick={() => {
+                          days.remove(index);
+                        }}
+                      >
+                        <Trash2Icon aria-hidden="true" />
+                      </Button>
+                    </Item>
+                  ))}
+                </ItemGroup>
+              )}
+            </AiMark>
           </CardContent>
         </Card>
 

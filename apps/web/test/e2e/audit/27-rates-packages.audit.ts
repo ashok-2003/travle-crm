@@ -212,3 +212,92 @@ test("a group trip with two seasons: its departures calendar, and the Packages l
   await expect(page.getByText("Spiti 6N7D").first()).toBeVisible();
   await shoot(page, "packages-group-list");
 });
+
+test("a sent group-trip quote with payments, and the trip's Trip details", async ({ page, agency }) => {
+  test.setTimeout(300_000);
+  await signInByEmail(page, agency.owner);
+  await saveBusinessProfile(page);
+  const packageId = await aPackage(page, "Spiti 8N9D");
+  await updatePackage(page, packageId, {
+    kind: "group",
+    roomTypes: ["double"],
+    weeklyDays: [5],
+    seatsPerDeparture: 20,
+    nights: 8,
+    startCity: "Delhi",
+    days: [
+      { title: "Delhi to Shimla and Sangla", description: "Overnight drive, breakfast on the way." },
+      { title: "Sangla to Kalpa", description: "Kinnaur sightseeing and a night in Kalpa." },
+      { title: "Kalpa to Kaza", description: "Nako lake, Tabo monastery and the Spiti valley." },
+    ],
+    inclusions: "Stay on twin sharing\nBreakfast and dinner\nTempo traveller for the whole trip",
+    exclusions: "Flights and train fares\nLunch\nPersonal expenses",
+    pickupPoints: "Delhi ISBT Kashmere Gate, 6:00 pm\nChandigarh Sector 17, 11:30 pm",
+    notes: "Carry warm clothes\nAcute mountain sickness can happen above 3,500 m",
+    cancellationNotes: "Free until 30 days before departure\n50% from 29 to 15 days\nNo refund after that",
+  });
+  await callApi(page, "packages.saveSeason", {
+    packageId,
+    label: "Regular",
+    startsOn: dayInIndia(1),
+    endsOn: dayInIndia(120),
+    prices: { single: null, double: 1_399_900, triple: null, quad: null, child_bed: null, child_no_bed: null },
+  });
+  const days = await callApi<{ departureId: string }[]>(page, "departures.calendar", {
+    packageId,
+    from: dayInIndia(8),
+    to: dayInIndia(30),
+  });
+  const departure = days[0]?.departureId;
+  if (departure === undefined) throw new Error("no weekly departure made");
+  const leadId = await aLeadFor(page, "Rahul Sharma", "+919876500402");
+  const quote = await callApi<{ id: string }>(page, "quotes.create", {
+    leadId,
+    title: "Spiti 8N9D, group departure",
+    startDate: dayInIndia(8),
+    adults: 2,
+    children: 0,
+    days: [
+      { title: "Delhi to Shimla and Sangla", description: "Overnight drive, breakfast on the way." },
+      { title: "Sangla to Kalpa", description: "Kinnaur sightseeing and a night in Kalpa." },
+      { title: "Kalpa to Kaza", description: "Nako lake, Tabo monastery and the Spiti valley." },
+    ],
+    items: [{ description: "Package per adult, twin sharing", detail: "", quantity: 2, unitPricePaise: 1_399_900 }],
+    inclusions: "Stay on twin sharing\nBreakfast and dinner\nTempo traveller for the whole trip",
+    exclusions: "Flights and train fares\nLunch\nPersonal expenses",
+    notes: "Carry warm clothes\nAcute mountain sickness can happen above 3,500 m",
+    taxRateBasisPoints: 500,
+    placeOfSupply: null,
+  });
+  await callApi(page, "departures.setQuoteDeparture", { quoteId: quote.id, departureId: departure });
+  await callApi(page, "quotes.addInstallment", {
+    quoteId: quote.id,
+    label: "Advance",
+    amountPaise: 1_500_000,
+    dueOn: dayInIndia(-2),
+  });
+  await callApi(page, "quotes.addInstallment", {
+    quoteId: quote.id,
+    label: "Balance",
+    amountPaise: 1_439_790,
+    dueOn: dayInIndia(2),
+  });
+  await callApi(page, "quotes.share", { quoteId: quote.id });
+  await callApi(page, "quotes.recordPayment", {
+    quoteId: quote.id,
+    amountPaise: 1_000_000,
+    receivedOn: dayInIndia(0),
+    method: "upi",
+    reference: "UTR55200",
+    requestId: crypto.randomUUID(),
+  });
+  await page.goto(`/quotes/${quote.id}`);
+  await expect(page.getByRole("heading", { level: 1, name: "Spiti 8N9D, group departure" })).toBeVisible();
+  await expect(page.getByText("Part paid", { exact: true })).toBeVisible();
+  await shoot(page, "quote-opened-sent");
+
+  await page.goto(`/packages/${packageId}`);
+  const details = page.getByRole("region", { name: "Trip details", exact: true });
+  await expect(details.getByText("Day 1 · Delhi to Shimla and Sangla")).toBeVisible();
+  await shoot(page, "trip-details-read", { element: details });
+});

@@ -273,7 +273,9 @@
   },
   "quote": {
     "title": "Departure",
-    "on": "On {title}, {day}",
+    "startsOn": "{weekday} {day}",
+    "seatsLeft": "{free} of {total} seats left",
+    "pickup": "Pickup",
     "onDescription": "The quote's dates are the departure's. When the traveller accepts, the booking takes the seats.",
     "add": "Add to departure",
     "change": "Change departure",

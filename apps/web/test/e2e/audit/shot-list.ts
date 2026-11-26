@@ -639,6 +639,13 @@ export const SHOTS = [
     only: "phone",
   },
   { name: "packages-group-list", screen: "The Packages list with the group trip", as: owner },
+  // The opened quote and the trip's Trip details read like each other (quotes revamp, 2026-11-27).
+  {
+    name: "quote-opened-sent",
+    screen: "A sent group-trip quote: its trip, price, day boxes, ticked inclusions, payments and green departure",
+    as: owner,
+  },
+  { name: "trip-details-read", screen: "A trip's Trip details: rows, then day boxes and point lists", as: owner },
   // The Leads list's Show (leads show spec, 2026-11-21): Home's Hot View all, and Not contacted yet on Mine.
   { name: "leads-show-hot", screen: "Leads on Show: Hot, from Home's View all, its chip first", as: owner },
   { name: "leads-show-hot-1024", screen: "Leads on Show: Hot at 1024px", as: owner, only: "desktop" },

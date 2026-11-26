@@ -37,8 +37,7 @@
       "title": "Departures"
     },
     "details": {
-      "title": "Trip details",
-      "days": "{count, plural, =0 {No days yet} one {# day} other {# days}}"
+      "title": "Trip details"
     },
     "page": {
       "title": "Page and AI",

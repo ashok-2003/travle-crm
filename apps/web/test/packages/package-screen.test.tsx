@@ -111,12 +111,15 @@ describe("PackageScreen", () => {
     expect(headerLink()).toBeUndefined();
   });
 
-  it("shows a long inclusions value in full, all six lines", async () => {
-    const six = ["a", "b", "c", "d", "e", "f"].map((x) => `Line ${x}`).join("\n");
-    await showing({ ...groupTrip, inclusions: six });
-    const value = within(screen.getByRole("region", { name: titles.details })).getByText(/Line a/);
-    expect(value.textContent).toBe(six);
-    expect(value.className).not.toContain("line-clamp");
+  it("shows a long inclusions value in full, all six lines, each a ticked point", async () => {
+    const lines = ["a", "b", "c", "d", "e", "f"].map((x) => `Line ${x}`);
+    await showing({ ...groupTrip, inclusions: lines.join("\n") });
+    const details = within(screen.getByRole("region", { name: titles.details }));
+    for (const line of lines) {
+      const point = details.getByText(line);
+      expect(point.closest("li")).not.toBeNull();
+      expect(point.className).not.toContain("line-clamp");
+    }
   });
 
   it("says the page is not live when it is published but the agency's public pages are off", async () => {

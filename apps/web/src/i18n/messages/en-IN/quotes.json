@@ -135,6 +135,10 @@
     "noInstallments": "No payment schedule. Add the advance and the balance with their dates.",
     "by": "By {day}",
     "paidBadge": "Paid",
+    "overdue": "Overdue",
+    "nothingReceived": "Nothing received yet",
+    "partPaid": "Part paid",
+    "paidInFull": "Paid in full",
     "toPay": "To pay",
     "removeInstallment": "Remove {label}",
     "received": "Payments received",
@@ -256,8 +260,6 @@
   "frozen": {
     "adults": "{count, plural, one {# adult} other {# adults}}",
     "children": "{count, plural, one {# child} other {# children}}",
-    "from": "Travel from {day}",
-    "day": "Day {day}: {title}",
     "line": "{quantity} × {price}",
     "place": "GST place of supply: {place}"
   },

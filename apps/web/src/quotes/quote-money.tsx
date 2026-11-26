@@ -15,6 +15,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
+import { useAgencyToday } from "@/packages/use-agency-today";
 import { formatCalendarDay } from "@/lib/format";
 import { useHolds } from "@/session/me-context";
 import { AddInstallmentDialog, RecordPaymentDialog } from "./money-dialogs";
@@ -28,6 +30,17 @@ export function QuoteMoney({ quote }: { quote: QuoteDetail }) {
   const open = useOpenDocument(quote.id);
   const [voiding, setVoiding] = useState<string | null>(null);
   const { totals } = quote;
+  const today = useAgencyToday();
+  // Money is read in the colours people know once the quote is out: nothing received red, part paid amber, all paid green.
+  const reading = quote.status === "sent" || quote.status === "accepted";
+  const paidState =
+    !reading || totals.totalPaise === 0
+      ? null
+      : totals.paidPaise === 0
+        ? "none"
+        : totals.balancePaise > 0
+          ? "part"
+          : "full";
   const nextDue = quote.installments.find((due) => !due.paid);
   const suggested = Math.min(totals.balancePaise, nextDue?.amountPaise ?? totals.balancePaise);
 
@@ -42,17 +55,40 @@ export function QuoteMoney({ quote }: { quote: QuoteDetail }) {
         <dl className="grid grid-cols-3 gap-3">
           {(
             [
-              ["total", totals.totalPaise],
-              ["paid", totals.paidPaise],
-              ["balance", totals.balancePaise],
+              ["total", totals.totalPaise, undefined],
+              [
+                "paid",
+                totals.paidPaise,
+                paidState === "none"
+                  ? "text-status-bad-ink"
+                  : paidState === "full"
+                    ? "text-status-good-ink"
+                    : undefined,
+              ],
+              [
+                "balance",
+                totals.balancePaise,
+                paidState === "part"
+                  ? "text-status-attention-ink"
+                  : paidState === "full"
+                    ? "text-status-good-ink"
+                    : undefined,
+              ],
             ] as const
-          ).map(([key, paise]) => (
+          ).map(([key, paise, ink]) => (
             <div key={key} className="flex flex-col">
               <dt className="text-caption text-muted-foreground">{t(key)}</dt>
-              <dd className="numbers text-section font-semibold">{rupees(paise)}</dd>
+              <dd className={cn("numbers text-section font-semibold", ink)}>{rupees(paise)}</dd>
             </div>
           ))}
         </dl>
+        {paidState !== null && (
+          <div>
+            <StatusBadge tone={paidState === "none" ? "bad" : paidState === "part" ? "attention" : "good"}>
+              {t(paidState === "none" ? "nothingReceived" : paidState === "part" ? "partPaid" : "paidInFull")}
+            </StatusBadge>
+          </div>
+        )}
         <RefusalAlert error={removeInstallment.error ?? open.error} />
 
         <Separator />
@@ -74,6 +110,8 @@ export function QuoteMoney({ quote }: { quote: QuoteDetail }) {
                   <span className="numbers">{rupees(due.amountPaise)}</span>
                   {due.paid ? (
                     <StatusBadge tone="good">{t("paidBadge")}</StatusBadge>
+                  ) : due.dueOn < today ? (
+                    <StatusBadge tone="bad">{t("overdue")}</StatusBadge>
                   ) : (
                     <StatusBadge tone="attention">{t("toPay")}</StatusBadge>
                   )}

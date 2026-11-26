@@ -3,7 +3,7 @@
 // /quotes/<id> (step 3, P0): one quote. Its status and its actions in one row (quote-actions.tsx), then its money beside
 // the form that writes it. A quote out of the member's scope is "not found", as a lead is.
 import type { QuoteDetail } from "@travel-crm/contracts/quotes";
-import { InfoIcon, SearchXIcon } from "lucide-react";
+import { SearchXIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import { toast } from "sonner";
@@ -12,10 +12,9 @@ import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
 import { BackLink, TextLink } from "@/components/text-link";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { refusalOf } from "@/data/api-error";
 import { leadRoute, quoteRoute, routes } from "@/lib/routes";
-import { formatDay } from "@/lib/format";
+import { formatCalendarDay, formatDay, formatWeekday } from "@/lib/format";
 import { useMe } from "@/session/me-context";
 import { QuoteActions } from "./quote-actions";
 import { QuoteDepartureCard } from "@/departures/quote-departure-card";
@@ -26,7 +25,7 @@ import { QuoteMoney } from "./quote-money";
 import { QuoteStatusBadge } from "./quote-status";
 import { useQuote, useQuoteChanges } from "./use-quotes";
 
-/** Why a quote that is no longer a draft can't be written, and the way on: a new version, or the one that replaced it. */
+/** Why a quote that is no longer a draft can't be written, and the way on: small, at the very bottom of the page. */
 function FrozenNotice({ quote }: { quote: QuoteDetail }) {
   const t = useTranslations("quotes.quote");
   const { timeZone } = useMe().organization;
@@ -36,22 +35,18 @@ function FrozenNotice({ quote }: { quote: QuoteDetail }) {
   if (quote.status === "accepted") {
     const when = quote.acceptedAt === null ? null : formatDay(new Date(quote.acceptedAt), { timeZone });
     return (
-      <Alert>
-        <InfoIcon aria-hidden="true" />
-        <AlertDescription>
-          {t(quote.acceptedName === null ? "acceptedSentence" : "acceptedByOn", {
-            name: quote.acceptedName ?? "",
-            when: when ?? "",
-          })}
-        </AlertDescription>
-      </Alert>
+      <p className="text-caption text-muted-foreground">
+        {t(quote.acceptedName === null ? "acceptedSentence" : "acceptedByOn", {
+          name: quote.acceptedName ?? "",
+          when: when ?? "",
+        })}
+      </p>
     );
   }
   return (
-    <Alert>
-      <InfoIcon aria-hidden="true" />
-      <AlertTitle>{replaced ? t("replacedTitle") : t("frozenTitle")}</AlertTitle>
-      <AlertDescription>
+    <div className="flex flex-col gap-1 text-caption text-muted-foreground">
+      <p className="font-medium">{replaced ? t("replacedTitle") : t("frozenTitle")}</p>
+      <p>
         {replaced ? t("replacedBody") : t("frozenBody")}
         {quote.replacedById !== null && (
           <>
@@ -61,9 +56,23 @@ function FrozenNotice({ quote }: { quote: QuoteDetail }) {
             </TextLink>
           </>
         )}
-      </AlertDescription>
-    </Alert>
+      </p>
+    </div>
   );
+}
+
+/** The trip's date with its weekday and its people, in ink: "Fri 4 Dec · 1 adult, 2 children". */
+function TripLine({ quote }: { quote: QuoteDetail }) {
+  const t = useTranslations("quotes.frozen");
+  const parts = [
+    quote.startDate === null
+      ? null
+      : `${formatWeekday(new Date(`${quote.startDate}T00:00:00Z`), { timeZone: "UTC" })} ${formatCalendarDay(quote.startDate)}`,
+    [t("adults", { count: quote.adults }), quote.children > 0 ? t("children", { count: quote.children }) : null]
+      .filter((part): part is string => part !== null)
+      .join(", "),
+  ];
+  return <p className="text-section font-medium">{parts.filter((part) => part !== null).join(" · ")}</p>;
 }
 
 export function QuoteScreen({ quoteId }: { quoteId: string }) {
@@ -78,7 +87,7 @@ export function QuoteScreen({ quoteId }: { quoteId: string }) {
           <BackLink href={leadRoute(data.leadId)} label={t("backToLead", { name: data.customerName })} />
           <PageHeader title={data.title} intro={<QuoteStatusBadge status={data.status} />} />
           <QuoteActions quote={data} />
-          <FrozenNotice quote={data} />
+          {data.status !== "draft" && <TripLine quote={data} />}
           <MarginNotice quote={data} />
           <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] xl:items-start">
             <QuoteForm
@@ -96,6 +105,7 @@ export function QuoteScreen({ quoteId }: { quoteId: string }) {
               <BookingCostsCard quoteId={data.id} />
             </div>
           </div>
+          <FrozenNotice quote={data} />
         </>
       );
     }

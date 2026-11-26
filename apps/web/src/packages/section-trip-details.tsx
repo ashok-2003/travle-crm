@@ -11,7 +11,7 @@ import { useTranslations } from "next-intl";
 import { useHolds } from "@/session/me-context";
 import { CopyNoteDialog } from "./copy-note-dialog";
 import { PackageSection, SectionForm, useSectionSave } from "./package-section";
-import { DetailsFields, useDetailsRows } from "./section-details";
+import { DetailsFields, TripPlanRead, useDetailsRows } from "./section-details";
 import { ItineraryFields, useItineraryRows } from "./section-itinerary";
 import {
   tripDetailsFieldOf,
@@ -52,6 +52,7 @@ function TripDetailsSummary({ detail }: { detail: PackageDetail }) {
   return (
     <>
       <Details rows={[...itinerary, ...details]} />
+      <TripPlanRead detail={detail} />
       {mayEdit && <CopyNoteDialog detail={detail} />}
     </>
   );
