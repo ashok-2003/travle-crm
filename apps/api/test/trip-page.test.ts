@@ -101,11 +101,16 @@ describe("the trip page", () => {
     });
 
   /** The page's words as read, without its markup. */
-  const words = (html: string) =>
-    html
-      .replace(/<(style|script)[^>]*>[\s\S]*?<\/\1>/g, "")
-      .replace(/<[^>]+>/g, "")
-      .replace(/\s+/g, " ");
+  const words = (html: string) => {
+    // Repeated until nothing changes, then any stray angle bracket dropped, so no tag can survive the stripping.
+    let text = html;
+    let before: string;
+    do {
+      before = text;
+      text = text.replace(/<(style|script)[^>]*>[\s\S]*?<\/\1>/g, "").replace(/<[^>]+>/g, "");
+    } while (text !== before);
+    return text.replace(/[<>]/g, "").replace(/\s+/g, " ");
+  };
   /** The card whose heading is `heading`. */
   const card = (html: string, heading: string) =>
     new RegExp(
