@@ -44,7 +44,7 @@ describe("the customer pages' look", () => {
   });
 
   it("types no colour in the pages' code: every one comes from the brand", () => {
-    for (const file of ["public-html.ts", "quote-page.ts", "trip-page.ts", "trip-forms.ts"]) {
+    for (const file of ["public-html.ts", "quote-page.ts", "trip-page.ts", "trip-money.ts", "trip-forms.ts"]) {
       const source = readFileSync(new URL(`../src/${file}`, import.meta.url), "utf8");
       expect(source.match(/(?<![&\w])#[0-9a-f]{3,8}\b/gi), file).toBeNull();
     }
@@ -57,6 +57,8 @@ describe("the customer pages' look", () => {
     expect(css).toMatch(/\.pill::before\{[^}]*content:""/);
     expect(css).toContain(`--good-fill:${brand.colours.status.good.fill}`);
     expect(css).toContain(`--bad-ink:${brand.colours.status.bad.ink}`);
+    // A long one in a table's narrow cell wraps rather than pushing past a 360px phone.
+    expect(css).toMatch(/td \.pill\{[^}]*white-space:normal/);
   });
 
   it("puts the page's one main action in a bar at the foot of a phone's screen, and pads the page so it covers nothing", () => {
@@ -68,6 +70,8 @@ describe("the customer pages' look", () => {
     const css = styles();
     expect(css).toMatch(/\.bar\{[^}]*position:fixed/);
     expect(css).toMatch(/\.with-bar main\{[^}]*padding-bottom/);
+    // Nor does it sit over the keyboard while the customer types.
+    expect(css).toContain("html:has(:is(input,select,textarea):focus) .bar{display:none}");
     // A desktop has the action on the page itself.
     expect(css).toMatch(/@media \(min-width:48rem\)\{[^@]*\.bar\{display:none\}/);
     expect(document({ title: "Goa", agencyName: "Sharma Holidays", body: "" })).toContain('<html lang="en">');

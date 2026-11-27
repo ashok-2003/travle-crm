@@ -41,7 +41,7 @@ export interface TripPageContext {
 const tripStyles = `
 .paid-of{margin:0}
 .dues{list-style:none;padding:0;margin:0}
-.due{display:grid;grid-template-columns:1fr auto;align-items:center;gap:.375rem 1rem;padding:.875rem 0;border-top:1px solid var(--hairline)}
+.due{display:grid;grid-template-columns:1fr auto;align-items:baseline;gap:.375rem 1rem;padding:.875rem 0;border-top:1px solid var(--hairline)}
 .due:first-child{border-top:0;padding-top:0}
 .due>.amount{justify-self:end}
 .due>.pill{justify-self:start}
@@ -227,10 +227,10 @@ export function tripPage(trip: PublicTrip, context: TripPageContext): Response {
   const cancelled = trip.status === "cancelled";
   const header = pageHeader({
     agencyName: context.agencyName,
-    for: `Booking ${escapeHtml(trip.number)} for ${escapeHtml(trip.customerName)}`,
+    forHtml: `Booking ${escapeHtml(trip.number)} for ${escapeHtml(trip.customerName)}`,
     title: trip.title,
-    when: travelling,
-    status: statusPill(trip),
+    whenHtml: travelling,
+    statusHtml: statusPill(trip),
   });
   const body = `${header}
 ${noticeOf(context)}

@@ -24,8 +24,8 @@ describe("the trip page", () => {
     await server.close();
   });
 
-  /** A confirmed booking of `total` paise for two adults, leaving in 40 days, and its link. */
-  async function aBooking(total = 100_000_00) {
+  /** A booking of `total` paise for two adults, leaving in 40 days (confirmed unless told), and its link. */
+  async function aBooking(total = 100_000_00, confirmed = true) {
     const start = dayFrom(40);
     const made = await server.db.forOrg(agency.organizationId, async (tx) => {
       const person = await tx.person.create({
@@ -58,7 +58,7 @@ describe("the trip page", () => {
       ),
     );
     if (bookingId === null) throw new Error("no booking");
-    await dataOf(await mutate(server, "bookings.confirm", { bookingId }, jar));
+    if (confirmed) await dataOf(await mutate(server, "bookings.confirm", { bookingId }, jar));
     const link = await dataOf<{ path: string }>(await mutate(server, "bookings.tripLink", { bookingId }, jar));
     return { ...made, bookingId, path: link.path };
   }
@@ -177,7 +177,12 @@ describe("the trip page", () => {
 
   it("is Confirmed before any payment and Paid in full after the last, with nothing left to pay and no bar", async () => {
     const { path, quoteId } = await aBooking(10_000_00);
-    expect(await page(path)).toContain('<span class="pill good">Confirmed</span>');
+    const unpaid = await page(path);
+    expect(unpaid).toContain('<span class="pill good">Confirmed</span>');
+    // Nothing paid yet: no "₹0 of" and no empty bar.
+    expect(unpaid).not.toContain('class="paid-of"');
+    expect(unpaid).not.toContain('class="progress"');
+    expect(card(unpaid, "Your booking")).toBe("");
     await received(quoteId, 10_000_00);
     const html = await page(path);
     expect(html).toContain('<span class="pill good">Paid in full</span>');
@@ -185,6 +190,29 @@ describe("the trip page", () => {
     expect(html).not.toContain("Next payment");
     expect(html).not.toContain("I've paid");
     expect(phoneBar(html)).toBeNull();
+  });
+
+  it("gives each due's I've paid form ids of its own, though the dues were saved together", async () => {
+    const html = await page((await aBooking()).path);
+    expect(html.match(/<summary class="button secondary">I've paid/g)).toHaveLength(2);
+    const ids = [...html.matchAll(/ id="([^"]+)"/g)].map((match) => match[1]);
+    expect(ids.length).toBeGreaterThan(8);
+    expect(ids.filter((id, index) => ids.indexOf(id) !== index)).toEqual([]);
+    // Each label names its own form's field.
+    const labels = [...html.matchAll(/<label for="([^"]+)"/g)].map((match) => match[1]);
+    expect(labels.every((id) => ids.includes(id))).toBe(true);
+  });
+
+  it("offers no Pay in a phone's bar while a payment is being verified, on the trip's page and the quote's", async () => {
+    for (const confirmed of [true, false]) {
+      const { path } = await aBooking(100_000_00, confirmed);
+      expect(phoneBar(await page(path))).toMatch(/>Pay ₹[\d,]+<\/a>$/);
+      const claimed = await post(path, { form: "claim", installment: "", amount: "1000", reference: "UTR1" });
+      expect(claimed.headers.get("location")).toContain("done=claimed");
+      const html = await page(path);
+      expect(html).toContain("Payment being verified");
+      expect(phoneBar(html)).toBeNull();
+    }
   });
 
   it("lists each traveller as a row that opens to their form, the first still needed open", async () => {

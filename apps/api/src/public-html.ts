@@ -52,9 +52,17 @@ export const progress = (part: number, whole: number) =>
 export const dayBoxes = (days: string[]) => (days.length === 0 ? "" : `<ol class="days">${days.join("")}</ol>`);
 
 /** The header both pages open with: the agency, who it is for, the trip's name big, its dates and people, its status. */
-export function pageHeader(input: { agencyName: string; for: string; title: string; when: string; status: string }) {
-  return `<header><p class="agency">${escapeHtml(input.agencyName)}</p><p>${input.for}</p><h1>${escapeHtml(input.title)}</h1>
-<p class="when">${input.when}</p>${input.status}</header>`;
+export function pageHeader(input: {
+  /** Plain text, escaped here. */
+  agencyName: string;
+  title: string;
+  /** HTML, escaped by the caller: who it is for, the dates and people, and the status pill. */
+  forHtml: string;
+  whenHtml: string;
+  statusHtml: string;
+}) {
+  return `<header><p class="agency">${escapeHtml(input.agencyName)}</p><p>${input.forHtml}</p><h1>${escapeHtml(input.title)}</h1>
+<p class="when">${input.whenHtml}</p>${input.statusHtml}</header>`;
 }
 
 /** Pay by UPI: the agency's QR once its UPI id is verified, the button that opens the customer's UPI app, and the id. */
@@ -125,7 +133,7 @@ function tokens(): string {
   const { colours } = brand;
   const tone = (name: string, colour: StatusColour) =>
     `--${name}-dot:${colour.dot};--${name}-fill:${colour.fill};--${name}-ink:${colour.ink}`;
-  return `:root{--ink:${colours.ink};--muted:${colours.muted};--canvas:${colours.canvas};--surface:${colours.surface};--hairline:${colours.hairline};--input:${colours.inputBorder};--action:${colours.action};--action-pressed:${colours.actionPressed};--action-tint:${colours.actionTint};--on-action:${colours.onAction};--money:${colours.money};--sky-fill:${colours.avatar.sky.fill};--sky-ink:${colours.avatar.sky.ink};${tone("good", colours.status.good)};${tone("attention", colours.status.attention)};${tone("bad", colours.status.bad)};${tone("neutral", colours.status.neutral)};--ui:"${brand.fonts.ui}",${SYSTEM_FONTS};--title:"${brand.fonts.title}",Georgia,"Times New Roman",serif;--numbers:"${brand.fonts.numbers}",${SYSTEM_FONTS}}`;
+  return `:root{--ink:${colours.ink};--muted:${colours.muted};--canvas:${colours.canvas};--surface:${colours.surface};--hairline:${colours.hairline};--input:${colours.inputBorder};--action:${colours.action};--action-pressed:${colours.actionPressed};--on-action:${colours.onAction};--money:${colours.money};--sky-fill:${colours.avatar.sky.fill};--sky-ink:${colours.avatar.sky.ink};${tone("good", colours.status.good)};${tone("attention", colours.status.attention)};${tone("bad", colours.status.bad)};${tone("neutral", colours.status.neutral)};--ui:"${brand.fonts.ui}",${SYSTEM_FONTS};--title:"${brand.fonts.title}",Georgia,"Times New Roman",serif;--numbers:"${brand.fonts.numbers}",${SYSTEM_FONTS}}`;
 }
 
 /** The page's stylesheet: DESIGN.md's tokens, cards, type and controls, for a 360px phone first. */
@@ -162,6 +170,7 @@ td.n .pill{margin-top:.25rem}
 ol,ul.plain{list-style:none;padding:0;margin:0}
 .pill{display:inline-flex;align-items:center;gap:.375rem;height:1.5rem;padding:0 .5rem;border-radius:4px;font-family:var(--ui);font-size:.8125rem;font-weight:500;line-height:1;white-space:nowrap;vertical-align:middle;background:var(--neutral-fill);color:var(--neutral-ink)}
 .pill::before{content:"";flex:none;width:6px;height:6px;border-radius:999px;background:var(--neutral-dot)}
+td .pill{white-space:normal;height:auto;min-height:1.5rem;padding:.25rem .5rem;line-height:1.25}
 .pill.good{background:var(--good-fill);color:var(--good-ink)}.pill.good::before{background:var(--good-dot)}
 .pill.attention{background:var(--attention-fill);color:var(--attention-ink)}.pill.attention::before{background:var(--attention-dot)}
 .pill.bad{background:var(--bad-fill);color:var(--bad-ink)}.pill.bad::before{background:var(--bad-dot)}
@@ -169,8 +178,6 @@ ol,ul.plain{list-style:none;padding:0;margin:0}
 .button:hover{background:var(--action-pressed);border-color:var(--action-pressed)}
 .button.secondary{background:var(--canvas);border-color:var(--input);color:var(--ink)}
 .button.secondary:hover{background:var(--surface)}
-.button.quiet{background:transparent;border-color:transparent;color:var(--action)}
-.button.quiet:hover{background:var(--action-tint)}
 .row{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-top:.75rem}
 .notice{background:var(--good-fill);border-color:var(--good-fill);color:var(--good-ink)}
 .notice.bad{background:var(--bad-fill);border-color:var(--bad-fill);color:var(--bad-ink)}
@@ -212,6 +219,7 @@ input[type=file]::file-selector-button{min-height:44px;margin-right:.75rem;paddi
 .bar{position:fixed;left:0;right:0;bottom:0;z-index:10;background:var(--canvas);border-top:1px solid var(--hairline);padding:.75rem 1rem calc(.75rem + env(safe-area-inset-bottom))}
 .bar .button{width:100%}
 .with-bar main{padding-bottom:6.5rem}
+html:has(:is(input,select,textarea):focus) .bar{display:none}
 html.with-bar{scroll-padding-bottom:5.5rem}
 @media (min-width:48rem){
 main{padding:3rem 1.5rem 4rem}

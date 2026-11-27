@@ -8,13 +8,14 @@ import { afterAll, describe, expect, it } from "vitest";
 import { copyCustomerFonts } from "../scripts/customer-fonts.js";
 
 describe("the customer pages' fonts", () => {
-  let target = "";
+  let folder = "";
   afterAll(async () => {
-    if (target !== "") await rm(target, { recursive: true, force: true });
+    if (folder !== "") await rm(folder, { recursive: true, force: true });
   });
 
   it("copies each font file the api's pages name at /fonts, and only those", async () => {
-    target = path.join(await mkdtemp(path.join(tmpdir(), "customer-fonts-")), "fonts");
+    folder = await mkdtemp(path.join(tmpdir(), "customer-fonts-"));
+    const target = path.join(folder, "fonts");
     const copied = await copyCustomerFonts(target);
     const pages = await readFile(path.resolve(import.meta.dirname, "../../api/src/public-html.ts"), "utf8");
     const named = [...new Set(pages.match(/[a-z0-9-]+\.woff2/g) ?? [])].sort();

@@ -120,7 +120,7 @@ export async function publicTripOf(tx: OrgTx, quoteId: string, now: Date): Promi
         select: { id: true, fileName: true },
       }),
     ]);
-  const timeZone = await organizationTimeZone(tx, booking.organizationId);
+  const today = calendarDateIn(now, await organizationTimeZone(tx, booking.organizationId));
   const cutoff = await detailsCutoffOf(tx, booking);
   const total = booking.status === "cancelled" ? Number(booking.chargePaise ?? 0n) : Number(booking.quote.totalPaise);
   const balancePaise = Math.max(0, total - paidPaise);
@@ -209,7 +209,7 @@ export async function publicTripOf(tx: OrgTx, quoteId: string, now: Date): Promi
     })),
     level: booking.level as TravellerLevel,
     onDeparture: booking.departureId !== null,
-    detailsLocked: booking.status === "completed" || (cutoff !== null && calendarDateIn(now, timeZone) > cutoff),
+    detailsLocked: booking.status === "completed" || (cutoff !== null && today > cutoff),
     detailsCutoffOn: cutoff,
     essentials: {
       reportingTime: booking.reportingTime,
@@ -230,7 +230,7 @@ export async function publicTripOf(tx: OrgTx, quoteId: string, now: Date): Promi
       sent: feedback > 0,
       googleReviewUrl: settings.googleReviewUrl,
     },
-    today: calendarDateIn(now, timeZone),
+    today,
   };
 }
 

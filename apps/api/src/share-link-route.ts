@@ -5,6 +5,8 @@ import { brand } from "@travel-crm/brand";
 import { DomainError } from "@travel-crm/domain/kernel";
 import type { OpenedShareLink, ShareLinkVisitor } from "@travel-crm/domain/share-links";
 import { Hono, type Context } from "hono";
+// The device's own fonts: these small pages load nothing (`default-src 'none'`), not even the brand's from /fonts.
+import { SYSTEM_FONTS } from "./public-html.js";
 
 /**
  * Shows a shared record of one type, e.g. redirects to an issued document's PDF. `view` says where the page lives and
@@ -117,12 +119,6 @@ const NOT_READY_RETRY_SECONDS = 30;
 type PageReason = keyof typeof pages;
 
 const isPageReason = (reason: string): reason is PageReason => Object.hasOwn(pages, reason);
-
-/**
- * The device's own fonts: the page's policy loads nothing (`default-src 'none'`), so a brand font named here would
- * only ever fall back to a serif or sans the page didn't choose.
- */
-const SYSTEM_FONTS = 'system-ui,-apple-system,"Segoe UI",Roboto,sans-serif';
 
 /** Text content needs only these escaped. */
 const escapeHtml = (text: string) => text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");

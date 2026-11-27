@@ -172,9 +172,9 @@ describe("the customer's quote page", () => {
     expect(html).toContain("<li>-5% early bird</li>");
     expect(html).toContain("<li>Breakfast</li>");
     const cross = /ul\.crosses li::before\{([^}]*)\}/.exec(html)?.[1] ?? "";
-    expect(cross).toContain(`color:${brand.colours.muted}`);
-    expect(cross).not.toContain(brand.colours.status.bad.ink);
-    expect(cross).not.toContain(brand.colours.status.bad.fill);
+    expect(cross).toContain("color:var(--muted)");
+    expect(html).toContain(`--muted:${brand.colours.muted}`);
+    expect(cross).not.toContain("--bad");
   });
 
   it("shows no GST row on a quote without tax", async () => {

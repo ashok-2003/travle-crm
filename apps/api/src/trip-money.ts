@@ -34,7 +34,7 @@ export function statusPill(trip: PublicTrip): string {
   return trip.paidPaise > 0 ? pill("attention", "Part paid") : pill("good", "Confirmed");
 }
 
-/** What is paid of the total, with a bar, and the payments being checked; a cancelled booking says so instead. */
+/** What is paid of the total, with a bar, once something is, and the payments being checked; a cancelled booking says so. */
 export function standing(trip: PublicTrip): string {
   if (trip.status === "cancelled") {
     return trip.cancellation === null
@@ -49,8 +49,9 @@ export function standing(trip: PublicTrip): string {
     pending === 0
       ? ""
       : `<p class="row">${pill("attention", "Payment being verified")}</p><p class="hint">${pending === 1 ? "Your payment" : "Your payments"} will be marked received once your agent has checked.</p>`;
+  // Nothing paid yet: no "₹0 of" and no empty bar.
   const paid =
-    trip.totalPaise === 0
+    trip.paidPaise === 0 || trip.totalPaise === 0
       ? ""
       : `<p class="paid-of"><span class="amount money">${wholeRupees(trip.paidPaise)}</span> of ${amount(trip.totalPaise)} paid</p>${progress(trip.paidPaise, trip.totalPaise)}`;
   return card("Your booking", `${paid}${verifying}`);
@@ -78,9 +79,9 @@ export function nextPayment(trip: PublicTrip, agencyName: string): string {
   return card("Next payment", `<p class="total">${wholeRupees(trip.payPaise)}</p>${when}${upi}${bank}`);
 }
 
-/** A phone's bar pays the next payment by UPI while one is due. */
+/** A phone's bar pays the next payment by UPI while one is due, and none is being verified (that would invite a second). */
 export const payBar = (trip: PublicTrip) =>
-  owing(trip) && trip.payLink !== null
+  owing(trip) && trip.payLink !== null && !trip.claims.some((claim) => claim.status === "pending")
     ? bottomBar({ href: trip.payLink, words: `Pay ${wholeRupees(trip.payPaise)}` })
     : "";
 
@@ -105,7 +106,7 @@ export function payments(trip: PublicTrip, talk: string): string {
         due.paid || trip.status !== "confirmed"
           ? ""
           : claimForm({
-              key: due.id.slice(0, 8),
+              key: due.id,
               label: "I've paid",
               about: due.label,
               installmentId: due.id,

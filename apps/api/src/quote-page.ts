@@ -2,7 +2,6 @@
 // plan, the price with GST, what is due and when, a button that opens their UPI app to pay the agency, Accept with their
 // name, and WhatsApp us (the agency's main WhatsApp number). Plain HTML in the app's look (public-html.ts) and no
 // script; the only form posts back to the same link. On a phone, a bar at the foot holds Accept quote, then Pay.
-import { brand } from "@travel-crm/brand";
 import { pointsOf } from "@travel-crm/contracts/quotes";
 import type { PublicTrip } from "@travel-crm/domain/bookings";
 import { formatDayWithYear, parseCalendarDate } from "@travel-crm/domain/kernel";
@@ -48,14 +47,12 @@ const list = (className: string, text: string) =>
     .map((point) => `<li>${escapeHtml(point)}</li>`)
     .join("")}</ul>`;
 
-const { colours } = brand;
-
 /** The quote's own parts: inclusions ticked in green, exclusions crossed in plain muted ink, the small print. */
 const quoteStyles = `
 ul.ticks,ul.crosses{list-style:none;padding:0;margin:0}
 ul.ticks li,ul.crosses li{display:flex;gap:.6rem;margin:0 0 .5rem}
-ul.ticks li::before{content:"\\2713";color:${colours.status.good.ink};background:${colours.status.good.fill};font-weight:700;border-radius:999px;flex:none;width:1.4rem;height:1.4rem;line-height:1.4rem;text-align:center}
-ul.crosses li::before{content:"\\2715";color:${colours.muted};font-weight:700;flex:none;width:1.4rem;height:1.4rem;line-height:1.4rem;text-align:center}
+ul.ticks li::before{content:"\\2713";color:var(--good-ink);background:var(--good-fill);font-weight:700;border-radius:999px;flex:none;width:1.4rem;height:1.4rem;line-height:1.4rem;text-align:center}
+ul.crosses li::before{content:"\\2715";color:var(--muted);font-weight:700;flex:none;width:1.4rem;height:1.4rem;line-height:1.4rem;text-align:center}
 ul.points{margin:0;padding-left:1.2rem}ul.points li{margin-bottom:.375rem}
 .lines{margin-bottom:.25rem}
 .paid,.dues{margin-top:1rem;border-top:1px solid var(--hairline)}
@@ -144,10 +141,10 @@ export function quotePage(
     .join(" · ");
   const header = pageHeader({
     agencyName,
-    for: `To: ${escapeHtml(quote.customerName)}`,
+    forHtml: `To: ${escapeHtml(quote.customerName)}`,
     title: quote.title,
-    when,
-    status: statusPill(quote),
+    whenHtml: when,
+    statusHtml: statusPill(quote),
   });
   const body = `${header}
 ${notice === "accepted" ? `<section class="notice"><h2>Thank you, your acceptance is recorded</h2></section>` : ""}
@@ -163,11 +160,12 @@ ${card("Notes", pointsOf(quote.notes).length === 0 ? "" : list("points", quote.n
 ${card("Terms", quote.terms === "" ? "" : `<p>${paragraphs(quote.terms)}</p>`, ' id="terms"')}
 ${card("Questions?", extras.whatsapp === null ? "" : `<div class="row">${whatsappUs(extras.whatsapp)}</div>`)}
 ${accepted || quote.status === "declined" ? "" : smallPrint}`;
-  // The phone's one main action: accept while the quote is open, then pay what is due.
+  // The phone's one main action: accept while the quote is open, then pay what is due, unless a payment the customer
+  // told us about is still being verified (Pay there would invite a second one).
   const bar =
     quote.status === "sent"
       ? bottomBar({ href: "#accept", words: "Accept quote" })
-      : accepted && owing && quote.payLink !== null
+      : accepted && owing && quote.payLink !== null && pendingClaims.length === 0
         ? bottomBar({ href: quote.payLink, words: `Pay ${wholeRupees(quote.payPaise)}` })
         : "";
   const nonce = randomBytes(16).toString("base64url");
