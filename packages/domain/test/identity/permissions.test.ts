@@ -21,6 +21,7 @@ describe("permission catalog", () => {
         "staff",
         "roles",
         "settings",
+        "billing",
         "audit",
         "money",
         "documents",

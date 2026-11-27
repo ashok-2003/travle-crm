@@ -1,24 +1,19 @@
 "use client";
 
-// Plans on tablets and wider (DESIGN.md section 6): a table, prices and limits mono and right-aligned, an extra seat's
-// price under its cycle's. Everything stays on one line but the modules, which wrap. Super admins get each plan's
-// actions.
+// Plans on tablets and wider (DESIGN.md section 6): a table whose Price cell lists each way the plan is sold (an extra
+// seat's price under its cycle's) and whose Includes cell lists its limits, so it fits the console's width without a
+// sideways scroll. Super admins get each plan's actions.
 import type { PlanSummary } from "@travel-crm/contracts/subscriptions";
 import { useTranslations } from "next-intl";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PlanActions } from "./plan-actions";
 import { PlanStatusBadge, usePlanFigures } from "./plan-figures";
 
-function Price({ price, sold, extraSeat }: { price: string; sold: boolean; extraSeat: string | null }) {
-  const t = useTranslations("consolePlatform.plans");
+function Figure({ label, value }: { label: string; value: string }) {
   return (
-    <span className="flex flex-col items-end whitespace-nowrap">
-      <span className={sold ? "numbers" : "text-muted-foreground"}>{price}</span>
-      {extraSeat !== null && (
-        <span className="text-caption text-muted-foreground">
-          {t("extraSeat")} <span className="numbers">{extraSeat}</span>
-        </span>
-      )}
+    <span className="flex justify-between gap-4 whitespace-nowrap">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="numbers">{value}</span>
     </span>
   );
 }
@@ -32,27 +27,8 @@ export function PlansTable({ plans, editable }: { plans: PlanSummary[]; editable
         <TableRow className="whitespace-nowrap">
           <TableHead scope="col">{t("columns.plan")}</TableHead>
           <TableHead scope="col">{t("columns.status")}</TableHead>
-          <TableHead scope="col" className="text-right">
-            {t("columns.monthly")}
-          </TableHead>
-          <TableHead scope="col" className="text-right">
-            {t("columns.quarterly")}
-          </TableHead>
-          <TableHead scope="col" className="text-right">
-            {t("columns.yearly")}
-          </TableHead>
-          <TableHead scope="col" className="text-right">
-            {t("columns.aiCredits")}
-          </TableHead>
-          <TableHead scope="col" className="text-right">
-            {t("columns.seats")}
-          </TableHead>
-          <TableHead scope="col" className="text-right">
-            {t("columns.whatsappNumbers")}
-          </TableHead>
-          <TableHead scope="col" className="text-right">
-            {t("columns.storage")}
-          </TableHead>
+          <TableHead scope="col">{t("columns.price")}</TableHead>
+          <TableHead scope="col">{t("columns.includes")}</TableHead>
           <TableHead scope="col">{t("columns.modules")}</TableHead>
           {editable && (
             <TableHead scope="col">
@@ -64,8 +40,28 @@ export function PlansTable({ plans, editable }: { plans: PlanSummary[]; editable
       <TableBody>
         {plans.map((plan) => {
           const figures = figuresOf(plan);
+          const prices = [
+            {
+              key: "monthly",
+              sold: plan.monthlyPricePaise !== null,
+              price: figures.monthly,
+              seat: figures.extraSeatMonthly,
+            },
+            {
+              key: "quarterly",
+              sold: plan.quarterlyPricePaise !== null,
+              price: figures.quarterly,
+              seat: figures.extraSeatQuarterly,
+            },
+            {
+              key: "yearly",
+              sold: plan.yearlyPricePaise !== null,
+              price: figures.yearly,
+              seat: figures.extraSeatYearly,
+            },
+          ] as const;
           return (
-            <TableRow key={plan.id} className="whitespace-nowrap">
+            <TableRow key={plan.id} className="align-top">
               <TableCell>
                 <span className="flex flex-col py-1">
                   <span className="font-medium script-leading">{plan.name}</span>
@@ -75,32 +71,27 @@ export function PlansTable({ plans, editable }: { plans: PlanSummary[]; editable
               <TableCell>
                 <PlanStatusBadge plan={plan} />
               </TableCell>
-              <TableCell className="text-right">
-                <Price
-                  price={figures.monthly}
-                  sold={plan.monthlyPricePaise !== null}
-                  extraSeat={figures.extraSeatMonthly}
-                />
+              <TableCell>
+                <span className="flex flex-col gap-1 py-1">
+                  {prices
+                    .filter((price) => price.sold)
+                    .map((price) => (
+                      <span key={price.key} className="flex flex-col">
+                        <Figure label={t(`columns.${price.key}`)} value={price.price} />
+                        {price.seat !== null && <Figure label={t("extraSeat")} value={price.seat} />}
+                      </span>
+                    ))}
+                </span>
               </TableCell>
-              <TableCell className="text-right">
-                <Price
-                  price={figures.quarterly}
-                  sold={plan.quarterlyPricePaise !== null}
-                  extraSeat={figures.extraSeatQuarterly}
-                />
+              <TableCell>
+                <span className="flex flex-col gap-1 py-1">
+                  <Figure label={t("columns.seats")} value={figures.seats} />
+                  <Figure label={t("columns.whatsappNumbers")} value={figures.whatsappNumbers} />
+                  <Figure label={t("columns.aiCredits")} value={figures.aiCredits} />
+                  <Figure label={t("columns.storage")} value={figures.storage} />
+                </span>
               </TableCell>
-              <TableCell className="text-right">
-                <Price
-                  price={figures.yearly}
-                  sold={plan.yearlyPricePaise !== null}
-                  extraSeat={figures.extraSeatYearly}
-                />
-              </TableCell>
-              <TableCell className="numbers text-right">{figures.aiCredits}</TableCell>
-              <TableCell className="numbers text-right">{figures.seats}</TableCell>
-              <TableCell className="numbers text-right">{figures.whatsappNumbers}</TableCell>
-              <TableCell className="numbers text-right">{figures.storage}</TableCell>
-              <TableCell className="whitespace-normal">{figures.modules}</TableCell>
+              <TableCell>{figures.modules}</TableCell>
               {editable && (
                 <TableCell className="text-right">
                   <PlanActions plan={plan} />
