@@ -19,6 +19,7 @@ import {
   cancelBookingInput,
   cancelPreview,
   confirmBookingInput,
+  createBookingInput,
   confirmClaimInput,
   issuedDocumentRef,
   leadBooking,
@@ -49,6 +50,7 @@ import {
   cancelBooking,
   confirmBooking,
   confirmClaim,
+  createBookingDirect,
   findBookingInScope,
   getBooking,
   issueVoucher,
@@ -83,12 +85,14 @@ import type { Context } from "../context.js";
 import { salespeopleFor, withOwnerNames } from "../table-people.js";
 import { freshProcedure, orgProcedure } from "../procedures.js";
 import { router } from "../trpc.js";
-import { documentContext } from "./quotes.js";
+import { documentContext, quoteContext } from "./quotes.js";
 
 const viewer = orgProcedure.requires("bookings:view");
 const editor = orgProcedure.requires("bookings:view", "bookings:edit");
 // What takes a document number or changes a booking's money is read from the database, never the five-minute session cache.
 const freshEditor = freshProcedure.requires("bookings:view", "bookings:edit");
+// A new booking makes the quote as well as the booking.
+const bookingMaker = freshProcedure.requires("bookings:view", "bookings:edit", "quotes:edit");
 const paymentChecker = freshProcedure.requires("bookings:view", "quotes:record_payments");
 
 type BookingContext = Pick<Context, "db" | "files" | "identity" | "profiles" | "appUrl"> & { member: MemberAccess };
@@ -414,6 +418,17 @@ export const bookingsRouter = router({
         ),
       ),
     ),
+
+  create: bookingMaker
+    .input(createBookingInput)
+    .output(z.object({ bookingId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const context = await quoteContext(ctx);
+      const bookingId = await ctx.db.forOrg(ctx.member.organizationId, (tx) =>
+        createBookingDirect(tx, ctx.member, input, context),
+      );
+      return { bookingId };
+    }),
 
   cancel: freshEditor
     .input(cancelBookingInput)

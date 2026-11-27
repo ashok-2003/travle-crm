@@ -7,7 +7,7 @@ import { recordId } from "../identity/fields.js";
 import { calendarDate, sortDirection, tablePage, tablePageSize } from "../kernel/index.js";
 import { departureRef } from "../departures/departures.js";
 import { roomRequest } from "../departures/rooming.js";
-import { installment, payment } from "../quotes/quotes.js";
+import { installment, payment, quoteTaxRate } from "../quotes/quotes.js";
 
 export const bookingStatuses = ["requested", "confirmed", "cancelled", "completed"] as const;
 export const bookingStatus = z.enum(bookingStatuses);
@@ -55,6 +55,19 @@ const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use a time like 06:3
 
 export const bookingIdInput = z.strictObject({ bookingId: recordId });
 export type BookingIdInput = z.infer<typeof bookingIdInput>;
+/** A booking a member makes in one step: the quote (accepted at once) and the confirmed booking. The total is what the customer pays, tax included. */
+export const createBookingInput = z.strictObject({
+  leadId: recordId,
+  packageId: recordId.nullable(),
+  departureId: recordId.nullable(),
+  title: text(120).min(1),
+  startDate: calendarDate.nullable(),
+  adults: z.int().min(1).max(500),
+  children: z.int().min(0).max(500),
+  totalPaise: paise.min(1),
+  taxRateBasisPoints: quoteTaxRate,
+});
+export type CreateBookingInput = z.infer<typeof createBookingInput>;
 export const leadBookingsInput = z.strictObject({ leadId: recordId });
 
 /** A booking's money at the agency's today: paid in full, part paid, nothing received, or a payment due overdue. */

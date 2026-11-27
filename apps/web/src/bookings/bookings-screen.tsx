@@ -9,7 +9,7 @@
 // many bookings are shown, so screen readers hear each answer.
 import { bookingTablePageInput } from "@travel-crm/contracts/bookings";
 import { TABLE_PAGE_SIZES } from "@travel-crm/contracts/kernel";
-import { BriefcaseBusinessIcon, SearchXIcon } from "lucide-react";
+import { BriefcaseBusinessIcon, PlusIcon, SearchXIcon } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
@@ -23,7 +23,8 @@ import { PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { formatCount } from "@/lib/format";
 import { bookingRoute } from "@/lib/routes";
-import { useMe, viewScope } from "@/session/me-context";
+import { useHolds, useMe, viewScope } from "@/session/me-context";
+import { NewBookingDialog } from "./new-booking-dialog";
 import { BookingsFilters, useAppliedChips, type BookingFilters } from "./bookings-filters";
 import { useBookingColumns, useStackedBooking } from "./bookings-table";
 import { BookingExportButton } from "./export/booking-export-button";
@@ -52,6 +53,12 @@ export function BookingsScreen() {
   // Clear filters empties the search box too, by giving it a fresh start.
   const [searchBox, setSearchBox] = useState(0);
   const filtersButton = useRef<HTMLButtonElement>(null);
+  const newButton = useRef<HTMLButtonElement>(null);
+  const [choosing, setChoosing] = useState(false);
+  // A booking makes its quote too: both permissions, as the api asks.
+  const mayEdit = useHolds("bookings:edit");
+  const mayQuote = useHolds("quotes:edit");
+  const mayCreate = mayEdit && mayQuote;
   const total = list.data?.total ?? 0;
   const settled = list.data !== undefined && !list.isPlaceholderData;
   const { range, show, go, resize } = useTablePlace(address, bookingsHref, TABLE_PAGE_SIZES, { total, settled });
@@ -141,7 +148,26 @@ export function BookingsScreen() {
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title={t("title")} intro={t("intro")} />
+      <PageHeader
+        title={t("title")}
+        intro={t("intro")}
+        action={
+          mayCreate && (
+            <>
+              <Button
+                ref={newButton}
+                onClick={() => {
+                  setChoosing(true);
+                }}
+              >
+                <PlusIcon aria-hidden="true" />
+                {t("new")}
+              </Button>
+              <NewBookingDialog open={choosing} onOpenChange={setChoosing} returnFocusTo={newButton} />
+            </>
+          )
+        }
+      />
       <DataTable
         label={t("bookings")}
         columns={columns}

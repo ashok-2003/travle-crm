@@ -75,6 +75,7 @@ export function useBookingChanges() {
   const refresh = useRefreshBookings();
   const options = { onSuccess: refresh };
   return {
+    create: useMutation(trpc.bookings.create.mutationOptions(options)),
     confirm: useMutation(trpc.bookings.confirm.mutationOptions(options)),
     saveSchedule: useMutation(trpc.bookings.saveSchedule.mutationOptions(options)),
     saveEssentials: useMutation(trpc.bookings.saveEssentials.mutationOptions(options)),

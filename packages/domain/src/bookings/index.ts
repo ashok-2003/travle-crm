@@ -13,6 +13,7 @@ export {
 } from "./claims.js";
 export { confirmAiPayment, refuseAiPayment, type PaymentRefusalReason } from "./ai-payments.js";
 export { linkAiBooking, travellersOf, type AiBookingFacts } from "./from-ai.js";
+export { createBookingDirect } from "./create-direct.js";
 export { confirmBooking, confirmBookingAs, defaultSchedule, offeredSchedule, saveSchedule } from "./confirm.js";
 export { recordTripUpdatesConsentByStaff, setRemindersPaused } from "./controls.js";
 export {

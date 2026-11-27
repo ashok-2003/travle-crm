@@ -68,7 +68,29 @@
     "loading": "Loading bookings",
     "empty": "No bookings yet. A booking appears here when a customer accepts a quote.",
     "emptyFiltered": "No bookings match. Try another search or fewer filters.",
-    "clearFilters": "Clear filters"
+    "clearFilters": "Clear filters",
+    "new": "New booking",
+    "newBooking": {
+      "title": "New booking",
+      "description": "Makes the quote and the confirmed booking in one step, for a customer who has already said yes. Choose the lead first.",
+      "change": "Change",
+      "loadFailed": "That lead didn't load.",
+      "trip": "Trip",
+      "custom": "A trip of my own",
+      "departure": "Departure",
+      "departureNone": "Choose a departure",
+      "tripTitle": "Trip name",
+      "startDate": "Travel date",
+      "adults": "Adults",
+      "children": "Children",
+      "total": "Total the customer pays",
+      "totalHint": "GST included. Payments due are made from your usual advance and balance.",
+      "tax": "GST on the quote",
+      "taxNone": "No GST",
+      "problem": "Check the fields marked in red.",
+      "submit": "Create booking",
+      "submitting": "Creating booking"
+    }
   },
   "booking": {
     "title": "Booking",
