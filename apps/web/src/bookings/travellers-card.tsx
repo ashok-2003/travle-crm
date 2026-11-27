@@ -36,8 +36,8 @@ export function TravellersCard({ booking }: { booking: BookingDetail }) {
   const menuButton = useRef<HTMLButtonElement>(null);
   return (
     <SectionCard title={t("heading")} anchor="travellers">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="min-w-0">
           <span className="font-semibold">
             {t.rich("progress", {
               done: booking.travellersComplete,
@@ -53,7 +53,7 @@ export function TravellersCard({ booking }: { booking: BookingDetail }) {
           )}
         </p>
         {mayEdit && (
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <FillTravellersWithAi booking={booking} />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
