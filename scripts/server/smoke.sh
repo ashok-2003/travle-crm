@@ -12,15 +12,21 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 source scripts/docker/support.sh
 
-app="${1:?Usage: smoke.sh https://<host> [--local]}"
+app="${1:?Usage: smoke.sh https://<host> [--local] [--quick]}"
 host="${app#https://}"
 role="${SERVER_ROLE:-all}"
 origin="${ORIGIN:-$app}"
 # Extra curl arguments for every request.
 curl_options=(--connect-timeout 10)
-if [ "${2:-}" = "--local" ]; then
-  curl_options+=(--resolve "$host:443:127.0.0.1" --resolve "$host:80:127.0.0.1")
-fi
+quick=""
+for option in "${@:2}"; do
+  case "$option" in
+    --local) curl_options+=(--resolve "$host:443:127.0.0.1" --resolve "$host:80:127.0.0.1") ;;
+    # A deploy's check (deploy.sh): https and the health check only.
+    --quick) quick="yes" ;;
+    *) fail "unknown option $option" ;;
+  esac
+done
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
@@ -31,6 +37,10 @@ else
   expect_status "http://$host/health" 308 "${curl_options[@]}"
 fi
 expect_status "${HEALTH_URL:-$app/health}" 200 "${curl_options[@]}"
+if [ -n "$quick" ]; then
+  echo "The live product answers (the whole check: smoke.sh without --quick)."
+  exit 0
+fi
 
 echo "Routes, as docs/deploy-checklist.md has them"
 case "$role" in
