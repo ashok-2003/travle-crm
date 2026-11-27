@@ -3,6 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { gstinCheckCharacter } from "@travel-crm/contracts/kernel";
 import {
+  billingImageUploadLinkInput,
   createInvoiceInput,
   setBillingDetailsInput,
   type CreateInvoiceInput,
@@ -12,6 +13,8 @@ import { createPlatformClient, type PlatformClient } from "@travel-crm/db/platfo
 import type { PlatformInvoiceData } from "@travel-crm/integrations/pdf";
 import { afterAll, beforeAll, beforeEach, describe, expect, inject, it } from "vitest";
 import {
+  billingImageLink,
+  billingImageUploadLink,
   cancelInvoice,
   createInvoice,
   getBillingDetails,
@@ -23,6 +26,10 @@ import {
   type PlatformServices,
 } from "../../src/platform/index.js";
 import { createTestPlatform, type TestPlatform } from "./test-platform.js";
+import { testPng } from "./test-png.js";
+
+const imageKey = (kind: "logo" | "signature", extension = "png") =>
+  `platform/billing/${kind}-${randomUUID()}.${extension}`;
 
 const staff = { userId: "0199e7a0-0000-7000-8000-00000000a0a1" };
 
@@ -58,7 +65,7 @@ function invoice(overrides: Partial<CreateInvoiceInput> = {}): CreateInvoiceInpu
     kind: "proforma",
     issuedOn: `${String(year)}-06-15`,
     billTo: { name: "Acme Holidays" },
-    lines: [{ description: "Starter plan, 3 months", amountPaise: 1_000_000 }],
+    lines: [{ description: "Starter plan, 3 months", quantity: 1, ratePaise: 1_000_000 }],
     gstRateBasisPoints: 0,
     ...overrides,
   };
@@ -200,7 +207,7 @@ describe("platform invoices", () => {
       totalInWords: "Rupees Ten Thousand Only",
       payment: null,
       notes: "Thanks",
-      signatory: "For Test Firm",
+      signatory: { firm: "Test Firm" },
       seller: { name: "Test Firm" },
       totals: [
         { label: "Subtotal", amount: "₹10,000.00" },
@@ -208,7 +215,10 @@ describe("platform invoices", () => {
       ],
     });
     expect(data?.dueOn).toMatch(/22 Jun/);
-    expect(data?.seller.lines).toEqual(["1 Test Street, Testville", "State: Karnataka (29)"]);
+    expect(data?.seller.lines).toEqual(["1 Test Street, Testville"]);
+    expect(data?.seller.stateLine).toBe("Karnataka (State code: 29)");
+    expect(data?.billTo.stateLine).toBeUndefined();
+    expect(data?.footer).toBe("Test Firm · 1 Test Street, Testville");
   });
 
   it("titles a proforma 'Proforma Invoice' and an invoice with GST 'Tax Invoice', with the payment box", async () => {
@@ -219,11 +229,11 @@ describe("platform invoices", () => {
       invoice({ kind: "invoice", gstRateBasisPoints: 1800, billTo: { name: "A", stateCode: "29" } }),
     );
     expect(rendered.map((data) => data.title)).toEqual(["Proforma Invoice", "Tax Invoice"]);
-    expect(rendered[1]?.payment?.lines).toEqual([
-      "Account name: Test Firm",
-      "Account number: 000011112222",
-      "IFSC: TEST0000001",
-      "UPI: test@upi",
+    expect(rendered[1]?.payment?.rows).toEqual([
+      { label: "Account name", value: "Test Firm" },
+      { label: "Account number", value: "000011112222" },
+      { label: "IFSC", value: "TEST0000001" },
+      { label: "UPI ID", value: "test@upi" },
     ]);
     expect(rendered[1]?.totals.map((total) => total.label)).toEqual(["Subtotal", "CGST 9%", "SGST 9%", "Total"]);
   });
@@ -316,8 +326,18 @@ describe("platform invoices", () => {
     const parsed = (overrides: Partial<CreateInvoiceInput>) => createInvoiceInput.safeParse(invoice(overrides));
     expect(parsed({ dueOn: `${String(year)}-06-14` }).success).toBe(false);
     expect(parsed({ dueOn: `${String(year)}-06-15` }).success).toBe(true);
-    expect(parsed({ lines: [{ description: "x", amountPaise: 1_000_000_001 }] }).success).toBe(false);
-    expect(parsed({ lines: [{ description: "x", amountPaise: 1_000_000_000 }] }).success).toBe(true);
+    expect(parsed({ lines: [{ description: "x", quantity: 1, ratePaise: 1_000_000_001 }] }).success).toBe(false);
+    expect(parsed({ lines: [{ description: "x", quantity: 1, ratePaise: 1_000_000_000 }] }).success).toBe(true);
+    // The cap is on the amount: 2 × ₹10 crore is refused.
+    expect(parsed({ lines: [{ description: "x", quantity: 2, ratePaise: 1_000_000_000 }] }).success).toBe(false);
+  });
+
+  it("takes a quantity of 1 to 999 and a rate of at least 1 paise", () => {
+    const parsed = (quantity: number, ratePaise: number) =>
+      createInvoiceInput.safeParse(invoice({ lines: [{ description: "x", quantity, ratePaise }] })).success;
+    expect([parsed(1, 1), parsed(999, 100), parsed(0, 100), parsed(1000, 100), parsed(1.5, 100), parsed(1, 0)]).toEqual(
+      [true, true, false, false, false, false],
+    );
   });
 
   it("answers two cancels at once with one cancel and one ALREADY_CANCELLED", async () => {
@@ -359,5 +379,134 @@ describe("platform invoices", () => {
     expect(created?.after).toEqual({ number: made.number, kind: "proforma", totalPaise: 1_000_000 });
     const cancelled = log.entries.find((entry) => entry.targetId === made.id && entry.action === "invoice.cancelled");
     expect(cancelled?.after).toEqual({ status: "cancelled", number: made.number });
+  });
+  it("saves a stored PNG as the logo, with the signatory, shows it, and gives its bytes to the renderer", async () => {
+    const [logoKey, signatureKey] = [imageKey("logo"), imageKey("signature")];
+    const [logo, signature] = [testPng(16, 16), testPng(32, 12)];
+    await test.storage.put({ key: logoKey, contentType: "image/png", body: logo });
+    await test.storage.put({ key: signatureKey, contentType: "image/png", body: signature });
+    const saved = await setBillingDetails(
+      services,
+      staff,
+      billing({ logoKey, signatureKey, signatoryName: "Test Person", signatoryTitle: "Proprietor" }),
+    );
+    expect(await getBillingDetails(services)).toEqual(saved);
+    expect((await billingImageLink(services, saved, "logo"))?.url).toContain(encodeURIComponent(logoKey));
+    await create(services, staff, invoice({ billTo: { name: "A", stateCode: "08" } }));
+    expect(rendered[0]).toMatchObject({
+      logo: { data: logo, contentType: "image/png" },
+      signature: { data: signature, contentType: "image/png" },
+      signatory: { firm: "Test Firm", name: "Test Person", title: "Proprietor" },
+      seller: { stateLine: "Karnataka (State code: 29)" },
+      billTo: { stateLine: "Rajasthan (State code: 08)" },
+    });
+    // Without them the renderer is given none.
+    await setBillingDetails(services, staff, billing());
+    await create(services, staff, invoice());
+    expect([rendered[1]?.logo, rendered[1]?.signature]).toEqual([undefined, undefined]);
+    expect(rendered[1]?.signatory).toEqual({ firm: "Test Firm", name: undefined, title: undefined });
+    expect(await billingImageLink(services, await getBillingDetails(services), "logo")).toBeNull();
+  });
+
+  it("refuses a 2 MB image, a PDF renamed .png, a missing object, a key under another prefix or kind", async () => {
+    const put = (key: string, body: Uint8Array) => test.storage.put({ key, contentType: "image/png", body });
+    const [big, renamed, wrongKind, lying] = [
+      imageKey("logo"),
+      imageKey("logo"),
+      imageKey("signature"),
+      imageKey("logo", "jpg"),
+    ];
+    const otherPrefix = `organizations/${randomUUID()}/logo-${randomUUID()}.png`;
+    await put(big, new Uint8Array(2 * 1_048_576));
+    await put(renamed, new TextEncoder().encode("%PDF-1.4 a renamed document"));
+    await put(wrongKind, testPng(8, 8));
+    await put(otherPrefix, testPng(8, 8));
+    // A PNG under a .jpg key: the type is what the key says.
+    await put(lying, testPng(8, 8));
+    for (const logoKey of [big, renamed, imageKey("logo"), otherPrefix, wrongKind, lying]) {
+      await expect(setBillingDetails(services, staff, billing({ logoKey }))).rejects.toMatchObject({
+        reason: "BILLING_IMAGE_INVALID",
+      });
+    }
+  });
+
+  it("gives an upload link under the platform's prefix, and takes at most 1 MB of PNG or JPEG", async () => {
+    const link = await billingImageUploadLink(services, {
+      kind: "signature",
+      contentType: "image/jpeg",
+      sizeBytes: 5000,
+    });
+    expect(link).toMatchObject({
+      method: "PUT",
+      key: expect.stringMatching(/^platform\/billing\/signature-[0-9a-f-]{36}\.jpg$/) as string,
+    });
+    const parsed = (input: Record<string, unknown>) => billingImageUploadLinkInput.safeParse(input).success;
+    const base = { kind: "logo", contentType: "image/png" };
+    expect([
+      parsed({ ...base, sizeBytes: 1_048_576 }),
+      parsed({ ...base, sizeBytes: 1_048_577 }),
+      parsed({ ...base, contentType: "application/pdf", sizeBytes: 100 }),
+    ]).toEqual([true, false, false]);
+  });
+
+  it("deletes an image the details no longer name, and keeps one they still do", async () => {
+    const [first, second, signatureKey] = [imageKey("logo"), imageKey("logo"), imageKey("signature")];
+    for (const key of [first, second, signatureKey]) {
+      await test.storage.put({ key, contentType: "image/png", body: testPng(8, 8) });
+    }
+    await setBillingDetails(services, staff, billing({ logoKey: first, signatureKey }));
+    await setBillingDetails(services, staff, billing({ logoKey: second, signatureKey }));
+    expect(await test.storage.head(first)).toBeNull();
+    await setBillingDetails(services, staff, billing({ logoKey: null, signatureKey }));
+    expect([await test.storage.head(second), (await getBillingDetails(services))?.logoKey]).toEqual([null, null]);
+    expect(await test.storage.head(signatureKey)).not.toBeNull();
+  });
+
+  it("makes a line of 2 × ₹4,000 an amount of ₹8,000, and the totals follow", async () => {
+    const made = await create(
+      services,
+      staff,
+      invoice({
+        lines: [
+          { description: "Extra seats", quantity: 2, ratePaise: 400_000 },
+          { description: "Setup", quantity: 1, ratePaise: 100_000 },
+        ],
+      }),
+    );
+    expect(made.lines).toEqual([
+      { description: "Extra seats", quantity: 2, ratePaise: 400_000, amountPaise: 800_000 },
+      { description: "Setup", quantity: 1, ratePaise: 100_000, amountPaise: 100_000 },
+    ]);
+    expect(made).toMatchObject({ subtotalPaise: 900_000, totalPaise: 900_000 });
+    expect(rendered[0]?.rows).toEqual([
+      { index: 1, description: "Extra seats", quantity: 2, rate: "₹4,000.00", amount: "₹8,000.00" },
+      { index: 2, description: "Setup", quantity: 1, rate: "₹1,000.00", amount: "₹1,000.00" },
+    ]);
+    expect(rendered[0]?.totals.at(-1)).toMatchObject({ label: "Total", amount: "₹9,000.00" });
+  });
+
+  it("lists an old line, with no quantity, as quantity 1 at its amount, and an old seller snapshot", async () => {
+    const made = await create(services, staff, invoice());
+    const old = await platformClient.platformInvoice.findUniqueOrThrow({ where: { id: made.id } });
+    const newFields = new Set(["logoKey", "signatureKey", "signatoryName", "signatoryTitle"]);
+    const oldSeller = Object.fromEntries(
+      Object.entries(old.seller as Record<string, unknown>).filter(([field]) => !newFields.has(field)),
+    );
+    const id = randomUUID();
+    await platformClient.platformInvoice.create({
+      data: {
+        ...old,
+        id,
+        number: `OLD/${String(year)}/001`,
+        sequence: 900,
+        lines: [{ description: "Starter plan", amountPaise: 1_000_000 }],
+        seller: oldSeller as never,
+      },
+    });
+    const read = await getInvoice(services, id);
+    expect(read.lines).toEqual([
+      { description: "Starter plan", quantity: 1, ratePaise: 1_000_000, amountPaise: 1_000_000 },
+    ]);
+    expect(read.seller).toMatchObject({ legalName: "Test Firm", logoKey: null, signatoryName: null });
   });
 });

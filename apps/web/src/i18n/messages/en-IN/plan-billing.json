@@ -1,0 +1,27 @@
+{
+  "title": "Plan & billing",
+  "intro": "Your plan, what it includes and the payments recorded. To renew or change your plan, contact us.",
+  "loadFailed": "Plan & billing didn't load.",
+  "summary": {
+    "plan": "Plan",
+    "paidTill": "Paid till",
+    "notPaid": "Not paid yet"
+  },
+  "usage": {
+    "heading": "Included in your plan",
+    "seats": "Team members",
+    "whatsappNumbers": "WhatsApp numbers",
+    "storage": "Storage",
+    "aiCredits": "AI credits this month",
+    "aiCreditsInfo": "Each AI reply, suggestion or score uses one credit. They start again on the 1st of every month.",
+    "usedOf": "{used} of {limit}"
+  },
+  "payments": {
+    "heading": "Payments",
+    "none": "No payments recorded yet.",
+    "date": "Date",
+    "amount": "Amount",
+    "reference": "Reference",
+    "noReference": "None"
+  }
+}

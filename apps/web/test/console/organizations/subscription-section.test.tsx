@@ -46,7 +46,7 @@ describe("SubscriptionSection", { timeout: 20_000 }, () => {
     // Before GST only says something new when seats are added; paise only when there are some.
     expect(within(price).queryByRole("row", { name: /^Before GST/ })).toBeNull();
     // One GST row until the platform's own GST state is set, which decides between CGST with SGST, and IGST.
-    expect(within(price).getByRole("row", { name: "GST at 18% ₹450" })).toBeVisible();
+    expect(within(price).getByRole("row", { name: "GST ₹450" })).toBeVisible();
     expect(within(price).queryByRole("row", { name: /CGST|SGST/ })).toBeNull();
     expect(within(price).getByRole("row", { name: "Total a month ₹2,950" })).toBeVisible();
     expect(within(price).getByText("₹2,950")).toHaveClass("numbers", "text-right");

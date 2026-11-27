@@ -7,32 +7,37 @@
 /// modules, and a price for each seat above its own. Plans are data: no code names one. Prices are before GST, which is
 /// shown and charged on top.
 model Plan {
-  id                         String         @id @default(uuid(7)) @db.Uuid
+  id                           String         @id @default(uuid(7)) @db.Uuid
   /// Stable, e.g. "starter" (CHECK plan_key_format). It never changes.
-  key                        String         @unique
-  name                       String
+  key                          String         @unique
+  name                         String
   /// INR in paise before GST, per month and per year (a yearly price may be a discount). A plan is sold only the ways
   /// it is priced; at least one is set (CHECK plan_priced).
-  monthlyPricePaise          Int?           @map("monthly_price_paise")
-  yearlyPricePaise           Int?           @map("yearly_price_paise")
+  monthlyPricePaise            Int?           @map("monthly_price_paise")
+  /// The price for 3 months, paid upfront; null when the plan isn't sold that way.
+  quarterlyPricePaise          Int?           @map("quarterly_price_paise")
+  yearlyPricePaise             Int?           @map("yearly_price_paise")
   /// One seat above the plan's, per month and per year, before GST; null when it isn't sold that way.
-  extraSeatMonthlyPricePaise Int?           @map("extra_seat_monthly_price_paise")
-  extraSeatYearlyPricePaise  Int?           @map("extra_seat_yearly_price_paise")
+  extraSeatMonthlyPricePaise   Int?           @map("extra_seat_monthly_price_paise")
+  extraSeatQuarterlyPricePaise Int?           @map("extra_seat_quarterly_price_paise")
+  extraSeatYearlyPricePaise    Int?           @map("extra_seat_yearly_price_paise")
+  /// The AI credits (one per AI call) an agency on this plan may use each month (CHECK plan_ai_credits_positive).
+  aiCreditsPerMonth            Int            @default(10000) @map("ai_credits_per_month")
   /// The staff seats the price includes; more are bought as extra seats on the subscription.
-  seatLimit                  Int            @map("seat_limit")
-  whatsappNumberLimit        Int            @map("whatsapp_number_limit")
-  storageLimitBytes          BigInt         @map("storage_limit_bytes")
+  seatLimit                    Int            @map("seat_limit")
+  whatsappNumberLimit          Int            @map("whatsapp_number_limit")
+  storageLimitBytes            BigInt         @map("storage_limit_bytes")
   /// The business modules it includes, e.g. {crm,quotes} (CHECK plan_modules_known). The Foundation's own features
   /// (staff, roles, settings, the audit log, documents) come with every plan.
-  modules                    String[]
+  modules                      String[]
   /// False only for the demo's own plan: never listed for onboarding, nor taken by anyone but the platform's demo job.
-  forSale                    Boolean        @default(true) @map("for_sale")
+  forSale                      Boolean        @default(true) @map("for_sale")
   /// Archived plans take no new subscriptions; organizations already on one keep it.
-  archivedAt                 DateTime?      @map("archived_at") @db.Timestamptz(6)
-  createdAt                  DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt                  DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
-  subscriptions              Subscription[]
-  vipInvites                 VipInvite[]
+  archivedAt                   DateTime?      @map("archived_at") @db.Timestamptz(6)
+  createdAt                    DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt                    DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  subscriptions                Subscription[]
+  vipInvites                   VipInvite[]
 
   @@map("plan")
 }
@@ -42,7 +47,7 @@ model Subscription {
   /// Filled from db.forOrg()'s organization when omitted. Also the key: one subscription per organization.
   organizationId         String                @id @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
   planId                 String                @map("plan_id") @db.Uuid
-  /// "monthly" or "yearly": which of the plan's prices it pays (CHECK subscription_billing_cycle_value).
+  /// "monthly", "quarterly" (3 months) or "yearly": which of the plan's prices it pays (CHECK subscription_billing_cycle_value).
   billingCycle           String                @map("billing_cycle")
   /// The lifecycle's state as last recorded: "trial", "active", "past_due", "read_only", "suspended" or "cancelled"
   /// (CHECK subscription_status_value). Every rule and screen uses the state due today, computed from this and the
@@ -121,17 +126,20 @@ model SubscriptionPayment {
 /// console.
 model SubscriptionPolicy {
   /// Always true: the table holds one row (CHECK subscription_policy_one_row).
-  id              Boolean   @id @default(true)
-  trialDays       Int       @default(7) @map("trial_days")
-  pastDueDays     Int       @default(7) @map("past_due_days")
-  readOnlyDays    Int       @default(14) @map("read_only_days")
-  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                         Boolean   @id @default(true)
+  trialDays                  Int       @default(7) @map("trial_days")
+  pastDueDays                Int       @default(7) @map("past_due_days")
+  readOnlyDays               Int       @default(14) @map("read_only_days")
+  /// The GST the platform charges on its own subscriptions, in basis points: 0 or 1800 (CHECK subscription_policy_gst).
+  /// Only the shown price breakdown reads it; a recorded payment keeps the amount staff typed.
+  subscriptionGstBasisPoints Int       @default(0) @map("subscription_gst_basis_points")
+  updatedAt                  DateTime  @default(now()) @updatedAt @map("updated_at") @db.Timestamptz(6)
   /// The super admin who last changed it; null for the defaults.
-  updatedBy       String?   @map("updated_by") @db.Uuid
+  updatedBy                  String?   @map("updated_by") @db.Uuid
   /// The WhatsApp AI agent paused for every agency by platform staff (set with who, subscription_policy_agent_pause).
   /// Only the platform role writes it; the runtime reads it and the agent stays silent while it is set.
-  aiAgentPausedAt DateTime? @map("ai_agent_paused_at") @db.Timestamptz(6)
-  aiAgentPausedBy String?   @map("ai_agent_paused_by") @db.Uuid
+  aiAgentPausedAt            DateTime? @map("ai_agent_paused_at") @db.Timestamptz(6)
+  aiAgentPausedBy            String?   @map("ai_agent_paused_by") @db.Uuid
 
   @@map("subscription_policy")
 }

@@ -96,10 +96,20 @@ const audioMimeTypes: Record<AiAudioFormat, string> = {
 };
 
 /**
- * The parts of a message's content: words alone stay a string; with an image or a recording they become parts. A
- * recording's format is the short form ("ogg"), or its MIME type where the endpoint reads it as one (Vertex AI).
+ * How the endpoint reads `input_audio.format`: the short form ("ogg", OpenRouter's), a MIME type (Vertex AI's), or only
+ * "wav" or "mp3" (Google AI Studio's, which reads the recording's own format from its bytes: an OGG voice note
+ * labelled mp3 is heard, and labelled ogg is a 400, tried 2026-11-27).
  */
-function contentOf(message: AiMessage, audioAsMimeType: boolean): unknown {
+export type AudioLabels = "short" | "mime" | "wav_or_mp3";
+
+function audioLabel(format: AiAudioFormat, labels: AudioLabels): string {
+  if (labels === "mime") return audioMimeTypes[format];
+  if (labels === "wav_or_mp3") return format === "wav" ? "wav" : "mp3";
+  return format;
+}
+
+/** The parts of a message's content: words alone stay a string; with an image or a recording they become parts. */
+function contentOf(message: AiMessage, labels: AudioLabels): unknown {
   if (message.attachments === undefined || message.attachments.length === 0) return message.content;
   const base64 = (bytes: Uint8Array) => Buffer.from(bytes).toString("base64");
   return [
@@ -107,13 +117,7 @@ function contentOf(message: AiMessage, audioAsMimeType: boolean): unknown {
     ...message.attachments.map((part) =>
       part.type === "image"
         ? { type: "image_url", image_url: { url: `data:${part.mimeType};base64,${base64(part.bytes)}` } }
-        : {
-            type: "input_audio",
-            input_audio: {
-              data: base64(part.bytes),
-              format: audioAsMimeType ? audioMimeTypes[part.format] : part.format,
-            },
-          },
+        : { type: "input_audio", input_audio: { data: base64(part.bytes), format: audioLabel(part.format, labels) } },
     ),
   ];
 }
@@ -134,11 +138,11 @@ interface WireMessage {
  * A message as the endpoint takes it: its content, an assistant's tool calls and reasoning sent back as the model gave
  * them, and a tool result named by its call's id.
  */
-export function wireMessage(message: AiMessage, audioAsMimeType = false): WireMessage {
+export function wireMessage(message: AiMessage, labels: AudioLabels = "short"): WireMessage {
   const toolCalls = message.toolCalls ?? [];
   return {
     role: message.role,
-    content: contentOf(message, audioAsMimeType),
+    content: contentOf(message, labels),
     ...(toolCalls.length === 0
       ? {}
       : {
@@ -167,6 +171,16 @@ export function aiBaseUrl(baseUrl: string = OPENROUTER_BASE_URL): string {
     throw new Error("The AI base URL must be an http(s) address with no credentials");
   }
   return baseUrl.replace(/\/+$/, "");
+}
+
+/** Whether the base URL is Google AI Studio's OpenAI-compatible endpoint (https, host generativelanguage.googleapis.com). */
+function isAiStudioUrl(baseUrl: string): boolean {
+  try {
+    const url = new URL(baseUrl);
+    return url.protocol === "https:" && url.hostname === "generativelanguage.googleapis.com";
+  } catch {
+    return false;
+  }
 }
 
 /** Whether the base URL is OpenRouter's (https, host openrouter.ai): the only one that takes its `provider` routing field. */
@@ -321,6 +335,7 @@ export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
   const openRouter = isOpenRouterUrl(base);
   // A token in place of a key is Vertex AI's service account: Vertex reads input_audio's format as a MIME type, and caches.
   const vertex = typeof options.apiKey !== "string";
+  const labels: AudioLabels = vertex ? "mime" : isAiStudioUrl(base) ? "wav_or_mp3" : "short";
   const send = options.fetch ?? fetch;
   const cacheOf = vertex ? createVertexCache(base, send) : null;
   /** Each rate-limited model, with the time it may be asked again. Per process, so it is forgotten on a restart. */
@@ -379,7 +394,7 @@ export function createOpenRouterModel(options: OpenRouterOptions): AiModel {
               model,
               messages: (asJson ? withSchemaInSystem(request) : request.messages)
                 .slice(cache === null ? 0 : 1)
-                .map((message) => wireMessage(message, vertex)),
+                .map((message) => wireMessage(message, labels)),
               ...lengthAndEffort(request, openRouter, options.reasoningModel),
               ...responseFormat(request, asJson),
               ...(cache === null ? toolSettings(request) : { extra_body: { google: { cached_content: cache } } }),

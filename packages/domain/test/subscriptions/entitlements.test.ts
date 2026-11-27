@@ -59,6 +59,7 @@ describe("entitlements", () => {
       status: "active",
       access: "full",
       planName: "Starter",
+      planKey: plan.key,
       modules: ["crm", "quotes"],
       trialEndsOn: null,
       paidThrough: "2026-10-31",

@@ -12,7 +12,7 @@ import { jsonObjectIn } from "../fill/json.js";
 import { managedPrompt } from "../managed-prompt.js";
 import { aiEnabled } from "../settings.js";
 import { ASK_REPORTS_PROMPT_TEXT } from "./prompt-text.js";
-import { MONTHLY_AI_LIMIT, recordTokens, releaseAiCall, reserveAiCall, usedThisMonth } from "../usage.js";
+import { monthlyAiLimitOf, recordTokens, releaseAiCall, reserveAiCall, usedThisMonth } from "../usage.js";
 
 export interface CatalogueEntry {
   id: ReportQueryId;
@@ -101,7 +101,7 @@ export async function chooseReport(
   }
   const used = await db.forOrg(organizationId, async (tx) => {
     await recordTokens(tx, now, timeZone, { input: result.inputTokens, output: result.outputTokens });
-    return usedThisMonth(tx, now, timeZone);
+    return { used: await usedThisMonth(tx, now, timeZone), monthlyLimit: await monthlyAiLimitOf(tx) };
   });
-  return { chosen: chosenFrom(result.text, catalogue), usedThisMonth: used, monthlyLimit: MONTHLY_AI_LIMIT };
+  return { chosen: chosenFrom(result.text, catalogue), usedThisMonth: used.used, monthlyLimit: used.monthlyLimit };
 }

@@ -34,9 +34,12 @@ const NAMED_FIELDS = [
   "name",
   "nameChanged",
   "monthlyPricePaise",
+  "quarterlyPricePaise",
   "yearlyPricePaise",
   "extraSeatMonthlyPricePaise",
+  "extraSeatQuarterlyPricePaise",
   "extraSeatYearlyPricePaise",
+  "aiCreditsPerMonth",
   "seatLimit",
   "whatsappNumberLimit",
   "storageLimitBytes",
@@ -49,6 +52,7 @@ const NAMED_FIELDS = [
   "trialDays",
   "pastDueDays",
   "readOnlyDays",
+  "subscriptionGstBasisPoints",
   "rows",
   "people",
   "files",
@@ -63,7 +67,7 @@ const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const MOMENT = /^\d{4}-\d{2}-\d{2}T/;
 const STATES = ["trial", "active", "past_due", "read_only", "suspended", "cancelled", "none"] as const;
 const LEVELS = ["support", "super-admin"] as const;
-const CYCLES = ["monthly", "yearly"] as const;
+const CYCLES = ["monthly", "quarterly", "yearly"] as const;
 const MODULES = [
   "crm",
   "inbox",

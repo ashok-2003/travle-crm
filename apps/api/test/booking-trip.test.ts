@@ -148,7 +148,7 @@ describe("bookings over HTTP", () => {
     expect(response.status).toBe(200);
     expect(html).toContain("Confirmed");
     expect(html).toContain("Next payment");
-    expect(html).toContain("Day 1 · 10 Mar: Arrive in Kaza");
+    expect(html).toContain('<ol class="days"><li><strong>Day 1 · 10 Mar: Arrive in Kaza</strong>');
     expect(html).toContain("Cancellation terms");
     expect(html).toContain("Travellers&#39; details".replace("&#39;", "'"));
     expect(response.headers.get("content-security-policy")).toContain("script-src 'nonce-");
@@ -219,8 +219,8 @@ describe("bookings over HTTP", () => {
     });
     expect(saved.headers.get("location")).toContain("done=saved");
     const { html } = await page(path);
-    expect(html).toContain("Details received ✓");
-    expect(html).toContain("1 of 2 complete");
+    expect(html).toContain('<span class="pill good">Details received</span>');
+    expect(html).toContain("1 of 2 done");
     expect(html).not.toContain("P7654321");
     // Staff read the number with documents:view_sensitive, and it is audited.
     const identity = await dataOf<{ number: string }>(

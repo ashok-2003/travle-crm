@@ -9,8 +9,8 @@ import { planModule, pricePaise } from "./plans.js";
 export const subscriptionStatus = z.enum(["trial", "active", "past_due", "read_only", "suspended", "cancelled"]);
 export type SubscriptionStatus = z.infer<typeof subscriptionStatus>;
 
-/** Which of the plan's prices the organization pays: monthly or annually. */
-export const billingCycle = z.enum(["monthly", "yearly"]);
+/** Which of the plan's prices the organization pays: monthly, every 3 months (paid upfront) or annually. */
+export const billingCycle = z.enum(["monthly", "quarterly", "yearly"]);
 export type BillingCycle = z.infer<typeof billingCycle>;
 
 /** Why a platform admin did something by hand, kept in the organization's audit log. */
@@ -84,6 +84,8 @@ const policyDays = {
   trialDays: z.int().min(1).max(90),
   pastDueDays: z.int().min(1).max(90),
   readOnlyDays: z.int().min(1).max(180),
+  /** The GST the platform charges on its own subscriptions: none for now, or 18 % once it is registered. */
+  subscriptionGstBasisPoints: z.union([z.literal(0), z.literal(1800)]),
 };
 
 export const setSubscriptionPolicyInput = z.strictObject(policyDays);

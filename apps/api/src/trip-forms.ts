@@ -4,9 +4,11 @@
 import type { PublicTrip } from "@travel-crm/domain/bookings";
 import { escapeHtml } from "./public-html.js";
 
-/** Whole rupees and paise as an input's value, from integer paise: "12500.00". */
+/** Rupees as an input's value, from integer paise: "12500", with paise only when there are some ("12500.50"). */
 export const rupeesValue = (paise: number) =>
-  `${String(Math.floor(paise / 100))}.${String(paise % 100).padStart(2, "0")}`;
+  paise % 100 === 0
+    ? String(paise / 100)
+    : `${String(Math.floor(paise / 100))}.${String(paise % 100).padStart(2, "0")}`;
 
 const field = (id: string, label: string, input: string) => `<label for="${id}">${escapeHtml(label)}</label>${input}`;
 
@@ -36,15 +38,20 @@ function picture(
 <input id="${prefix}-ids" type="hidden" name="${hidden}" value=""><p class="hint" id="${prefix}-status" aria-live="polite"></p>`;
 }
 
-/** "I've paid" for a payment due (or, with none, for any amount): the amount, the UPI reference, a screenshot. */
+/**
+ * "I've paid" for a payment due (or, with none, for any amount): a button that opens the amount, the UPI reference and
+ * a screenshot. `about` names the payment for a screen reader, where several buttons read "I've paid".
+ */
 export function claimForm(input: {
   key: string;
   label: string;
+  about?: string;
   installmentId: string | null;
   amountPaise: number;
 }): string {
   const id = `claim-${input.key}`;
-  return `<details><summary>${escapeHtml(input.label)}</summary>
+  const about = input.about === undefined ? "" : `<span class="sr"> ${escapeHtml(input.about)}</span>`;
+  return `<details class="claim"><summary class="button secondary">${escapeHtml(input.label)}${about}</summary>
 <form method="post">
 <input type="hidden" name="form" value="claim"><input type="hidden" name="installment" value="${escapeHtml(input.installmentId ?? "")}">
 ${text(`${id}-amount`, "amount", "Amount you paid (₹)", rupeesValue(input.amountPaise), { required: true, type: "text", max: 14 })}
@@ -103,7 +110,7 @@ const stars = (name: string, legend: string, required: boolean) =>
   `<fieldset><legend>${escapeHtml(legend)}</legend><div class="stars">${[5, 4, 3, 2, 1]
     .map(
       (n) =>
-        `<label><input type="radio" name="${name}" value="${String(n)}"${required && n === 5 ? " required" : ""}> ${String(n)}</label>`,
+        `<label><input type="radio" name="${name}" value="${String(n)}"${required && n === 5 ? " required" : ""}><span>${String(n)}</span></label>`,
     )
     .join("")}</div></fieldset>`;
 

@@ -66,7 +66,9 @@
     "departures": "Departures",
     "departuresHint": "How long seats are held, Filling fast, and beds in a drafted room",
     "publicPages": "Public package pages",
-    "publicPagesHint": "Turn on the agency's pages for visitors, and say a few words about it"
+    "publicPagesHint": "Turn on the agency's pages for visitors, and say a few words about it",
+    "plan": "Plan & billing",
+    "planHint": "Your plan, what it includes and the payments recorded"
   },
   "destinations": {
     "title": "Destinations",

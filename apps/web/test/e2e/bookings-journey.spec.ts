@@ -58,7 +58,8 @@ test("the traveller says they paid, staff check it on Today and confirm it, and 
 
   const customer = await browser.newPage();
   await customer.goto(link);
-  await expect(customer.getByText("Next payment ₹30,000.00")).toBeVisible();
+  const nextPayment = customer.locator("section", { has: customer.getByRole("heading", { name: "Next payment" }) });
+  await expect(nextPayment).toContainText("₹30,000");
   await customer.getByText("I've paid Advance").click();
   await customer.getByLabel("UPI reference or transaction number").first().fill("UTR778899");
   await customer.getByRole("button", { name: "I've paid" }).first().click();
@@ -78,8 +79,8 @@ test("the traveller says they paid, staff check it on Today and confirm it, and 
   await expect(page.getByRole("region", { name: "Money" })).toContainText("UPI");
 
   await customer.reload();
-  await expect(customer.getByText("Received").first()).toBeVisible();
-  await expect(customer.getByText("Next payment ₹70,000.00")).toBeVisible();
+  await expect(customer.getByText("Received", { exact: true })).toBeVisible();
+  await expect(nextPayment).toContainText("₹70,000");
   await customer.close();
 });
 
@@ -156,7 +157,7 @@ test("the traveller fills their own details and never sees an ID number again", 
 
   const customer = await browser.newPage();
   await customer.goto(link);
-  await expect(customer.getByText("0 of 2 complete")).toBeVisible();
+  await expect(customer.getByText("0 of 2 done")).toBeVisible();
   const form = customer.locator("form", { has: customer.locator('input[name="traveller"]') }).first();
   await form.getByLabel("Name as on ID").fill("Tara Menon");
   await form.getByLabel("Date of birth").fill("1990-04-02");
@@ -168,8 +169,8 @@ test("the traveller fills their own details and never sees an ID number again", 
   await form.getByLabel("Nationality").fill("Indian");
   await form.getByRole("button", { name: "Save details" }).click();
   await expect(customer.getByText("Thank you, your details are saved")).toBeVisible();
-  await expect(customer.getByText("1 of 2 complete")).toBeVisible();
-  await expect(customer.getByText("Details received ✓")).toBeVisible();
+  await expect(customer.getByText("1 of 2 done")).toBeVisible();
+  await expect(customer.getByText("Details received", { exact: true })).toBeVisible();
   expect(await customer.content()).not.toContain("P7654321");
   await customer.close();
 

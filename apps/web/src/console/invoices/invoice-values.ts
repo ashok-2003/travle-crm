@@ -4,6 +4,7 @@ import { paiseFromRupeesText, type GstStateCode } from "@travel-crm/contracts/ke
 import {
   createInvoiceInput,
   MAX_INVOICE_LINE_PAISE,
+  MAX_INVOICE_QUANTITY,
   type CreateInvoiceInput,
   type InvoiceDetail,
   type InvoiceKind,
@@ -14,8 +15,10 @@ import { rupeesFieldText } from "@/components/forms/money-field";
 
 export interface InvoiceLineValues {
   description: string;
-  /** Rupees as typed. */
-  amount: string;
+  /** A whole number as typed. */
+  quantity: string;
+  /** Rupees as typed, for one. */
+  rate: string;
 }
 
 export interface InvoiceValues {
@@ -33,12 +36,12 @@ export interface InvoiceValues {
 }
 
 /** Message keys in the "consoleInvoices.invoiceForm.problems" namespace. */
-export type InvoiceProblem = "required" | "invalid" | "amountInvalid" | "stateNeededForGst";
+export type InvoiceProblem = "required" | "invalid" | "quantityInvalid" | "rateInvalid" | "stateNeededForGst";
 
 /** The most lines an invoice takes (the api's limit). */
 export const MAX_LINES = 20;
 
-const emptyLine: InvoiceLineValues = { description: "", amount: "" };
+export const emptyLine: InvoiceLineValues = { description: "", quantity: "1", rate: "" };
 
 /** A new invoice: an invoice of today, one empty line, no GST, the default terms in its notes. */
 export function newInvoiceValues(today: string, defaultTerms: string | null): InvoiceValues {
@@ -69,7 +72,11 @@ export function copiedInvoiceValues(invoice: InvoiceDetail, today: string, canCh
     billToAddress: invoice.billToAddress ?? "",
     billToStateCode: invoice.billToStateCode ?? "",
     billToGstin: invoice.billToGstin ?? "",
-    lines: invoice.lines.map((line) => ({ description: line.description, amount: rupeesFieldText(line.amountPaise) })),
+    lines: invoice.lines.map((line) => ({
+      description: line.description,
+      quantity: String(line.quantity),
+      rate: rupeesFieldText(line.ratePaise),
+    })),
     gstRate: canChargeGst ? String(invoice.gstRateBasisPoints) : "0",
     notes: invoice.notes ?? "",
   };
@@ -82,7 +89,9 @@ function placeOf(path: readonly PropertyKey[]): [string, InvoiceProblem] | undef
   const [first, second, third] = path;
   if (first === "lines" && typeof second === "number") {
     if (third === "description") return [`lines.${String(second)}.description`, "invalid"];
-    if (third === "amountPaise") return [`lines.${String(second)}.amount`, "amountInvalid"];
+    if (third === "quantity") return [`lines.${String(second)}.quantity`, "quantityInvalid"];
+    // The rate, and a line whose quantity × rate passes the most a line may charge (the schema names the rate).
+    if (third === "ratePaise") return [`lines.${String(second)}.rate`, "rateInvalid"];
     return undefined;
   }
   if (first === "billTo") {
@@ -113,7 +122,8 @@ export function toCreateInvoiceInput(
     },
     lines: values.lines.map((line) => ({
       description: line.description,
-      amountPaise: paiseFromRupeesText(line.amount) ?? Number.NaN,
+      quantity: wholeNumber(line.quantity) ?? Number.NaN,
+      ratePaise: paiseFromRupeesText(line.rate) ?? Number.NaN,
     })),
     gstRateBasisPoints,
     notes: blankToUndefined(values.notes),
@@ -137,7 +147,8 @@ export function toCreateInvoiceInput(
     ...Object.fromEntries(
       values.lines.flatMap((line, index) => [
         [`lines.${String(index)}.description`, line.description],
-        [`lines.${String(index)}.amount`, line.amount],
+        [`lines.${String(index)}.quantity`, line.quantity],
+        [`lines.${String(index)}.rate`, line.rate],
       ]),
     ),
   };
@@ -158,19 +169,37 @@ export function toCreateInvoiceInput(
   return unplaced ? { ok: false, problems: named, unplaced } : { ok: false, problems: named };
 }
 
+/** A whole number as typed ("12"), or null for anything else. */
+function wholeNumber(text: string): number | null {
+  return /^\d{1,6}$/.test(text.trim()) ? Number(text.trim()) : null;
+}
+
 /**
- * What the invoice adds up to, as the api computes it: the kernel's own invoiceAmounts, the same function. Lines not
- * yet valid (empty, or above the most a line may charge) count as nothing.
+ * A line's amount in paise as typed: quantity × rate. Nothing while either isn't valid yet, or when the amount would
+ * pass the most a line may charge: such a line counts as nothing in the totals until it is fixed.
+ */
+export function lineAmountPaise(line: Pick<InvoiceLineValues, "quantity" | "rate">): number {
+  const quantity = wholeNumber(line.quantity);
+  const rate = paiseFromRupeesText(line.rate);
+  if (quantity === null || rate === null || quantity < 1 || quantity > MAX_INVOICE_QUANTITY) return 0;
+  const amount = quantity * rate;
+  return amount > MAX_INVOICE_LINE_PAISE ? 0 : amount;
+}
+
+/**
+ * What the invoice adds up to, as the api computes it: the kernel's own invoiceAmounts, the same function, on each
+ * line's quantity × rate.
  */
 export function previewAmounts(
-  amounts: readonly string[],
+  lines: readonly Pick<InvoiceLineValues, "quantity" | "rate">[],
   rateBasisPoints: number,
   sellerStateCode: GstStateCode,
   billToStateCode: GstStateCode | null,
 ): InvoiceAmounts {
-  const lines = amounts.map((text) => {
-    const paise = paiseFromRupeesText(text) ?? 0;
-    return { amountPaise: paise > MAX_INVOICE_LINE_PAISE ? 0 : paise };
-  });
-  return invoiceAmounts(lines, rateBasisPoints, sellerStateCode, billToStateCode);
+  return invoiceAmounts(
+    lines.map((line) => ({ amountPaise: lineAmountPaise(line) })),
+    rateBasisPoints,
+    sellerStateCode,
+    billToStateCode,
+  );
 }

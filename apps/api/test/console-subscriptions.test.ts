@@ -42,7 +42,9 @@ describe("the console's subscriptions", () => {
           key: `${name.toLowerCase()}-${crypto.randomUUID().slice(0, 8)}`,
           name,
           monthlyPricePaise: 250_000,
+          quarterlyPricePaise: null,
           yearlyPricePaise: 2_500_000,
+          aiCreditsPerMonth: 10_000,
           extraSeatMonthlyPricePaise: 50_000,
           extraSeatYearlyPricePaise: 500_000,
           seatLimit: 5,
@@ -97,7 +99,7 @@ describe("the console's subscriptions", () => {
         support.jar,
       ),
     );
-    // ₹25,000 a year and two seats at ₹5,000: ₹35,000 before GST, and ₹6,300 of GST.
+    // ₹25,000 a year and two seats at ₹5,000: ₹35,000, with no GST while the policy's rate is 0.
     expect(overridden).toMatchObject({
       plan: { id: growth.id },
       billingCycle: "yearly",
@@ -106,10 +108,10 @@ describe("the console's subscriptions", () => {
       price: {
         cycle: "yearly",
         subtotalPaise: 3_500_000,
-        cgstPaise: 315_000,
-        sgstPaise: 315_000,
-        gstPaise: 630_000,
-        totalPaise: 4_130_000,
+        cgstPaise: 0,
+        sgstPaise: 0,
+        gstPaise: 0,
+        totalPaise: 3_500_000,
       },
     });
     const entries = await server.platform.auditEntry.findMany({

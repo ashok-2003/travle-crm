@@ -1,6 +1,7 @@
 // Public API of the subscriptions module: plans, each organization's subscription and payments (spec 7.2-7.4), the
 // lifecycle (7.3), and what an organization may use, for the api's request checks 2 and 3 (spec 6.5).
 export { agentPauseOf, setAgencyAgentPause, type AgentPause } from "./agent-pause.js";
+export { billingViewOf } from "./billing-view.js";
 export { cancel, liftSuspension, suspend } from "./access-by-hand.js";
 export {
   ADVANCE_SUBSCRIPTIONS_QUEUE,
@@ -29,7 +30,7 @@ export { placeholderPlans, seedPlaceholderPlans } from "./placeholder-plans.js";
 export { planLimits, type PlanLimits } from "./plan-limits.js";
 export { archivePlan, createPlan, DEMO_PLAN_KEY, findPlan, listPlans, updatePlan } from "./plans.js";
 export { getSubscriptionPolicy, samePolicy, setSubscriptionPolicy } from "./policy.js";
-export { assertSoldOn, planPriceFor, SUBSCRIPTION_GST_BASIS_POINTS, subscriptionPriceOf } from "./pricing.js";
+export { assertSoldOn, planPriceFor, subscriptionPriceOf } from "./pricing.js";
 export {
   assertLifecycleAllows,
   assertModulesOnPlan,

@@ -11,7 +11,7 @@
         "src/lib/routes.ts",
         "$TURBO_ROOT$/packages/brand/src/**"
       ],
-      "outputs": ["src/generated/**", "public/icons/**", "public/sw.js"]
+      "outputs": ["src/generated/**", "public/icons/**", "public/fonts/**", "public/sw.js"]
     },
     "build": {
       "env": ["API_ORIGIN", "CONSOLE_ORIGIN", "STORAGE_ORIGIN", "CACHE_VERSION"]

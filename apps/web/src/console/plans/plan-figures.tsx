@@ -12,10 +12,13 @@ import { rupees } from "@/components/forms/money-field";
 
 export interface PlanFigures {
   monthly: string;
+  quarterly: string;
   yearly: string;
   /** Null when the plan sells no extra seats on that cycle. */
   extraSeatMonthly: string | null;
+  extraSeatQuarterly: string | null;
   extraSeatYearly: string | null;
+  aiCredits: string;
   seats: string;
   whatsappNumbers: string;
   storage: string;
@@ -29,9 +32,12 @@ export function usePlanFigures(): (plan: PlanSummary) => PlanFigures {
   return useCallback(
     (plan: PlanSummary) => ({
       monthly: priceOf(plan.monthlyPricePaise) ?? t("plans.notSold"),
+      quarterly: priceOf(plan.quarterlyPricePaise) ?? t("plans.notSold"),
       yearly: priceOf(plan.yearlyPricePaise) ?? t("plans.notSold"),
       extraSeatMonthly: priceOf(plan.extraSeatMonthlyPricePaise),
+      extraSeatQuarterly: priceOf(plan.extraSeatQuarterlyPricePaise),
       extraSeatYearly: priceOf(plan.extraSeatYearlyPricePaise),
+      aiCredits: formatCount(plan.aiCreditsPerMonth),
       seats: formatCount(plan.seatLimit),
       whatsappNumbers: formatCount(plan.whatsappNumberLimit),
       storage: formatFileSize(plan.storageLimitBytes),

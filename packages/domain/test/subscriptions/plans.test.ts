@@ -51,7 +51,9 @@ describe("plans", () => {
         planId: plan.id,
         name: "Starter 2027",
         monthlyPricePaise: 300_000,
+        quarterlyPricePaise: null,
         yearlyPricePaise: null,
+        aiCreditsPerMonth: 10_000,
         extraSeatMonthlyPricePaise: 40_000,
         seatLimit: 8,
         whatsappNumberLimit: 2,
@@ -64,7 +66,9 @@ describe("plans", () => {
     expect(after).toMatchObject({
       key: plan.key,
       name: "Starter 2027",
+      quarterlyPricePaise: null,
       yearlyPricePaise: null,
+      aiCreditsPerMonth: 10_000,
       extraSeatYearlyPricePaise: null,
       seatLimit: 8,
     });

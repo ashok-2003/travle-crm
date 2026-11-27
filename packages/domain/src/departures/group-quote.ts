@@ -76,23 +76,12 @@ export async function makeGroupQuoteFor(
     throw new DomainError("CONFLICT", "NO_PRICE_FOR_DATE", "No season prices this departure's day");
   }
   const rate = quoteTaxRate.catch(500).parse(row.taxRateBasisPoints);
-  const total = groupTotal(
-    priced.prices,
-    input.rooms,
-    {
-      pricesIncludeGst: row.pricesIncludeGst,
-      taxRateBasisPoints: rate,
-      supplierStateCode: context.supplierStateCode ?? "",
-    },
-    offered,
-  );
-  if (!total.ok) {
-    throw new DomainError(
-      total.reason === "ROOM_SPLIT" ? "VALIDATION" : "CONFLICT",
-      total.reason === "ROOM_SPLIT" ? "ROOM_SPLIT" : "ROOM_NOT_PRICED",
-      "These rooms can't be priced",
-    );
-  }
+  const total = groupTotal(priced.prices, input.rooms, {
+    pricesIncludeGst: row.pricesIncludeGst,
+    taxRateBasisPoints: rate,
+    supplierStateCode: context.supplierStateCode ?? "",
+  });
+  if (!total.ok) throw new DomainError("CONFLICT", "ROOM_NOT_PRICED", "These rooms can't be priced");
   const items = total.lines.map((line) => ({
     description: `${row.name}, ${roomLabel[line.roomType]} × ${String(line.people)}`,
     detail: "",

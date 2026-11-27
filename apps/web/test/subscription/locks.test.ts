@@ -12,6 +12,7 @@ function overview(access: LifecycleAccess): SubscriptionOverview {
     status: "active",
     access,
     planName: "Growth",
+    planKey: "growth",
     modules: [],
     trialEndsOn: null,
     paidThrough: null,

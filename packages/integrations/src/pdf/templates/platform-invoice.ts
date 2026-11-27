@@ -1,9 +1,10 @@
-// The platform's invoice to an agency: the product's brand, the firm and the billed company, rows, totals, how to pay.
+// The platform's invoice to an agency: the firm's logo and name, the billed company, Qty × Rate rows, totals, how to pay,
+// and the firm's signature block.
 // Written with createElement rather than JSX: dependency-cruiser's resolver doesn't follow imports of .tsx files.
-import { Document, Page, StyleSheet, Text, View, type DocumentProps } from "@react-pdf/renderer";
+import { Document, Image, Page, StyleSheet, Text, View, type DocumentProps } from "@react-pdf/renderer";
 import { brand } from "@travel-crm/brand";
 import { createElement, type ReactElement } from "react";
-import type { PlatformInvoiceData } from "../platform-invoice-input.js";
+import type { PlatformInvoiceData, PlatformInvoiceImage } from "../platform-invoice-input.js";
 import { pdfTheme, type PdfTheme } from "../theme.js";
 
 function styles(theme: PdfTheme) {
@@ -18,7 +19,9 @@ function styles(theme: PdfTheme) {
       borderBottomWidth: 2,
       borderBottomColor: theme.accent,
     },
-    product: { fontFamily: theme.fonts.title, fontSize: 18, fontWeight: 600, color: theme.ink },
+    firm: { flexDirection: "row", alignItems: "center", gap: 10, flexShrink: 1 },
+    logo: { maxHeight: 48, maxWidth: 120, objectFit: "contain" },
+    firmName: { fontFamily: theme.fonts.title, fontSize: 18, fontWeight: 600, color: theme.ink, flexShrink: 1 },
     heading: { alignItems: "flex-end" },
     title: { fontFamily: theme.fonts.title, fontSize: 20, fontWeight: 600, color: theme.accent },
     reference: { fontFamily: theme.fonts.numbers, fontSize: 9, color: theme.muted, marginTop: 2 },
@@ -44,10 +47,15 @@ function styles(theme: PdfTheme) {
       paddingVertical: 6,
       paddingHorizontal: 6,
     },
-    // flexBasis 0: the description takes only the room the amount leaves, however long its text.
+    index: { width: 24, flexShrink: 0, fontFamily: theme.fonts.numbers, color: theme.muted },
+    // flexBasis 0: the description takes only the room the numbers leave, however long its text.
     description: { flexGrow: 1, flexShrink: 1, flexBasis: 0, paddingRight: 12 },
-    amountHead: { width: 120, flexShrink: 0, textAlign: "right" },
-    amount: { width: 120, flexShrink: 0, textAlign: "right", fontFamily: theme.fonts.numbers, color: theme.ink },
+    quantityHead: { width: 40, flexShrink: 0, textAlign: "right" },
+    quantity: { width: 40, flexShrink: 0, textAlign: "right", fontFamily: theme.fonts.numbers, color: theme.ink },
+    rateHead: { width: 90, flexShrink: 0, textAlign: "right" },
+    rate: { width: 90, flexShrink: 0, textAlign: "right", fontFamily: theme.fonts.numbers, color: theme.ink },
+    amountHead: { width: 100, flexShrink: 0, textAlign: "right" },
+    amount: { width: 100, flexShrink: 0, textAlign: "right", fontFamily: theme.fonts.numbers, color: theme.ink },
     totals: { marginTop: 10, alignSelf: "flex-end", width: 260 },
     total: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 3, paddingHorizontal: 6 },
     totalEmphasis: { borderTopWidth: 1, borderTopColor: theme.ink, marginTop: 3, paddingTop: 6 },
@@ -58,7 +66,15 @@ function styles(theme: PdfTheme) {
     section: { marginTop: 18 },
     paragraph: { color: theme.ink, lineHeight: 1.4 },
     payBox: { marginTop: 18, padding: 10, backgroundColor: theme.surface },
-    signatory: { marginTop: 36, alignSelf: "flex-end", width: 200 },
+    payRow: { flexDirection: "row", paddingVertical: 1.5 },
+    payLabel: { width: 100, flexShrink: 0, color: theme.muted },
+    payValue: { flexGrow: 1, flexShrink: 1, flexBasis: 0, fontFamily: theme.fonts.numbers, color: theme.ink },
+    signatory: { marginTop: 30, alignSelf: "flex-end", width: 200 },
+    signature: { maxHeight: 60, maxWidth: 140, objectFit: "contain", marginTop: 6, alignSelf: "flex-start" },
+    // The room a signature would take, so a signed and an unsigned invoice put the line in the same place.
+    signatureRoom: { height: 60 },
+    signName: { marginTop: 4, fontWeight: 600, color: theme.ink },
+    signTitle: { color: theme.muted },
     footer: {
       position: "absolute",
       left: 40,
@@ -72,22 +88,29 @@ function styles(theme: PdfTheme) {
       fontSize: 8,
       color: theme.muted,
     },
-    signLine: { marginTop: 28, paddingTop: 4, borderTopWidth: 0.5, borderTopColor: theme.ink, color: theme.muted },
+    signLine: { marginTop: 4, borderTopWidth: 0.5, borderTopColor: theme.ink },
   });
 }
 
 type Styles = ReturnType<typeof styles>;
 
-// The firm's own invoice: its legal name and the page count, without the "Made with" line organization documents carry.
-function footer(style: Styles, sellerName: string): ReactElement {
+// The firm's own invoice: its name and address and the page count, without the "Made with" line organizations' carry.
+function footer(style: Styles, text: string): ReactElement {
   return createElement(
     View,
     { style: style.footer, fixed: true },
-    createElement(Text, null, sellerName),
+    createElement(Text, null, text),
     createElement(Text, {
       render: ({ pageNumber, totalPages }) => `Page ${String(pageNumber)} of ${String(totalPages)}`,
     }),
   );
+}
+
+function pdfImage(data: PlatformInvoiceImage, style: Styles["logo"] | Styles["signature"]): ReactElement {
+  return createElement(Image, {
+    style,
+    src: { data: Buffer.from(data.data), format: data.contentType === "image/png" ? "png" : "jpg" },
+  });
 }
 
 function header(style: Styles, data: PlatformInvoiceData): ReactElement {
@@ -95,7 +118,12 @@ function header(style: Styles, data: PlatformInvoiceData): ReactElement {
   return createElement(
     View,
     { style: style.header, fixed: true },
-    createElement(Text, { style: style.product }, brand.productName),
+    createElement(
+      View,
+      { style: style.firm },
+      data.logo ? pdfImage(data.logo, style.logo) : null,
+      createElement(Text, { style: style.firmName }, data.seller.name),
+    ),
     createElement(
       View,
       { style: style.heading },
@@ -106,13 +134,20 @@ function header(style: Styles, data: PlatformInvoiceData): ReactElement {
   );
 }
 
-function party(style: Styles, label: string, { name, lines }: PlatformInvoiceData["seller"]): ReactElement {
+function party(
+  style: Styles,
+  label: string,
+  { name, lines, stateLine }: { name: string; lines: readonly string[]; stateLine?: string | undefined },
+): ReactElement {
   return createElement(
     View,
     { style: style.party },
     createElement(Text, { style: style.label }, label),
     createElement(Text, { style: style.partyName }, name),
-    ...lines.map((line, index) => createElement(Text, { key: index, style: style.line }, line)),
+    // The state follows the address, which is the first line; PAN, GSTIN and the rest come after it.
+    ...[...lines.slice(0, 1), ...(stateLine === undefined ? [] : [stateLine]), ...lines.slice(1)].map((line, index) =>
+      createElement(Text, { key: index, style: style.line }, line),
+    ),
   );
 }
 
@@ -120,15 +155,21 @@ function table(style: Styles, rows: PlatformInvoiceData["rows"]): ReactElement[]
   const head = createElement(
     View,
     { key: "head", style: style.tableHead },
+    createElement(Text, { style: style.index }, "#"),
     createElement(Text, { style: style.description }, "Description"),
+    createElement(Text, { style: style.quantityHead }, "Qty"),
+    createElement(Text, { style: style.rateHead }, "Rate"),
     createElement(Text, { style: style.amountHead }, "Amount"),
   );
   // wrap: false keeps a row on one page.
-  const body = rows.map((row, index) =>
+  const body = rows.map((row) =>
     createElement(
       View,
-      { key: index, style: style.row, wrap: false },
+      { key: row.index, style: style.row, wrap: false },
+      createElement(Text, { style: style.index }, String(row.index)),
       createElement(Text, { style: style.description }, row.description),
+      createElement(Text, { style: style.quantity }, String(row.quantity)),
+      createElement(Text, { style: style.rate }, row.rate),
       createElement(Text, { style: style.amount }, row.amount),
     ),
   );
@@ -159,12 +200,34 @@ function section(style: Styles, label: string, lines: readonly string[]): ReactE
   );
 }
 
-function howToPay(style: Styles, lines: readonly string[]): ReactElement {
+function howToPay(style: Styles, rows: readonly { label: string; value: string }[]): ReactElement {
   return createElement(
     View,
     { style: style.payBox, wrap: false },
     createElement(Text, { style: style.label }, "How to pay"),
-    ...lines.map((line, index) => createElement(Text, { key: index, style: style.paragraph }, line)),
+    ...rows.map((row, index) =>
+      createElement(
+        View,
+        { key: index, style: style.payRow },
+        createElement(Text, { style: style.payLabel }, row.label),
+        createElement(Text, { style: style.payValue }, row.value),
+      ),
+    ),
+  );
+}
+
+function signatureBlock(style: Styles, data: PlatformInvoiceData): ReactElement {
+  const { firm, name, title } = data.signatory;
+  // With neither given the line still says whose it is.
+  const underLine = name === undefined && title === undefined ? "Authorised signatory" : title;
+  return createElement(
+    View,
+    { style: style.signatory, wrap: false },
+    createElement(Text, { style: style.paragraph }, `For ${firm}`),
+    data.signature ? pdfImage(data.signature, style.signature) : createElement(View, { style: style.signatureRoom }),
+    createElement(View, { style: style.signLine }),
+    name === undefined ? null : createElement(Text, { style: style.signName }, name),
+    underLine === undefined ? null : createElement(Text, { style: style.signTitle }, underLine),
   );
 }
 
@@ -194,15 +257,10 @@ export function platformInvoice(data: PlatformInvoiceData, issuedAt: Date): Reac
       ...table(style, data.rows),
       totals(style, data.totals),
       section(style, "Amount in words", [data.totalInWords]),
-      data.payment ? howToPay(style, data.payment.lines) : null,
+      data.payment ? howToPay(style, data.payment.rows) : null,
       data.notes ? section(style, "Notes", [data.notes]) : null,
-      createElement(
-        View,
-        { style: style.signatory, wrap: false },
-        createElement(Text, { style: style.paragraph }, data.signatory),
-        createElement(Text, { style: style.signLine }, "Authorised signatory"),
-      ),
-      footer(style, data.seller.name),
+      signatureBlock(style, data),
+      footer(style, data.footer),
     ),
   );
 }

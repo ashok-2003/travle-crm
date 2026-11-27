@@ -1,5 +1,5 @@
 // Plans as the console edits them (spec 7.2, the owner's pricing): tiers with a flat INR price per organization, per
-// month and/or year and before GST, the seats, storage and modules they include, and a price for each seat bought
+// month, 3 months and/or year and before GST, the seats, storage and modules they include, and a price for each seat bought
 // above the plan's.
 import { z } from "zod";
 import { recordId } from "../identity/index.js";
@@ -33,10 +33,15 @@ const planFields = {
    * isn't sold that way: a plan is sold only on the billing cycles it has a price for. At least one is set.
    */
   monthlyPricePaise: pricePaise.nullable(),
+  /** For 3 months, paid upfront. */
+  quarterlyPricePaise: pricePaise.nullable(),
   yearlyPricePaise: pricePaise.nullable(),
   /** One seat above the plan's, before GST. Null or left out: the plan sells no extra seats that way. */
   extraSeatMonthlyPricePaise: pricePaise.nullable().optional(),
+  extraSeatQuarterlyPricePaise: pricePaise.nullable().optional(),
   extraSeatYearlyPricePaise: pricePaise.nullable().optional(),
+  /** The AI credits (one per AI call) an agency on the plan may use each month. */
+  aiCreditsPerMonth: z.int().min(1).max(1_000_000),
   /** The staff seats the price includes. */
   seatLimit: z.int().min(1).max(10_000),
   whatsappNumberLimit: z.int().min(0).max(100),
@@ -45,9 +50,12 @@ const planFields = {
   modules: z.array(planModule).max(planModules.length),
 };
 
-const isPriced = (plan: { monthlyPricePaise: number | null; yearlyPricePaise: number | null }) =>
-  plan.monthlyPricePaise !== null || plan.yearlyPricePaise !== null;
-const priceMissing = { message: "Give a monthly price, a yearly price or both", path: ["monthlyPricePaise"] };
+const isPriced = (plan: {
+  monthlyPricePaise: number | null;
+  quarterlyPricePaise: number | null;
+  yearlyPricePaise: number | null;
+}) => plan.monthlyPricePaise !== null || plan.quarterlyPricePaise !== null || plan.yearlyPricePaise !== null;
+const priceMissing = { message: "Give a price for a month, 3 months or a year", path: ["monthlyPricePaise"] };
 
 export const createPlanInput = z.strictObject({ key: planKey, ...planFields }).refine(isPriced, priceMissing);
 export type CreatePlanInput = z.infer<typeof createPlanInput>;
@@ -67,9 +75,12 @@ export const planSummary = z.object({
   key: planKey,
   name: z.string(),
   monthlyPricePaise: z.int().nullable(),
+  quarterlyPricePaise: z.int().nullable(),
   yearlyPricePaise: z.int().nullable(),
   extraSeatMonthlyPricePaise: z.int().nullable(),
+  extraSeatQuarterlyPricePaise: z.int().nullable(),
   extraSeatYearlyPricePaise: z.int().nullable(),
+  aiCreditsPerMonth: z.int(),
   seatLimit: z.int(),
   whatsappNumberLimit: z.int(),
   storageLimitBytes: z.int(),

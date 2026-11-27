@@ -108,7 +108,11 @@ export function SubscriptionSection({
       action={
         <span className="flex flex-wrap gap-2">
           <SubscriptionChanges organization={organization} subscription={subscription} />
-          <RecordPaymentDialog organizationId={organization.id} timeZone={organization.timeZone} />
+          <RecordPaymentDialog
+            organizationId={organization.id}
+            timeZone={organization.timeZone}
+            subscription={subscription}
+          />
         </span>
       }
     >

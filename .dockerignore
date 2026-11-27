@@ -15,6 +15,7 @@
 **/.vitest
 **/*.tsbuildinfo
 apps/web/public/icons
+apps/web/public/fonts
 apps/web/public/sw.js
 apps/web/test-results
 apps/web/playwright-report

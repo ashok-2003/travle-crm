@@ -17,7 +17,7 @@ import { promptOf, SUGGEST_REPLY_PROMPT_NAME, type PromptFacts } from "./prompt.
 import { SUGGEST_REPLY_PROMPT_TEXT } from "./prompt-text.js";
 import { tripsOnOffer } from "./trips-on-offer.js";
 import { aiEnabled } from "./settings.js";
-import { MONTHLY_AI_LIMIT, releaseAiCall, reserveAiCall, usedThisMonth } from "./usage.js";
+import { monthlyAiLimitOf, releaseAiCall, reserveAiCall, usedThisMonth } from "./usage.js";
 
 const CHAT_MESSAGES = 12;
 const MAX_REPLY_CHARS = 1500;
@@ -158,7 +158,11 @@ export async function suggestReply(
       },
       select: { id: true },
     });
-    return { draftId: draft.id, usedThisMonth: await usedThisMonth(tx, context.now, prepared.timeZone) };
+    return {
+      draftId: draft.id,
+      usedThisMonth: await usedThisMonth(tx, context.now, prepared.timeZone),
+      monthlyLimit: await monthlyAiLimitOf(tx),
+    };
   });
-  return { ...saved, text, monthlyLimit: MONTHLY_AI_LIMIT };
+  return { ...saved, text };
 }
