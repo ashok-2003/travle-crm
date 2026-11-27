@@ -1,12 +1,11 @@
 "use client";
 
-// Setup step "Agent name and tone": what the agent calls itself and how it sounds.
+// Setup step "Agent name": what the agent calls itself. The stored tone is sent back as it was loaded.
 import { saveAgentBasicsInput, type AgentBasics, type SaveAgentBasicsInput } from "@travel-crm/contracts/ai";
 import { useTranslations } from "next-intl";
 import { useId } from "react";
 import { toast } from "sonner";
 import { checked } from "@/components/forms/checked";
-import { ChoiceField } from "@/components/forms/choice-field";
 import { TextField } from "@/components/forms/text-field";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { LoadFailedAlert } from "@/components/load-failed-alert";
@@ -21,16 +20,17 @@ import { useAgentBasics, useSaveBasics } from "./use-setup-steps";
 
 interface BasicsValues {
   agentName: string;
-  tone: string;
 }
 
-type Problem = "agentName" | "tone" | "required";
+type Problem = "agentName" | "required";
 
-const toBasicsInput = (values: BasicsValues) =>
+// The tone is no longer asked for: the saved one goes back unchanged. The input refuses the first agent's
+// "enthusiastic", so that one goes as the nearest, Friendly.
+const toBasicsInput = (tone: AgentBasics["tone"]) => (values: BasicsValues) =>
   checked(
-    saveAgentBasicsInput.safeParse(values),
+    saveAgentBasicsInput.safeParse({ agentName: values.agentName, tone: tone === "enthusiastic" ? "friendly" : tone }),
     values,
-    ([key]) => (key === "agentName" || key === "tone" ? key : undefined),
+    ([key]) => (key === "agentName" ? key : undefined),
     (field): Problem => field,
   );
 
@@ -41,9 +41,8 @@ function BasicsForm({ saved }: { saved: AgentBasics }) {
   const agency = useMe().organization.name;
   const save = useSaveBasics();
   const { form, onSubmit, formProblem } = useCheckedForm<BasicsValues, SaveAgentBasicsInput, Problem>(
-    // The first agent's "enthusiastic" is not on offer: it shows as the nearest, Friendly, until a tone is chosen.
-    { agentName: saved.agentName, tone: saved.tone === "professional" ? "professional" : "friendly" },
-    toBasicsInput,
+    { agentName: saved.agentName },
+    toBasicsInput(saved.tone),
     (problem) => t(`problems.${problem}`),
   );
   return (
@@ -60,16 +59,6 @@ function BasicsForm({ saved }: { saved: AgentBasics }) {
           name="agentName"
           label={t("agentName")}
           placeholder={t("namePlaceholder", { agency })}
-        />
-        <ChoiceField
-          control={form.control}
-          name="tone"
-          legend={t("tone")}
-          inline
-          options={[
-            { value: "friendly", label: t("friendly") },
-            { value: "professional", label: t("professional") },
-          ]}
         />
       </FieldGroup>
       {formProblem !== undefined && <p role="alert">{formProblem}</p>}

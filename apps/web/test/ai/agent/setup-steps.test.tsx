@@ -195,7 +195,7 @@ describe("the payment editor", () => {
   });
 });
 
-describe("the answers, name and tone, and ads editors", () => {
+describe("the answers, name, and ads editors", () => {
   it("saves the answers typed", async () => {
     const { api, edit } = open(t.steps.answers.title, {
       "ai.agencyAnswers": { data: { refunds: "In 7 days" } },
@@ -222,19 +222,33 @@ describe("the answers, name and tone, and ads editors", () => {
     });
   });
 
-  it("saves the name and tone, with the agency's team as the name's placeholder", async () => {
+  it("saves the name alone, with the agency's team as its placeholder, and sends the loaded tone back", async () => {
     const { api, edit } = open(t.steps.basics.title, {
-      "ai.agentBasics": { data: { agentName: "", tone: "enthusiastic" } },
+      "ai.agentBasics": { data: { agentName: "", tone: "professional" } },
       "ai.saveAgentBasics": { data: { agentName: "Maya", tone: "professional" } },
     });
     await edit();
     const name = await screen.findByLabelText(t.basics.agentName);
     expect(name).toHaveAttribute("placeholder", expect.stringMatching(/ team$/));
+    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+    expect(screen.queryByText(/tone/i)).not.toBeInTheDocument();
     await userEvent.type(name, "Maya");
-    await userEvent.click(screen.getByRole("radio", { name: t.basics.professional }));
     await userEvent.click(screen.getByRole("button", { name: t.basics.save }));
     await waitFor(() => {
       expect(api.sent("ai.saveAgentBasics")).toEqual([{ agentName: "Maya", tone: "professional" }]);
+    });
+  });
+
+  it("saves a stored enthusiastic tone as friendly, the nearest the api takes", async () => {
+    const { api, edit } = open(t.steps.basics.title, {
+      "ai.agentBasics": { data: { agentName: "Maya", tone: "enthusiastic" } },
+      "ai.saveAgentBasics": { data: { agentName: "Maya", tone: "friendly" } },
+    });
+    await edit();
+    await screen.findByLabelText(t.basics.agentName);
+    await userEvent.click(screen.getByRole("button", { name: t.basics.save }));
+    await waitFor(() => {
+      expect(api.sent("ai.saveAgentBasics")).toEqual([{ agentName: "Maya", tone: "friendly" }]);
     });
   });
 
