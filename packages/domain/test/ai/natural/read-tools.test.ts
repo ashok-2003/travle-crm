@@ -344,8 +344,9 @@ describe("the natural agent's read tools", () => {
       expect(await quote({ adults: 2, room: "child_bed" })).toBe(
         "refused: child with bed is a child's place, not a room for the adults; priced: double, triple",
       );
-      expect(await quote({ adults: 3, room: "double" })).toBe(
-        "refused: 3 people don't fill double rooms of 2; priced: double, triple",
+      // People, not rooms (the owner, 2026-11-27): three in double sharing are three times its price.
+      expect(await quote({ adults: 3, room: "double" })).toContain(
+        "double ₹12,999 per person, GST included; total ₹38,997;",
       );
       expect(await quote({ adults: 2, room: "double" })).toContain(
         "double ₹12,999 per person, GST included; total ₹25,998;",

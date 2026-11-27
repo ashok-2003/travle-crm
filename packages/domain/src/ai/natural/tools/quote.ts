@@ -1,7 +1,7 @@
 // The natural agent's one quote (pre-flight #21): what a party pays on an open departure, priced as the trip sheet and
 // the booking's own quote price it, with a refusal that names the way on. `quote` answers with it; the actions check it.
 import type { BookingTerms } from "@travel-crm/contracts/ai";
-import { adultRoomTypes, quoteTaxRate, roomCapacity } from "@travel-crm/contracts/quotes";
+import { adultRoomTypes, quoteTaxRate } from "@travel-crm/contracts/quotes";
 import { formatRupees, formatShortDay, parseCalendarDate, type CalendarDate } from "../../../kernel/index.js";
 import { groupTotal } from "../../../quotes/index.js";
 import { fenced } from "../../fenced.js";
@@ -80,16 +80,11 @@ export async function quoteOf(
     pricesIncludeGst: row.pricesIncludeGst,
     taxRateBasisPoints: quoteTaxRate.catch(500).parse(row.taxRateBasisPoints),
   };
-  const total = groupTotal(prices, rooms, { ...tax, supplierStateCode: ANY_STATE }, offered);
+  const total = groupTotal(prices, rooms, { ...tax, supplierStateCode: ANY_STATE });
+  // Only a child's place can be unpriced here: the adults' room was checked above, and no room of theirs helps.
   if (!total.ok) {
-    const name = roomNames[total.roomType];
-    // Only a child's place can be unpriced here: the adults' room was checked above, and no room of theirs helps.
-    if (total.reason === "NO_PRICE") {
-      return refused(`${name} isn't priced for ${day(startsOn)}; ask the team with create_task(question)`);
-    }
-    const people = rooms.find((one) => one.roomType === total.roomType)?.people ?? party;
     return refused(
-      `${String(people)} people don't fill ${name} rooms of ${String(roomCapacity[total.roomType])}; ${priced}`,
+      `${roomNames[total.roomType]} isn't priced for ${day(startsOn)}; ask the team with create_task(question)`,
     );
   }
 
