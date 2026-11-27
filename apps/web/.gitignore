@@ -1,5 +1,7 @@
 # Written by `pnpm generate` from the brand package (scripts/generate.ts).
 /public/icons/
+# Copied by `pnpm generate` from the font packages, for the customer's pages at /p (scripts/customer-fonts.ts).
+/public/fonts/
 # Bundled by `pnpm generate` from src/service-worker (scripts/service-worker.ts).
 /public/sw.js
 # Playwright's reports and traces.

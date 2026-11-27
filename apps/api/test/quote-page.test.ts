@@ -121,6 +121,48 @@ describe("the customer's quote page", () => {
     expect(response.headers.get("content-security-policy")).not.toContain("script-src");
   });
 
+  const phoneBar = (html: string) => /<nav class="bar"[^>]*>([\s\S]*?)<\/nav>/.exec(html)?.[1] ?? null;
+
+  it("opens with the agency, the trip's name in the title font and its status, and offers Accept quote in a phone's bar", async () => {
+    const { path } = await aQuote();
+    const { response, html } = await page(path);
+    expect(
+      inOrder(
+        positions(
+          html,
+          '<p class="agency">',
+          "<h1>Goa 4 days</h1>",
+          '<span class="pill attention">Awaiting your reply',
+        ),
+      ),
+    ).toBe(true);
+    expect(html).toMatch(/h1\{[^}]*font-family:var\(--title\)/);
+    expect(html).toContain('src:url("/fonts/');
+    expect(phoneBar(html)).toBe('<a class="button" href="#accept">Accept quote</a>');
+    const policy = response.headers.get("content-security-policy") ?? "";
+    expect(policy).toContain("font-src 'self'");
+    expect(policy).not.toMatch(/https?:/);
+  });
+
+  it("once accepted with something to pay, the phone's bar pays it by UPI; a declined quote has no bar", async () => {
+    const made = await aQuote();
+    await post(made.path, { name: "Meera Iyer" });
+    const { html } = await page(made.path);
+    expect(html).toContain('<span class="pill good">Accepted</span>');
+    const payLink = /<a class="button" href="([^"]+)">Pay by UPI/.exec(html)?.[1] ?? "";
+    expect(payLink).toMatch(/^upi:\/\/pay\?/);
+    expect(phoneBar(html)).toBe(`<a class="button" href="${payLink}">Pay ₹52,500</a>`);
+    expect(html).not.toContain('href="#accept"');
+
+    const declined = await aQuote();
+    await server.db.forOrg(agency.organizationId, (tx) =>
+      tx.quote.update({ where: { id: declined.quoteId }, data: { status: "declined" } }),
+    );
+    const declinedPage = await page(declined.path);
+    expect(declinedPage.html).toContain('<span class="pill bad">Declined</span>');
+    expect(phoneBar(declinedPage.html)).toBeNull();
+  });
+
   it("ticks inclusions in green and crosses exclusions in plain muted ink, keeping a minus that starts a point", async () => {
     const { path, quoteId } = await aQuote();
     await server.db.forOrg(agency.organizationId, (tx) =>
@@ -276,6 +318,8 @@ describe("the customer's quote page", () => {
     expect(html.match(/type="radio"/g)?.length).toBe(2);
     expect(inOrder(positions(html, 'type="radio"', 'name="name"', "Accept"))).toBe(true);
     expect(html.match(/<button type="submit"[^>]*>Accept/g)).toHaveLength(1);
+    // The phone's bar leads to the choice, where the one Accept button is.
+    expect(phoneBar(html)).toBe('<a class="button" href="#accept">Accept quote</a>');
   });
 
   it("holds every box inside a 360px phone", async () => {
