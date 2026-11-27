@@ -1,6 +1,7 @@
 // The one agent's turn (spec 3; rulings R7, P7, P8): the tool agent runs the model and the tools until it answers, and
 // the turn ends as natural's loop ends, so natural's act, dry answer and follow-up take it as they are. No word checks
-// (R5) but one (the owner, 2026-11-26): a reply that shows an ID, a tool call or code is asked again once, never edited.
+// (R5) but one (the owner, 2026-11-26 and 27): a reply that shows an ID, a tool call or name, the model's notes or code
+// is asked again once, never edited; and stay_quiet's silence wins over the words beside it.
 // No cap but LangGraph's steps; a failed model call ends the turn, and the worker's retries take over.
 import { oneReadTools } from "@travel-crm/contracts/ai";
 import type { AiMessage, AiToolCall } from "@travel-crm/integrations/ai";
@@ -110,7 +111,12 @@ export async function runOneLoop(
     if (end.end === "superseded") return { end: "superseded" };
     if (end.end === "model_failed") return { end: "model_failed", reason: end.reason };
     if (end.end === "steps") return oneFallback("steps", run, ending);
-    const written = replyWords(end.text) || wordsBesideActions(end.transcript);
+    const reply = replyWords(end.text) || wordsBesideActions(end.transcript);
+    // Silence wins (the owner, 2026-11-27): words beside stay_quiet were mostly the model's own reasoning. A turn that
+    // owes words (a hold, a resend, a hand-over) still sends them, and stay_quiet goes (oneFinal).
+    const quiet = run.modelStaged.has("stay_quiet") && mayEndSilent(run);
+    if (quiet && reply !== "") trace.flag("quiet_dropped_words");
+    const written = quiet ? "" : reply;
     const found = codeInReply(written, context.codes);
     if (found === null && (written !== "" || mayEndSilent(run))) {
       return oneFinal(run, written, { transcript: end.transcript, callsUsed, model: end.model }, trace);
