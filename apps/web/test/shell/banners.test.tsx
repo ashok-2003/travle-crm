@@ -5,6 +5,7 @@
 import { brand } from "@travel-crm/brand";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createApiClient, TRPCProvider } from "@/data/trpc";
@@ -15,7 +16,7 @@ import { stubApi, type Answer, type ApiStub } from "../support/api-stub";
 import { member } from "../support/members";
 
 const { banners } = messages.shell;
-const { banner } = messages.subscription;
+const { banner, renewal: reminder } = messages.subscription;
 
 const subscription = (
   status: string,
@@ -26,6 +27,7 @@ const subscription = (
     status,
     access,
     planName: "Growth",
+    planKey: "growth",
     modules: [],
     trialEndsOn: null,
     paidThrough: null,
@@ -146,6 +148,53 @@ describe("Banners", () => {
   it("says a read-only organization can still view and export", async () => {
     await renderBanners(member({ isOwner: true }), subscription("read_only", "read_only"));
     expect(screen.getByText(banner.readOnly)).toBeVisible();
+  });
+
+  describe("the renewal reminder", () => {
+    const renewing = (paidThrough: string) =>
+      subscription("active", "full", { paidThrough, nextChangeOn: "2027-12-01" });
+    const owner = () => member({ isOwner: true });
+
+    afterEach(() => {
+      window.localStorage.clear();
+    });
+
+    it("shows the Owner one quiet line from seven days before the paid-through day, and not eight", async () => {
+      const { unmount } = await renderBanners(owner(), renewing("2026-10-23"));
+      expect(screen.getByText("Your Growth plan is paid till 23 Oct. Contact us to renew.")).toBeVisible();
+      unmount();
+      const { container } = await renderBanners(owner(), renewing("2026-10-24"));
+      expect(container).toBeEmptyDOMElement();
+    });
+
+    it("shows nobody without billing:view", async () => {
+      const { container } = await renderBanners(member(), renewing("2026-10-20"));
+      expect(container).toBeEmptyDOMElement();
+    });
+
+    it("stays hidden once dismissed on this device, until the paid-through day changes", async () => {
+      const first = await renderBanners(owner(), renewing("2026-10-20"));
+      await userEvent.click(screen.getByRole("button", { name: reminder.hide }));
+      expect(first.container).toBeEmptyDOMElement();
+      first.unmount();
+      const again = await renderBanners(owner(), renewing("2026-10-20"));
+      expect(again.container).toBeEmptyDOMElement();
+      again.unmount();
+      await renderBanners(owner(), renewing("2026-10-22"));
+      expect(screen.getByText(/paid till 22 Oct/)).toBeVisible();
+    });
+
+    it("still shows and hides when the browser refuses its storage", async () => {
+      vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+        throw new Error("blocked");
+      });
+      vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+        throw new Error("blocked");
+      });
+      const view = await renderBanners(owner(), renewing("2026-10-20"));
+      await userEvent.click(screen.getByRole("button", { name: reminder.hide }));
+      expect(view.container).toBeEmptyDOMElement();
+    });
   });
 
   it("shows no subscription banner while the subscription can't be read", async () => {

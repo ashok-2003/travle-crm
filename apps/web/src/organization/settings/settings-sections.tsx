@@ -12,6 +12,7 @@ import {
   BellRingIcon,
   BuildingIcon,
   ChevronRightIcon,
+  CreditCardIcon,
   FileSpreadsheetIcon,
   FileTextIcon,
   FolderIcon,
@@ -65,6 +66,7 @@ interface Section {
     | "aiAgent"
     | "salesAutomation"
     | "teamNotifications"
+    | "plan"
     | "audit";
   href: string;
   icon: LucideIcon;
@@ -129,6 +131,7 @@ const sections: readonly Section[] = [
     module: "quotes",
   },
   { key: "teamNotifications", href: routes.teamNotifications, icon: BellRingIcon, requires: "settings:manage" },
+  { key: "plan", href: routes.plan, icon: CreditCardIcon, requires: "billing:view" },
   { key: "audit", href: routes.audit, icon: HistoryIcon, requires: "audit:view" },
 ];
 

@@ -55,6 +55,8 @@ export const routes = {
   files: "/settings/files",
   documents: "/settings/documents",
   audit: "/settings/audit",
+  /** Plan & billing: the plan, its use and the payments recorded (billing:view). */
+  plan: "/settings/plan",
   destinations: "/settings/destinations",
   blockedContacts: "/settings/blocked-contacts",
   /** Google Sheets whose rows become leads; a sheet's own page is sheetRoute(sheetId). */

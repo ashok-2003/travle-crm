@@ -51,6 +51,7 @@ const entitlements = (status: Entitlements["status"] = "active", modules = ["crm
   status,
   access: "full",
   planName: "Test",
+  planKey: "starter",
   modules: new Set(modules) as Entitlements["modules"],
   limits: { seats: 10, whatsappNumbers: 1, storageBytes: 1e9 },
   trialEndsOn: null,

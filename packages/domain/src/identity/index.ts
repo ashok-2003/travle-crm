@@ -43,7 +43,7 @@ export {
   updateOrganizationRecord,
   type OrganizationRecord,
 } from "./organization-records.js";
-export { organizationTimeZone } from "./organization-profile.js";
+export { organizationTimeZone, seatsUsed } from "./organization-profile.js";
 export { PermissionSet, type Grant } from "./permission-set.js";
 export {
   changePlatformStaffLevel,

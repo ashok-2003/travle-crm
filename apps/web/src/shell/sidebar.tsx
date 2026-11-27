@@ -42,6 +42,7 @@ import { NotificationBell } from "@/notifications/bell/notification-bell";
 import { useMe } from "@/session/me-context";
 import { useTodaySummary } from "@/today/use-today";
 import { isCurrent, navigationGroups, type NavigationItem } from "./navigation";
+import { VerifiedBadge } from "@/subscription/verified-badge";
 import { OrgAvatar } from "./org-mark";
 import { prefetchHandlers, usePrefetchDestination } from "./prefetch";
 import { useSignOut } from "./sign-out";
@@ -173,6 +174,7 @@ export function AppSidebar() {
           <SidebarToggle openLabel={t("openSidebar")} closeLabel={t("closeSidebar")} />
           <SidebarRow icon={<OrgAvatar className="size-8" />} action={<SidebarDock label={t("pinSidebar")} />}>
             <span className="script-leading text-section font-semibold">{organization.name}</span>
+            <VerifiedBadge onDark />
           </SidebarRow>
           <BellRow />
         </SidebarHeader>

@@ -418,6 +418,7 @@ describe("the demo reset", () => {
       status: "active",
       access: "full",
       planName: "Demo",
+      planKey: "platform-demo",
       modules: new Set(["crm", "inbox", "ai"]),
       limits: { seats: 10, whatsappNumbers: 1, storageBytes: 1e9 },
       trialEndsOn: null,

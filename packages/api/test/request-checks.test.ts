@@ -80,3 +80,22 @@ describe("subscription.get", () => {
     expect(refused).toMatchObject({ code: "FORBIDDEN", cause: { reason: "NO_SUBSCRIPTION" } });
   });
 });
+
+describe("subscription.billing (Plan & billing)", () => {
+  it("is refused by the api to a member without billing:view, whatever the screen hides", async () => {
+    const billing = (setup: Parameters<typeof callerFor>[0]) =>
+      outcome(callerFor(setup).caller.subscription.billing() as unknown as Promise<string>);
+    expect(await billing({ status: "active" })).toBe("MISSING_PERMISSION");
+    expect(await billing({ status: "active", granted: ["settings:manage", "audit:view"] })).toBe("MISSING_PERMISSION");
+  });
+
+  it("is a plain lifecycle read, so a cancelled organization is refused before the role is asked", async () => {
+    const refused = await outcome(
+      callerFor({
+        status: "cancelled",
+        granted: ["billing:view"],
+      }).caller.subscription.billing() as unknown as Promise<string>,
+    );
+    expect(refused).toBe("ORGANIZATION_CANCELLED");
+  });
+});
