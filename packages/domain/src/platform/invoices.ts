@@ -26,6 +26,8 @@ import {
   type InvoiceAmounts,
 } from "../kernel/index.js";
 import { readBillingDetails } from "./billing-details.js";
+import { billingImageForPdf } from "./billing-images.js";
+import { linesWithAmounts, readStoredLines } from "./invoice-lines.js";
 import { financialYearOf, invoiceNumber, takeNextSequence } from "./invoice-numbers.js";
 import { recordPlatformAudit } from "./platform-log.js";
 import type { PlatformServices } from "./services.js";
@@ -40,8 +42,8 @@ function printedDay(day: string): string {
 const dayOf = (date: Date): string => date.toISOString().slice(0, 10);
 const rupees = (paise: number): string => formatMoney(money(paise));
 const stateName = (code: string): string => gstStates.find((state) => state.code === code)?.name ?? code;
-/** "Karnataka (29)": GST invoices name a state with its code. */
-const stateText = (code: string): string => `${stateName(code)} (${code})`;
+/** "Uttar Pradesh (State code: 09)": an invoice names a state with its code. */
+const stateText = (code: string): string => `${stateName(code)} (State code: ${code})`;
 
 function toDetail(row: InvoiceRow): InvoiceDetail {
   return invoiceDetailSchema.parse({
@@ -59,29 +61,35 @@ function toDetail(row: InvoiceRow): InvoiceDetail {
     billToAddress: row.billToAddress,
     billToStateCode: row.billToStateCode,
     billToGstin: row.billToGstin,
-    lines: row.lines,
+    lines: readStoredLines(row.lines),
     gstRateBasisPoints: row.gstRateBasisPoints,
     subtotalPaise: Number(row.subtotalPaise),
     cgstPaise: Number(row.cgstPaise),
     sgstPaise: Number(row.sgstPaise),
     igstPaise: Number(row.igstPaise),
     notes: row.notes,
-    seller: row.seller,
+    // An invoice made before the images and the signatory were kept has none of those fields.
+    seller: { logoKey: null, signatureKey: null, signatoryName: null, signatoryTitle: null, ...asRecord(row.seller) },
     cancelledAt: row.cancelledAt?.toISOString() ?? null,
     cancelReason: row.cancelReason,
     createdBy: row.createdBy,
   });
 }
 
+const asRecord = (value: unknown): Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value) ? { ...value } : {};
+
 const given = (value: string | undefined): string | null => (value === undefined || value === "" ? null : value);
 
 /** What the PDF is given: every amount and date already as text, so the template knows no rules. */
-function pdfData(
+async function pdfData(
+  services: PlatformServices,
   input: CreateInvoiceInput,
+  lines: InvoiceDetail["lines"],
   seller: BillingDetails,
   number: string,
   amounts: InvoiceAmounts,
-): PlatformInvoiceData {
+): Promise<PlatformInvoiceData> {
   const hasGst = input.gstRateBasisPoints > 0;
   const rate = (basisPoints: number) => `${String(basisPoints / 100)}%`;
   const sameState = input.billTo.stateCode === undefined || input.billTo.stateCode === seller.stateCode;
@@ -95,7 +103,6 @@ function pdfData(
       : [{ label: `IGST ${rate(input.gstRateBasisPoints)}`, amount: rupees(amounts.igstPaise) }];
   const sellerLines = [
     seller.address,
-    `State: ${stateText(seller.stateCode)}`,
     seller.pan === null ? null : `PAN: ${seller.pan}`,
     seller.gstin === null ? null : `GSTIN: ${seller.gstin}`,
     seller.phone === null ? null : `Phone: ${internationalPhone(seller.phone)}`,
@@ -103,33 +110,53 @@ function pdfData(
   ];
   const billToLines = [
     given(input.billTo.address),
-    input.billTo.stateCode === undefined ? null : `State: ${stateText(input.billTo.stateCode)}`,
     input.billTo.gstin === undefined ? null : `GSTIN: ${input.billTo.gstin}`,
   ];
-  const paymentLines = [
-    seller.bankAccountName === null ? null : `Account name: ${seller.bankAccountName}`,
-    seller.bankAccountNumber === null ? null : `Account number: ${seller.bankAccountNumber}`,
-    seller.bankIfsc === null ? null : `IFSC: ${seller.bankIfsc}`,
-    seller.bankNameBranch === null ? null : `Bank: ${seller.bankNameBranch}`,
-    seller.upiId === null ? null : `UPI: ${seller.upiId}`,
-  ].filter((line) => line !== null);
+  const paymentRows = [
+    { label: "Account name", value: seller.bankAccountName },
+    { label: "Account number", value: seller.bankAccountNumber },
+    { label: "IFSC", value: seller.bankIfsc },
+    { label: "Bank", value: seller.bankNameBranch },
+    { label: "UPI ID", value: seller.upiId },
+  ].flatMap(({ label, value }) => (value === null ? [] : [{ label, value }]));
   return {
     title: input.kind === "proforma" ? "Proforma Invoice" : hasGst ? "Tax Invoice" : "Invoice",
     number,
     issuedOn: printedDay(input.issuedOn),
     dueOn: input.dueOn === undefined ? undefined : printedDay(input.dueOn),
-    seller: { name: seller.legalName, lines: sellerLines.filter((line) => line !== null) },
-    billTo: { name: input.billTo.name, lines: billToLines.filter((line) => line !== null) },
-    rows: input.lines.map((line) => ({ description: line.description, amount: rupees(line.amountPaise) })),
+    seller: {
+      name: seller.legalName,
+      lines: sellerLines.filter((line) => line !== null),
+      stateLine: stateText(seller.stateCode),
+    },
+    billTo: {
+      name: input.billTo.name,
+      lines: billToLines.filter((line) => line !== null),
+      stateLine: input.billTo.stateCode === undefined ? undefined : stateText(input.billTo.stateCode),
+    },
+    rows: lines.map((line, index) => ({
+      index: index + 1,
+      description: line.description,
+      quantity: line.quantity,
+      rate: rupees(line.ratePaise),
+      amount: rupees(line.amountPaise),
+    })),
     totals: [
       { label: "Subtotal", amount: rupees(amounts.subtotalPaise) },
       ...taxRows,
       { label: "Total", amount: rupees(amounts.totalPaise), emphasis: true },
     ],
     totalInWords: rupeesInWords(amounts.totalPaise),
-    payment: paymentLines.length === 0 ? null : { lines: paymentLines },
+    payment: paymentRows.length === 0 ? null : { rows: paymentRows },
     notes: given(input.notes) ?? undefined,
-    signatory: `For ${seller.legalName}`,
+    logo: await billingImageForPdf(services.storage, seller.logoKey),
+    signature: await billingImageForPdf(services.storage, seller.signatureKey),
+    signatory: {
+      firm: seller.legalName,
+      name: seller.signatoryName ?? undefined,
+      title: seller.signatoryTitle ?? undefined,
+    },
+    footer: `${seller.legalName} · ${seller.address.replaceAll(/\s*\n\s*/g, ", ")}`,
   };
 }
 
@@ -195,15 +222,11 @@ export async function createInvoice(
       const sequence = await takeNextSequence(tx, input.kind, financialYear);
       const prefix = input.kind === "proforma" ? seller.proformaPrefix : seller.invoicePrefix;
       const number = invoiceNumber(prefix, financialYear, sequence);
-      const amounts = invoiceAmounts(
-        input.lines,
-        input.gstRateBasisPoints,
-        seller.stateCode,
-        input.billTo.stateCode ?? null,
-      );
+      const lines = linesWithAmounts(input.lines);
+      const amounts = invoiceAmounts(lines, input.gstRateBasisPoints, seller.stateCode, input.billTo.stateCode ?? null);
       const id = newUuidV7();
       const pdfKey = `platform/invoices/${financialYear}/${id}.pdf`;
-      const pdf = await render(pdfData(input, seller, number, amounts), now);
+      const pdf = await render(await pdfData(services, input, lines, seller, number, amounts), now);
       await services.storage.put({ key: pdfKey, contentType: "application/pdf", body: pdf });
       const row = await tx.platformInvoice.create({
         data: {
@@ -218,7 +241,7 @@ export async function createInvoice(
           billToAddress: given(input.billTo.address),
           billToStateCode: input.billTo.stateCode ?? null,
           billToGstin: input.billTo.gstin ?? null,
-          lines: input.lines,
+          lines,
           gstRateBasisPoints: input.gstRateBasisPoints,
           subtotalPaise: amounts.subtotalPaise,
           cgstPaise: amounts.cgstPaise,
