@@ -96,7 +96,6 @@ export {
 } from "./quotes.js";
 export { quoteSettingsOf, saveQuoteSettings, verifyUpi } from "./settings.js";
 export { quoteTablePageOf, type QuoteTableItem } from "./table-page.js";
-export { makeQuoteExportListener, type PaymentWaits } from "./quote-export/index.js";
 export { upiPayLink } from "@travel-crm/contracts/quotes";
 export { coveredInstallments, quoteMoney, TOUR_OPERATOR_SAC } from "./totals.js";
 

@@ -3,7 +3,6 @@
 import { leadExportHeaders, wordOf, type FileWordField } from "@travel-crm/contracts/crm";
 import { internationalPhone } from "@travel-crm/contracts/kernel";
 import type { WriterColumn, WrittenCell } from "@travel-crm/integrations/spreadsheets";
-import { rupeesOf, wallClockOf } from "../../exports/index.js";
 import type { TripColumns } from "../trip-columns.js";
 
 /** The columns' kinds, in B38's order, one for each of the contract's headers. */
@@ -90,6 +89,37 @@ function travelMonthOf(lead: Pick<ExportedLead, "travelKind" | "travelMonth">): 
   return `${MONTHS[lead.travelMonth.getUTCMonth()] ?? ""} ${String(lead.travelMonth.getUTCFullYear())}`;
 }
 
+const clocks = new Map<string, Intl.DateTimeFormat>();
+
+/**
+ * An instant as the agency's wall clock reads: "2026-10-19T23:50". One cached formatter and one string per call: the
+ * kernel's calendarDateIn and timeOfDayIn take apart every instant they format, which for 100,000 cells (two to a
+ * lead) costs seconds and hundreds of MB of the worker's memory.
+ */
+export function wallClockOf(instant: Date, timeZone: string): string {
+  let clock = clocks.get(timeZone);
+  if (clock === undefined) {
+    // Sweden's order is year-month-day, hours 00-23: "2026-10-19 23:50".
+    clock = new Intl.DateTimeFormat("sv-SE", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    });
+    clocks.set(timeZone, clock);
+  }
+  return clock.format(instant).replace(/\s+/, "T");
+}
+
+/**
+ * Paise as rupees, whole rupees plus the paise's hundredths, from the bigint: the cell is a number (B38) so a sheet can
+ * add and sort it, which a text cell would stop.
+ */
+const rupees = (paise: bigint) => Number(paise / 100n) + Number(paise % 100n) / 100;
+
 const wordOrNull = (field: FileWordField, key: string | null) => (key === null ? null : wordOf(field, key));
 
 /** An owner who is no longer an active member (removed or banned) shows as "Former member" (B38). */
@@ -109,7 +139,7 @@ export function exportRowOf(lead: ExportedLead, context: ExportContext): Written
     travelMonthOf(lead),
     lead.adults,
     lead.childrenAges.length === 0 ? null : lead.childrenAges.join(", "),
-    lead.budgetPaise === null ? null : rupeesOf(lead.budgetPaise),
+    lead.budgetPaise === null ? null : rupees(lead.budgetPaise),
     wordOrNull("budgetBasis", lead.budgetBasis),
     lead.departureCity,
     wordOrNull("tripType", lead.tripType),

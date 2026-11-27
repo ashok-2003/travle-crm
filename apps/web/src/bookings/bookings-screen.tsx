@@ -27,10 +27,8 @@ import { useHolds, useMe, viewScope } from "@/session/me-context";
 import { NewBookingDialog } from "./new-booking-dialog";
 import { BookingsFilters, useAppliedChips, type BookingFilters } from "./bookings-filters";
 import { useBookingColumns, useStackedBooking } from "./bookings-table";
-import { BookingExportButton } from "./export/booking-export-button";
 import {
   bookingChips,
-  bookingFilterOf,
   bookingsHref,
   bookingsStart,
   isFiltered,
@@ -119,12 +117,6 @@ export function BookingsScreen() {
           salespeople={ownOnly ? null : salespeople}
           opener={filtersButton}
           onApply={applyFilters}
-        />
-      }
-      exportButton={
-        <BookingExportButton
-          filter={bookingFilterOf(address, search)}
-          salespersonName={salespeople.data?.find((person) => person.userId === address.ownerUserId)?.name ?? null}
         />
       }
       applied={chips}

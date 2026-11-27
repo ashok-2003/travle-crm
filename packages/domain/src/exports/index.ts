@@ -1,6 +1,5 @@
-// Public API of the exports module: taking leads, staff, bookings and quotes out as files (release 2, spec 6.2, L0).
+// Public API of the exports module: taking leads and staff out as files (release 2, spec 6.2, L0).
 export type { ExportIdentity, ExportJobDependencies } from "./dependencies.js";
-export { rupeesOf, wallClockOf } from "./export-cells.js";
 export { exportDownloadLink } from "./export-download.js";
 export { exportDetail, startExport } from "./export-requests.js";
 export { findExport, holdExport, type DataExportRow } from "./export-row.js";

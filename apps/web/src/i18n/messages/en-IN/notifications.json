@@ -77,7 +77,7 @@
       },
       "exportReady": {
         "label": "An export you asked for is ready",
-        "hint": "When the file of leads, staff, bookings or quotes you asked for can be downloaded."
+        "hint": "When the file of leads or staff you asked for can be downloaded."
       },
       "formBusy": {
         "label": "Your website form is busy",

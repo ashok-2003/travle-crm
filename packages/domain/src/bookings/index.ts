@@ -52,7 +52,6 @@ export { paymentScreenshotLink } from "./payment-screenshots.js";
 export { publicUploadRecord, publicUploadTarget, type UploadTarget } from "./public-uploads.js";
 export { getBooking, listBookings, listLeadBookings } from "./reads.js";
 export { bookingTablePageOf, type BookingTableItem } from "./table-page.js";
-export { makeBookingExportListener } from "./booking-export/index.js";
 export {
   BOOKING_REMINDERS_QUEUE,
   rebuildReminders,

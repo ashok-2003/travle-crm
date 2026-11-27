@@ -7,15 +7,8 @@ import { appRouter } from "../src/routers/app-router.js";
 const record = (appRouter as unknown as { _def: { record: Record<string, unknown> } })._def.record;
 
 describe("the bulk routers", () => {
-  it("serves leadImports, leadExports, staffImports and staffExports, and the bookings' and quotes' exports", () => {
-    for (const name of [
-      "leadImports",
-      "leadExports",
-      "staffImports",
-      "staffExports",
-      "bookingExports",
-      "quoteExports",
-    ]) {
+  it("serves leadImports, leadExports, staffImports and staffExports", () => {
+    for (const name of ["leadImports", "leadExports", "staffImports", "staffExports"]) {
       expect(record, name).toHaveProperty(name);
     }
   });
@@ -26,7 +19,5 @@ describe("the bulk routers", () => {
       ["add", "cancel", "confirmUpload", "get", "match", "recent", "rows", "setPasswords", "start"].sort(),
     );
     expect(procedures("staffExports")).toEqual(["downloadLink", "get", "start"]);
-    expect(procedures("bookingExports")).toEqual(["downloadLink", "get", "start"]);
-    expect(procedures("quoteExports")).toEqual(["downloadLink", "get", "start"]);
   });
 });

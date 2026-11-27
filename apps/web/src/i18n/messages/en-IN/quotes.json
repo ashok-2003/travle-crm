@@ -353,17 +353,5 @@
     "submitting": "Making",
     "made": "Quotes made. Check their prices.",
     "problem": "Check this."
-  },
-  "export": {
-    "button": "Export",
-    "title": "Quotes export",
-    "back": "Back to Quotes",
-    "dialog": {
-      "title": "Export quotes",
-      "intro": "Download the quotes this list shows."
-    },
-    "holds": {
-      "all": "Every quote"
-    }
   }
 }

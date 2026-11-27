@@ -555,17 +555,5 @@
       "notFoundTemplate": "Template for a payment not found",
       "hint": "A message goes as plain words while the customer's chat is open (24 hours). After that it goes as the template you pick, and with no template it becomes a task for the lead's owner."
     }
-  },
-  "export": {
-    "button": "Export",
-    "title": "Bookings export",
-    "back": "Back to Bookings",
-    "dialog": {
-      "title": "Export bookings",
-      "intro": "Download the bookings this list shows."
-    },
-    "holds": {
-      "all": "Every booking"
-    }
   }
 }

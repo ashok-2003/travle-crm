@@ -59,12 +59,7 @@ export interface ExportSource<Filter> {
   keptFilter(filter: Filter): EventPayload;
 }
 
-const nounOf: Record<ExportKind, [string, string]> = {
-  leads: ["lead", "leads"],
-  staff: ["person", "people"],
-  bookings: ["booking", "bookings"],
-  quotes: ["quote", "quotes"],
-};
+const nounOf: Record<ExportKind, [string, string]> = { leads: ["lead", "leads"], staff: ["person", "people"] };
 
 /** The requester's access afresh, as the job's actor (source job, or impersonation when support asked for it). */
 async function requesterAccess(

@@ -4,10 +4,10 @@
 import type { ExportDetail } from "@travel-crm/contracts/exports";
 import { useTranslations } from "next-intl";
 
-/** What the rows are called: a lead export's leads, a staff export's people, a bookings' or quotes' export's own. */
-export type RowsWord = "leads" | "people" | "bookings" | "quotes";
+/** What the rows are called: a lead export's leads, a staff export's people. */
+export type RowsWord = "leads" | "people";
 
-export const rowsWordOf = (kind: ExportDetail["kind"]): RowsWord => (kind === "staff" ? "people" : kind);
+export const rowsWordOf = (kind: ExportDetail["kind"]): RowsWord => (kind === "leads" ? "leads" : "people");
 
 export function useExportFailure(): (detail: ExportDetail | undefined) => string | null {
   const t = useTranslations("exports");

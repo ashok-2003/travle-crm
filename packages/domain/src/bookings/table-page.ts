@@ -32,11 +32,8 @@ function searchCondition(search: string | undefined): Sql {
     ${digits.length < 4 ? emptySql : sql`OR person.phone_e164 LIKE ${`%${digits}%`}`})`;
 }
 
-/** What the table and its export both filter by: the table's input without its page, size and sort. */
-export type BookingFilter = Omit<BookingTablePageInput, "page" | "limit" | "sort" | "direction">;
-
 /** Whose bookings and which: an own-scope member's own (the salesperson filter is then ignored), then the filters. */
-function conditions(access: MemberAccess, input: BookingFilter): Sql {
+function conditions(access: MemberAccess, input: BookingTablePageInput): Sql {
   const owner = scopeFilter(access, "bookings:view", "ownerUserId").ownerUserId ?? input.ownerUserId;
   return sql`WHERE booking.deleted_at IS NULL
     ${owner === undefined ? emptySql : sql`AND lead.owner_user_id = ${owner}::uuid`}
@@ -72,25 +69,20 @@ interface CandidateRow {
   totalPaise: bigint;
 }
 
-/**
- * The bookings the filter holds, in this order, and how many there are: those in the window (a page, or a file's every
- * row up to its limit). With a payment state asked for, the payment rule decides over every match of the rest.
- */
-export async function matchingBookings(
+/** The page's ids in order and the total: by the payment rule over every match when a payment state is asked for. */
+async function pageIds(
   tx: OrgTx,
   access: MemberAccess,
-  filter: BookingFilter,
-  order: { sort: BookingTableSort; direction: "asc" | "desc" },
+  input: BookingTablePageInput,
   today: CalendarDate,
-  window: { offset: number; limit: number },
 ): Promise<{ ids: string[]; total: number }> {
-  const where = conditions(access, filter);
-  const ordered = orderOf(order.sort, order.direction);
-  const { offset, limit } = window;
-  if (filter.payment === undefined) {
+  const where = conditions(access, input);
+  const order = orderOf(input.sort, input.direction);
+  const offset = (input.page - 1) * input.limit;
+  if (input.payment === undefined) {
     const [rows, counted] = await Promise.all([
       tx.$queryRaw<{ id: string }[]>(
-        sql`SELECT booking.id ${FROM} ${where} ${ordered} LIMIT ${limit} OFFSET ${offset}`,
+        sql`SELECT booking.id ${FROM} ${where} ${order} LIMIT ${input.limit} OFFSET ${offset}`,
       ),
       tx.$queryRaw<{ n: number }[]>(sql`SELECT count(*)::int AS n ${FROM} ${where}`),
     ]);
@@ -99,24 +91,26 @@ export async function matchingBookings(
   const candidates = await tx.$queryRaw<CandidateRow[]>(sql`
     SELECT booking.id, booking.quote_id AS "quoteId", booking.status, booking.charge_paise AS "chargePaise",
       quote.total_paise AS "totalPaise"
-    ${FROM} ${where} ${ordered}`);
+    ${FROM} ${where} ${order}`);
   const money = await bookingMoneyOf(
     tx,
     candidates.map((row) => ({ ...row, quote: { totalPaise: row.totalPaise } })),
     today,
   );
-  const matching = candidates.filter((row) => money.get(row.id)?.paymentState === filter.payment);
-  return { ids: matching.slice(offset, offset + limit).map((row) => row.id), total: matching.length };
+  const matching = candidates.filter((row) => money.get(row.id)?.paymentState === input.payment);
+  return { ids: matching.slice(offset, offset + input.limit).map((row) => row.id), total: matching.length };
 }
 
-/** These bookings as the table lists them, in the order given. */
-export async function bookingTableItemsOf(
+export async function bookingTablePageOf(
   tx: OrgTx,
-  ids: readonly string[],
-  today: CalendarDate,
-): Promise<BookingTableItem[]> {
+  access: MemberAccess,
+  input: BookingTablePageInput,
+  now = new Date(),
+): Promise<{ items: BookingTableItem[]; total: number }> {
+  const today = calendarDateIn(now, await organizationTimeZone(tx, access.organizationId));
+  const { ids, total } = await pageIds(tx, access, input, today);
   const rows = await tx.booking.findMany({
-    where: { id: { in: [...ids] } },
+    where: { id: { in: ids } },
     select: {
       ...summaryColumns,
       lead: { select: { ownerUserId: true, person: { select: { name: true } } } },
@@ -129,24 +123,13 @@ export async function bookingTableItemsOf(
     ids.flatMap((id) => byId.get(id) ?? []),
     today,
   );
-  return summaries.flatMap((summary) => {
-    const row = byId.get(summary.id);
-    return row === undefined
-      ? []
-      : [{ ...summary, adults: row.quote.adults, children: row.quote.children, ownerUserId: row.lead.ownerUserId }];
-  });
-}
-
-export async function bookingTablePageOf(
-  tx: OrgTx,
-  access: MemberAccess,
-  input: BookingTablePageInput,
-  now = new Date(),
-): Promise<{ items: BookingTableItem[]; total: number }> {
-  const today = calendarDateIn(now, await organizationTimeZone(tx, access.organizationId));
-  const { ids, total } = await matchingBookings(tx, access, input, input, today, {
-    offset: (input.page - 1) * input.limit,
-    limit: input.limit,
-  });
-  return { items: await bookingTableItemsOf(tx, ids, today), total };
+  return {
+    items: summaries.flatMap((summary) => {
+      const row = byId.get(summary.id);
+      return row === undefined
+        ? []
+        : [{ ...summary, adults: row.quote.adults, children: row.quote.children, ownerUserId: row.lead.ownerUserId }];
+    }),
+    total,
+  };
 }

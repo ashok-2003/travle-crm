@@ -8,7 +8,6 @@ import { calendarDate, sortDirection, type SortDirection } from "@travel-crm/con
 import {
   quoteTablePageInput,
   quoteTableSort,
-  type QuoteExportFilter,
   type QuoteTablePageInput,
   type QuoteTableSort,
 } from "@travel-crm/contracts/quotes";
@@ -55,22 +54,20 @@ export function quotesHref(address: Partial<QuotesAddress>): string {
   return tableAddressHref(routes.quotes, fields, address, quotesStart);
 }
 
-/** What the list holds at this place, without its page, size or sort: its export's filter too. */
-export function quoteFilterOf(address: QuotesAddress, search: string): QuoteExportFilter {
-  const { chip, travelFrom, travelTo, ownerUserId } = address;
+/** The api's input for the list at this place, with the search when there is one. */
+export function quoteInputOf(address: QuotesAddress, search: string): QuoteTablePageInput {
+  const { chip, travelFrom, travelTo, ownerUserId, sort, direction, page, limit } = address;
   return {
+    page,
+    limit,
+    sort,
+    direction,
     ...(chip === "due" ? { balanceDue: true } : chip === "all" ? {} : { status: chip }),
     ...(travelFrom !== undefined && { travelFrom }),
     ...(travelTo !== undefined && { travelTo }),
     ...(ownerUserId !== undefined && { ownerUserId }),
     ...(search !== "" && { search }),
   };
-}
-
-/** The api's input for the list at this place, with the search when there is one. */
-export function quoteInputOf(address: QuotesAddress, search: string): QuoteTablePageInput {
-  const { sort, direction, page, limit } = address;
-  return { page, limit, sort, direction, ...quoteFilterOf(address, search) };
 }
 
 /** Whether the list shows less than every quote: a chip, a filter or a search. */
