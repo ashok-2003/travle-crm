@@ -113,12 +113,12 @@ async function pdfData(
     input.billTo.gstin === undefined ? null : `GSTIN: ${input.billTo.gstin}`,
   ];
   const paymentRows = [
-    { label: "Account name", value: seller.bankAccountName },
-    { label: "Account number", value: seller.bankAccountNumber },
-    { label: "IFSC", value: seller.bankIfsc },
-    { label: "Bank", value: seller.bankNameBranch },
-    { label: "UPI ID", value: seller.upiId },
-  ].flatMap(({ label, value }) => (value === null ? [] : [{ label, value }]));
+    { label: "Account name", value: seller.bankAccountName, mono: false },
+    { label: "Account number", value: seller.bankAccountNumber, mono: true },
+    { label: "IFSC", value: seller.bankIfsc, mono: true },
+    { label: "Bank", value: seller.bankNameBranch, mono: false },
+    { label: "UPI ID", value: seller.upiId, mono: true },
+  ].flatMap(({ label, value, mono }) => (value === null ? [] : [{ label, value, mono }]));
   return {
     title: input.kind === "proforma" ? "Proforma Invoice" : hasGst ? "Tax Invoice" : "Invoice",
     number,

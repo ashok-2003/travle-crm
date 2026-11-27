@@ -68,7 +68,8 @@ function styles(theme: PdfTheme) {
     payBox: { marginTop: 18, padding: 10, backgroundColor: theme.surface },
     payRow: { flexDirection: "row", paddingVertical: 1.5 },
     payLabel: { width: 100, flexShrink: 0, color: theme.muted },
-    payValue: { flexGrow: 1, flexShrink: 1, flexBasis: 0, fontFamily: theme.fonts.numbers, color: theme.ink },
+    payValue: { flexGrow: 1, flexShrink: 1, flexBasis: 0, color: theme.ink },
+    payFigure: { flexGrow: 1, flexShrink: 1, flexBasis: 0, fontFamily: theme.fonts.numbers, color: theme.ink },
     signatory: { marginTop: 30, alignSelf: "flex-end", width: 200 },
     signature: { maxHeight: 60, maxWidth: 140, objectFit: "contain", marginTop: 6, alignSelf: "flex-start" },
     // The room a signature would take, so a signed and an unsigned invoice put the line in the same place.
@@ -200,7 +201,10 @@ function section(style: Styles, label: string, lines: readonly string[]): ReactE
   );
 }
 
-function howToPay(style: Styles, rows: readonly { label: string; value: string }[]): ReactElement {
+function howToPay(
+  style: Styles,
+  rows: readonly { label: string; value: string; mono?: boolean | undefined }[],
+): ReactElement {
   return createElement(
     View,
     { style: style.payBox, wrap: false },
@@ -210,7 +214,7 @@ function howToPay(style: Styles, rows: readonly { label: string; value: string }
         View,
         { key: index, style: style.payRow },
         createElement(Text, { style: style.payLabel }, row.label),
-        createElement(Text, { style: style.payValue }, row.value),
+        createElement(Text, { style: row.mono === true ? style.payFigure : style.payValue }, row.value),
       ),
     ),
   );

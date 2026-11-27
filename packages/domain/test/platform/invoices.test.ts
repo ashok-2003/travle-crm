@@ -230,10 +230,10 @@ describe("platform invoices", () => {
     );
     expect(rendered.map((data) => data.title)).toEqual(["Proforma Invoice", "Tax Invoice"]);
     expect(rendered[1]?.payment?.rows).toEqual([
-      { label: "Account name", value: "Test Firm" },
-      { label: "Account number", value: "000011112222" },
-      { label: "IFSC", value: "TEST0000001" },
-      { label: "UPI ID", value: "test@upi" },
+      { label: "Account name", value: "Test Firm", mono: false },
+      { label: "Account number", value: "000011112222", mono: true },
+      { label: "IFSC", value: "TEST0000001", mono: true },
+      { label: "UPI ID", value: "test@upi", mono: true },
     ]);
     expect(rendered[1]?.totals.map((total) => total.label)).toEqual(["Subtotal", "CGST 9%", "SGST 9%", "Total"]);
   });
