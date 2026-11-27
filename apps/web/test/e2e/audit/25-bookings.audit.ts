@@ -213,7 +213,8 @@ test("bookings, the trip page, the PDFs and a cancellation", async ({ page, brow
   await shoot(page, "r6-settings");
 });
 
-// The bookings revamp (2026-11-27): the list as a table, by travel date, with a filter applied as a chip.
+// The bookings revamp (2026-11-27): the list as a table, by travel date, with a filter applied as a chip and a payment
+// overdue.
 test("the bookings table: the toolbar, a filter's chip and the numbered pages", async ({ page, browser, agency }) => {
   test.setTimeout(300_000);
   await signInByEmail(page, agency.owner);
@@ -247,10 +248,18 @@ test("the bookings table: the toolbar, a filter's chip and the numbered pages", 
     title: "Rajasthan forts",
     days: 45,
   });
-  await callApi(page, "bookings.confirm", { bookingId: dev.bookingId });
+  // Dev's advance was due three days ago and nothing came: overdue, in red.
+  await callApi(page, "bookings.confirm", {
+    bookingId: dev.bookingId,
+    installments: [
+      { label: "Advance", amountPaise: 3_000_000, dueOn: dayInIndia(-3) },
+      { label: "Balance", amountPaise: 7_000_000, dueOn: dayInIndia(30) },
+    ],
+  });
 
   await page.goto(`/bookings?from=${dayInIndia(0)}`);
   await expect(page.getByText("Meera Iyer").first()).toBeVisible();
   await expect(page.getByRole("button", { name: /^Remove the filter Travel from/ })).toBeVisible();
+  await expect(page.getByText("Overdue", { exact: true })).toBeVisible();
   await shoot(page, "r6-bookings-table");
 });

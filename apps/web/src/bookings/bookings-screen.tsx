@@ -3,7 +3,7 @@
 // /bookings (release 6; the table, bookings revamp 2026-11-27): the member's bookings (or the agency's), by travel date
 // soonest first and trips without a date last, in numbered pages of 25 (50 or 100). At the top right the search (a
 // customer's name, a phone's digits, a trip or a booking number) and Filters (travel dates, salesperson for a member who
-// sees everyone's, payment); the status chips stay over the rows, one tap to a status or to the payments to check, and
+// sees everyone's, payment); the status chips stay beside them, one tap to a status or to the payments to check, and
 // what Filters applied shows as chips that let it go. The chips, filters, sort and page live in the address, the search in
 // the tab; any change but the page starts at page 1, and a page past the last moves to the last. A polite status says how
 // many bookings are shown, so screen readers hear each answer.
@@ -111,6 +111,27 @@ export function BookingsScreen() {
         }}
         searchLabel={t("search")}
         searchPlaceholder={t("searchPlaceholder")}
+        chips={
+          // The chips scroll sideways in their own strip on a phone and wrap on a wider screen; the padding keeps their
+          // focus outline in view.
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            value={address.chip}
+            onValueChange={(value) => {
+              const chip = bookingChips.find((one) => one === value);
+              if (chip !== undefined) show({ ...address, chip });
+            }}
+            aria-label={t("filterLabel")}
+            className="-m-1 max-w-full justify-start overflow-x-auto p-1 md:flex-wrap md:overflow-visible"
+          >
+            {bookingChips.map((chip) => (
+              <ToggleGroupItem key={chip} value={chip} className="min-h-11 shrink-0 px-4">
+                {t(`filters.${chip}`)}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        }
         filters={
           <BookingsFilters
             filters={filters}
@@ -121,25 +142,6 @@ export function BookingsScreen() {
           />
         }
       />
-      {/* The chips scroll sideways in their own strip on a phone and wrap on a wider screen; the padding keeps their focus
-          outline in view. */}
-      <ToggleGroup
-        type="single"
-        variant="outline"
-        value={address.chip}
-        onValueChange={(value) => {
-          const chip = bookingChips.find((one) => one === value);
-          if (chip !== undefined) show({ ...address, chip });
-        }}
-        aria-label={t("filterLabel")}
-        className="-m-1 max-w-full justify-start overflow-x-auto p-1 md:flex-wrap md:overflow-visible"
-      >
-        {bookingChips.map((chip) => (
-          <ToggleGroupItem key={chip} value={chip} className="min-h-11 shrink-0 px-4">
-            {t(`filters.${chip}`)}
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
       <AppliedFilters chips={chips} />
       {/* Always there, so a change in it is heard; the list itself says it to the eye. */}
       <p role="status" className="sr-only">

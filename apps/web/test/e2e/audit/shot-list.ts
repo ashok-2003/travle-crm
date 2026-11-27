@@ -591,7 +591,7 @@ export const SHOTS = [
   },
   {
     name: "r6-bookings-table",
-    screen: "Bookings as a table: by travel date, the search and Filters, a filter's chip, the pages",
+    screen: "Bookings as a table: by travel date, search, Filters and status chips, a filter's chip, one overdue",
     as: owner,
   },
   {

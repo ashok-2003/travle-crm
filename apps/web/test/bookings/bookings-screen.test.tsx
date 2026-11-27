@@ -106,8 +106,11 @@ describe("BookingsScreen", () => {
     // The amount in the numbers font, the word in the text's own.
     expect(meera.getByText("₹45,000")).toHaveClass("numbers");
     expect(meera.getByText("₹45,000").parentElement).toHaveTextContent(/^₹45,000 paid$/);
-    expect(meera.getByText("₹1,05,000 to pay")).not.toHaveClass("text-status-bad-ink");
-    expect(meera.getByText("1 of 3")).toBeVisible();
+    expect(meera.getByText(/to pay$/)).toHaveTextContent(/^₹1,05,000 to pay$/);
+    expect(meera.getByText(/to pay$/)).not.toHaveClass("text-status-bad-ink");
+    // Only the numbers in the numbers font, never the words between them.
+    expect(meera.getByText("1")).toHaveClass("numbers");
+    expect(meera.getByText("1").parentElement).toHaveTextContent(/^1 of 3$/);
     expect(meera.getByText("Ravi Kumar")).toBeVisible();
     expect(screen.getByRole("columnheader", { name: words.columns.travel })).toHaveAttribute("aria-sort", "ascending");
     expect(inputsTo("bookings.page")).toEqual([{ page: 1, limit: 25, sort: "travel", direction: "asc" }]);
@@ -117,7 +120,8 @@ describe("BookingsScreen", () => {
     renderBookings({ "bookings.page": aPage([aRow({ paymentState: "overdue" })]) });
     await table();
     const row = within(screen.getByRole("row", { name: /Meera Iyer/ }));
-    expect(row.getByText("₹1,05,000 to pay")).toHaveClass("text-status-bad-ink");
+    expect(row.getByText(/to pay$/)).toHaveTextContent(/^₹1,05,000 to pay$/);
+    expect(row.getByText(/to pay$/)).toHaveClass("text-status-bad-ink");
     expect(row.getByText(words.overdue)).toBeVisible();
   });
 
@@ -181,6 +185,31 @@ describe("BookingsScreen", () => {
     await userEvent.click(within(applied).getByRole("button", { name: "Remove the filter Travel 1 Dec to 31 Dec" }));
     expect(address.href).toBe("/bookings");
     expect(screen.queryByRole("group", { name: messages.common.table.appliedFilters })).not.toBeInTheDocument();
+  });
+
+  it("lets every filter go from Filters' Clear all, keeping the status chip", async () => {
+    address.set(
+      "/bookings?status=confirmed&from=2026-12-01&salesperson=0199a000-0000-7000-8000-0000000000a2&payment=paid",
+    );
+    renderBookings();
+    await table();
+    expect(lastInputTo("bookings.page")).toMatchObject({ travelFrom: "2026-12-01", payment: "paid" });
+    await userEvent.click(screen.getByRole("button", { name: "Filters, 3 chosen" }));
+    const dialog = await screen.findByRole("dialog", { name: words.filtersDialog.title });
+    await userEvent.click(within(dialog).getByRole("button", { name: words.filtersDialog.clear }));
+    expect(address.href).toBe("/bookings?status=confirmed");
+    await waitFor(() => {
+      expect(lastInputTo("bookings.page")).toEqual({
+        page: 1,
+        limit: 25,
+        sort: "travel",
+        direction: "asc",
+        status: "confirmed",
+      });
+    });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: messages.common.table.appliedFilters })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: words.filtersButton })).toBeVisible();
   });
 
   it("refuses an until day before the from day", async () => {

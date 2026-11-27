@@ -1,24 +1,22 @@
 "use client";
 
-// The Bookings list's Filters (bookings revamp, 2026-11-27): a button saying how many filters narrow the list, and its
-// dialog (a sheet on phones) with the travel dates (from and until, either or both), the salesperson for a member who sees
-// every booking, and the payment (paid in full, part paid, nothing received, overdue). Show bookings puts them in the
-// address, Clear all lets them go; the status chips and the search stay as they are. What is applied shows as chips over
-// the rows (appliedChips), each letting its filter go.
+// The Bookings list's Filters (bookings revamp, 2026-11-27): the shared Filters button and dialog (table-filters.tsx) with
+// the travel dates (from and until, either or both), the salesperson for a member who sees every booking, and the payment
+// (paid in full, part paid, nothing received, overdue). Show bookings puts them in the address, Clear all lets every one
+// go; the status chips and the search stay as they are. What is applied shows as chips over the rows (useAppliedChips),
+// each letting its filter go.
 import { bookingPaymentStates, type BookingPaymentState } from "@travel-crm/contracts/bookings";
 import type { LeadWorker } from "@travel-crm/contracts/crm";
 import { calendarDate } from "@travel-crm/contracts/kernel";
-import { SlidersHorizontalIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useId, useState, type RefObject } from "react";
+import type { RefObject } from "react";
 import type { AppliedFilter } from "@/components/data-table/applied-filters";
+import { TableFilters } from "@/components/data-table/table-filters";
 import { DateField } from "@/components/date-field";
 import type { Checked } from "@/components/forms/checked";
 import { SelectField } from "@/components/forms/select-field";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { LoadFailedAlert } from "@/components/load-failed-alert";
-import { ResponsiveDialog } from "@/components/responsive-dialog";
-import { Button } from "@/components/ui/button";
 import { formatCalendarDay } from "@/lib/format";
 import type { BookingsAddress } from "./list-address";
 import type { useBookingSalespeople } from "./use-bookings";
@@ -27,6 +25,14 @@ const ANY = "any";
 
 /** What Filters sets: the travel dates, the salesperson and the payment. */
 export type BookingFilters = Pick<BookingsAddress, "travelFrom" | "travelTo" | "ownerUserId" | "payment">;
+
+/** Every filter let go, each named, so applying it over the address clears them all. */
+export const noFilters = {
+  travelFrom: undefined,
+  travelTo: undefined,
+  ownerUserId: undefined,
+  payment: undefined,
+} satisfies Record<keyof BookingFilters, undefined>;
 
 interface FilterValues {
   from: string;
@@ -172,50 +178,33 @@ export function BookingsFilters({
   onApply: (filters: BookingFilters) => void;
 }) {
   const t = useTranslations("bookings.list");
-  const [open, setOpen] = useState(false);
-  const formId = useId();
-  const apply = (next: BookingFilters) => {
-    onApply(next);
-    setOpen(false);
-  };
   return (
-    <>
-      <Button
-        ref={opener}
-        variant="outline"
-        aria-label={chosen > 0 ? t("filtersChosen", { count: chosen }) : undefined}
-        onClick={() => {
-          setOpen(true);
-        }}
-      >
-        <SlidersHorizontalIcon aria-hidden="true" />
-        {t("filtersButton")}
-        {chosen > 0 && <span className="numbers">{chosen}</span>}
-      </Button>
-      <ResponsiveDialog
-        open={open}
-        onOpenChange={setOpen}
-        returnFocusTo={opener}
-        title={t("filtersDialog.title")}
-        description={t("filtersDialog.description")}
-        footer={
-          <>
-            <Button
-              variant="outline"
-              onClick={() => {
-                apply({});
-              }}
-            >
-              {t("filtersDialog.clear")}
-            </Button>
-            <Button type="submit" form={formId}>
-              {t("filtersDialog.apply")}
-            </Button>
-          </>
-        }
-      >
-        {open && <FiltersForm formId={formId} filters={filters} salespeople={salespeople} onApply={apply} />}
-      </ResponsiveDialog>
-    </>
+    <TableFilters
+      chosen={chosen}
+      opener={opener}
+      words={{
+        button: t("filtersButton"),
+        chosen: t("filtersChosen", { count: chosen }),
+        title: t("filtersDialog.title"),
+        description: t("filtersDialog.description"),
+        clear: t("filtersDialog.clear"),
+        apply: t("filtersDialog.apply"),
+      }}
+      onClear={() => {
+        onApply(noFilters);
+      }}
+    >
+      {(form) => (
+        <FiltersForm
+          formId={form.id}
+          filters={filters}
+          salespeople={salespeople}
+          onApply={(next) => {
+            onApply(next);
+            form.done();
+          }}
+        />
+      )}
+    </TableFilters>
   );
 }

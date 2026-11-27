@@ -8,7 +8,7 @@
 // number, the details and the salesperson.
 import type { BookingTableRow, BookingTableSort } from "@travel-crm/contracts/bookings";
 import { useTranslations } from "next-intl";
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import type { DataColumn } from "@/components/data-table/data-table";
 import { rupees } from "@/components/forms/money-field";
 import { StatusBadge } from "@/components/status-badge";
@@ -44,11 +44,11 @@ function MoneyCell({ booking, end = false }: { booking: BookingTableRow; end?: b
     <div className={cn("flex flex-col gap-0.5", end ? "items-end" : "items-start")}>
       <span>{t.rich("paidAmount", { amount: rupees(booking.paidPaise), n: numbers })}</span>
       {booking.refundDuePaise > 0 ? (
-        <span className={caption}>{t("refundDue", { amount: rupees(booking.refundDuePaise) })}</span>
+        <span className={caption}>{t.rich("refundDue", { amount: rupees(booking.refundDuePaise), n: numbers })}</span>
       ) : (
         booking.balancePaise > 0 && (
           <span className={cn("text-caption", overdue ? "text-status-bad-ink" : "text-muted-foreground")}>
-            {t("toPay", { amount: rupees(booking.balancePaise) })}
+            {t.rich("toPay", { amount: rupees(booking.balancePaise), n: numbers })}
           </span>
         )
       )}
@@ -64,8 +64,8 @@ function useWords() {
     travelDate: (booking: BookingTableRow) =>
       booking.startDate === null ? t("noDate") : formatCalendarDay(booking.startDate),
     people: (booking: BookingTableRow) => t("people", { adults: booking.adults, children: booking.children }),
-    details: (booking: BookingTableRow) =>
-      t("details", { done: booking.travellersComplete, total: booking.travellersTotal }),
+    details: (booking: BookingTableRow, key: "details" | "detailsLine" = "details") =>
+      t.rich(key, { done: booking.travellersComplete, total: booking.travellersTotal, n: numbers }),
     salesperson: (booking: BookingTableRow) => booking.ownerName ?? t("noSalesperson"),
   };
 }
@@ -135,7 +135,7 @@ export function useBookingColumns(showSalesperson: boolean): DataColumn<BookingT
       header: header("details"),
       width: 96,
       end: true,
-      cell: (booking) => (booking.status === "cancelled" ? null : <span className="numbers">{details(booking)}</span>),
+      cell: (booking) => (booking.status === "cancelled" ? null : details(booking)),
     },
   ];
   return showSalesperson
@@ -147,10 +147,10 @@ export function useBookingColumns(showSalesperson: boolean): DataColumn<BookingT
 export function useStackedBooking(showSalesperson: boolean): (booking: BookingTableRow) => ReactNode {
   const { t, travelDate, people, details, salesperson } = useWords();
   return (booking) => {
-    const rest = [
-      booking.number,
+    const rest: ReactNode[] = [
+      numbers(booking.number),
       people(booking),
-      ...(booking.status === "cancelled" ? [] : [t("detailsLine", { details: details(booking) })]),
+      ...(booking.status === "cancelled" ? [] : [details(booking, "detailsLine")]),
       ...(showSalesperson ? [salesperson(booking)] : []),
     ];
     return (
@@ -166,7 +166,14 @@ export function useStackedBooking(showSalesperson: boolean): (booking: BookingTa
             {t("tripOn", { trip: booking.title, day: travelDate(booking) })}
           </ItemDescription>
           <MoneyCell booking={booking} />
-          <span className={caption}>{rest.join(" · ")}</span>
+          <span className={caption}>
+            {rest.map((part, index) => (
+              <Fragment key={index}>
+                {index > 0 && " · "}
+                {part}
+              </Fragment>
+            ))}
+          </span>
         </ItemContent>
       </>
     );

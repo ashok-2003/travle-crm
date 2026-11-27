@@ -13,7 +13,7 @@ import { PageHeader } from "@/components/page-header";
 import { TextLink } from "@/components/text-link";
 import { rupees } from "@/components/forms/money-field";
 import { Button } from "@/components/ui/button";
-import { SearchField } from "@/leads/list/search-field";
+import { SearchField } from "@/components/search-field";
 import { mayBeMissing } from "@/lib/older-api";
 import { useHolds } from "@/session/me-context";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";

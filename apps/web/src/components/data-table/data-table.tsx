@@ -8,18 +8,18 @@
 // screen readers, a press anywhere else on it for a mouse. Below 1024px the columns can't all show, so the rows stack, each
 // one link (`stacked` says what it holds). Loading shows skeleton rows, and another page keeps the rows in view, faded,
 // until it arrives; a failure says so with Try again (a refusal its reason); an empty list shows `empty`.
-import { ArrowDownIcon, ArrowUpIcon, ChevronsUpDownIcon } from "lucide-react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Fragment, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { LoadFailedAlert } from "@/components/load-failed-alert";
 import { LoadingRows } from "@/components/loading-rows";
 import { TablePagination } from "@/components/table-pagination";
-import { Button } from "@/components/ui/button";
-import { Item, ItemGroup, ItemSeparator } from "@/components/ui/item";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { pinnedCell, useRestOfWindow, useTableFits } from "@/components/work-table";
 import { cn } from "@/lib/utils";
+import { ariaSortOf, SortButton, type TableSort } from "./sort-button";
+import { StackedRows } from "./stacked-rows";
+
+export type { TableSort } from "./sort-button";
 
 export interface DataColumn<Row, Sort extends string> {
   key: string;
@@ -33,46 +33,7 @@ export interface DataColumn<Row, Sort extends string> {
   cell: (row: Row) => ReactNode;
 }
 
-export interface TableSort<Sort extends string> {
-  key: Sort;
-  direction: "asc" | "desc";
-}
-
 const textMinimum = 160;
-
-/** Pressing a header sorts by it, soonest or smallest first; pressing the one sorted by turns it round. */
-const nextSort = <Sort extends string>(sort: TableSort<Sort>, key: Sort): TableSort<Sort> =>
-  sort.key === key ? { key, direction: sort.direction === "asc" ? "desc" : "asc" } : { key, direction: "asc" };
-
-function SortButton<Sort extends string>({
-  header,
-  end,
-  by,
-  sort,
-  onSort,
-}: {
-  header: string;
-  end: boolean;
-  by: Sort;
-  sort: TableSort<Sort>;
-  onSort: (sort: TableSort<Sort>) => void;
-}) {
-  const active = sort.key === by;
-  const Icon = !active ? ChevronsUpDownIcon : sort.direction === "asc" ? ArrowUpIcon : ArrowDownIcon;
-  return (
-    <Button
-      variant="quiet"
-      size="sm"
-      className={end ? "-mr-4" : "-ml-4"}
-      onClick={() => {
-        onSort(nextSort(sort, by));
-      }}
-    >
-      {header}
-      <Icon aria-hidden="true" className={cn(!active && "text-muted-foreground")} />
-    </Button>
-  );
-}
 
 export function DataTable<Row, Sort extends string>({
   label,
@@ -161,18 +122,7 @@ export function DataTable<Row, Sort extends string>({
     if (!wide) {
       return (
         <div className="flex flex-col gap-4">
-          <ItemGroup aria-label={label} aria-busy={busy} className={fading}>
-            {rows.map((row, index) => (
-              <Fragment key={rowKey(row)}>
-                {index > 0 && <ItemSeparator />}
-                <div role="listitem">
-                  <Item asChild size="sm">
-                    <Link href={rowHref(row)}>{stacked(row)}</Link>
-                  </Item>
-                </div>
-              </Fragment>
-            ))}
-          </ItemGroup>
+          <StackedRows label={label} rows={rows} rowKey={rowKey} rowHref={rowHref} stacked={stacked} busy={busy} />
           {pages}
         </div>
       );
@@ -195,13 +145,7 @@ export function DataTable<Row, Sort extends string>({
                     key={column.key}
                     scope="col"
                     style={column.width === undefined ? undefined : { width: column.width }}
-                    aria-sort={
-                      column.sort === undefined || column.sort !== sort.key
-                        ? undefined
-                        : sort.direction === "asc"
-                          ? "ascending"
-                          : "descending"
-                    }
+                    aria-sort={ariaSortOf(column.sort, sort)}
                     className={cn(
                       "sticky top-0 bg-background",
                       index === 0 && "left-0 z-(--z-sticky)",
