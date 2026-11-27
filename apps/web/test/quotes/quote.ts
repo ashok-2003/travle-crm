@@ -31,6 +31,7 @@ export function aQuote(changes: Partial<QuoteDetail> = {}): QuoteDetail {
     acceptedName: null,
     customerPhone: "+919876543210",
     invoiceDocumentId: null,
+    booking: null,
     replacedById: null,
     departure: null,
     installments: [],

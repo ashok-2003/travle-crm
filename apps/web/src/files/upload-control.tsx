@@ -34,7 +34,14 @@ import { useUploadAttachment, type UploadRequest } from "./use-upload-attachment
 const SENSITIVITIES = ["sensitive", "notSensitive"] as const;
 type Sensitivity = (typeof SENSITIVITIES)[number];
 
-export function UploadControl({ record }: { record: AttachmentRecord }) {
+export function UploadControl({
+  record,
+  variant = "default",
+}: {
+  record: AttachmentRecord;
+  /** Outline where the file is not the screen's one main action. */
+  variant?: "default" | "outline";
+}) {
   const t = useTranslations("business.attachments");
   const tCommon = useTranslations("common");
   const { apiError } = useErrorMessage();
@@ -121,6 +128,7 @@ export function UploadControl({ record }: { record: AttachmentRecord }) {
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <Button
           type="button"
+          variant={variant}
           disabled={off}
           aria-describedby={write.hint ? `${id}-hint` : undefined}
           onClick={() => picker.current?.click()}

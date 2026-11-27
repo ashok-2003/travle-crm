@@ -209,6 +209,7 @@ export function TripCard({ booking }: { booking: BookingDetail }) {
           <AttachmentsPanel
             record={{ recordType: "booking_voucher", recordId: booking.id }}
             emptyMessage={t("noTickets")}
+            uploadVariant="outline"
           />
         </>
       )}

@@ -152,6 +152,8 @@ export interface DetailView {
   departureFree?: number | undefined;
   /** The agency's today, which decides what is overdue. */
   today: CalendarDate;
+  /** The booking made from the quote, when there is one. */
+  booking: { id: string; number: string } | null;
 }
 
 export function toDetail(row: QuoteRow, view: DetailView): QuoteDetail {
@@ -174,6 +176,7 @@ export function toDetail(row: QuoteRow, view: DetailView): QuoteDetail {
     acceptedName: row.acceptedName,
     customerPhone: row.lead.person.phoneE164,
     invoiceDocumentId: row.invoiceDocumentId,
+    booking: view.booking,
     replacedById: row.replacedById,
     departure:
       row.departure === null

@@ -68,6 +68,9 @@ export const createBookingInput = z.strictObject({
   taxRateBasisPoints: quoteTaxRate,
 });
 export type CreateBookingInput = z.infer<typeof createBookingInput>;
+/** Staff set or change a booking's own travel date; a booking on a group departure follows its departure instead. */
+export const setTravelDateInput = z.strictObject({ bookingId: recordId, startDate: calendarDate });
+export type SetTravelDateInput = z.infer<typeof setTravelDateInput>;
 export const leadBookingsInput = z.strictObject({ leadId: recordId });
 
 /** A booking's money at the agency's today: paid in full, part paid, nothing received, or a payment due overdue. */
@@ -272,6 +275,8 @@ export const traveller = z.object({
   complete: z.boolean(),
   /** An ID number is on file (never shown here). */
   hasIdentity: z.boolean(),
+  /** The fields filled from the lead's person when the booking was made, until a person saves this traveller. */
+  prefilled: z.array(z.enum(["name", "phone"])),
 });
 export type Traveller = z.infer<typeof traveller>;
 
@@ -351,6 +356,8 @@ export const bookingDetail = z.object({
   essentials,
   installments: z.array(installment),
   payments: z.array(payment),
+  /** The quote's invoice, once issued. */
+  invoiceDocumentId: recordId.nullable(),
   stays: z.array(stay),
   travellers: z.array(traveller),
   claims: z.array(claim),

@@ -57,6 +57,8 @@ async function erase(
       emergencyPhone: "",
       medicalNotes: "",
       completeAt: null,
+      // The "check me" marks went with the name and phone they marked.
+      prefilledFields: [],
     },
   });
   const claims = await tx.paymentClaim.updateMany({

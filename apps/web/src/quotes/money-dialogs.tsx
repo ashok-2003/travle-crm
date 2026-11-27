@@ -16,11 +16,12 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { DateField } from "@/components/date-field";
 import { checked } from "@/components/forms/checked";
-import { FormAlert, FormDialog, useFormDialog } from "@/components/forms/form-dialog";
+import { FormAlert, FormDialog, useFormDialog, type OpenState } from "@/components/forms/form-dialog";
 import { MoneyField, rupeesFieldText } from "@/components/forms/money-field";
 import { SelectField } from "@/components/forms/select-field";
 import { TextField } from "@/components/forms/text-field";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
+import type { ReturnFocusTo } from "@/components/return-focus";
 import { useMe } from "@/session/me-context";
 import { useQuoteChanges } from "./use-quotes";
 
@@ -168,15 +169,28 @@ function PaymentForm({
   );
 }
 
-export function RecordPaymentDialog({ quoteId, suggested }: { quoteId: string; suggested: number }) {
+/** Record payment: opened by its own button, or, `held`, from elsewhere on the page (a line of Needs you). */
+export function RecordPaymentDialog({
+  quoteId,
+  suggested,
+  held,
+  returnFocusTo,
+}: {
+  quoteId: string;
+  suggested: number;
+  held?: OpenState;
+  returnFocusTo?: ReturnFocusTo;
+}) {
   const t = useTranslations("quotes.money");
-  const dialog = useFormDialog(t("paymentRecorded"));
+  const dialog = useFormDialog(t("paymentRecorded"), undefined, held);
   const { recordPayment } = useQuoteChanges();
   return (
     <FormDialog
       dialog={dialog}
       sending={recordPayment}
-      trigger={{ label: t("recordPayment"), variant: "default" }}
+      {...(held === undefined
+        ? { trigger: { label: t("recordPayment"), variant: "default" as const } }
+        : { returnFocusTo })}
       title={t("paymentTitle")}
       description={t("paymentDescription")}
       submit={t("save")}

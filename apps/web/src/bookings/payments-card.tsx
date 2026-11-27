@@ -1,87 +1,56 @@
 "use client";
 
-// A booking's money (release 6): the trip's total, what was paid and what is left; the payments due (each Paid once what was
-// received covers it), the payments the traveller says they made, waiting to be checked (Confirm or Reject, for whoever records
-// payments), the payments received, and, after a cancellation, the refund. The money is the quote's: receipts and the voiding
-// of a payment are on the quote's page.
-import type { BookingDetail, Claim } from "@travel-crm/contracts/bookings";
-import { ImageIcon } from "lucide-react";
+// A booking's money, all of it (bookings revamp): the trip's total, what was paid (a bar) and what is left; the payments the
+// traveller says they made, waiting to be checked; each payment due with its state (Paid, Due 25 Nov, Overdue) and Change
+// payments due; Record payment, the payments received with their receipts and Void, the tax invoice; and, after a
+// cancellation, the refund. The money is the quote's: these call the quote's own procedures with the booking's quote, and
+// the permissions and audits are the quote's.
+import type { BookingDetail } from "@travel-crm/contracts/bookings";
 import { useTranslations } from "next-intl";
 import { rupees } from "@/components/forms/money-field";
 import { StatusBadge } from "@/components/status-badge";
-import { TextLink } from "@/components/text-link";
 import { Button } from "@/components/ui/button";
-import { SectionCard } from "./section-card";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
+import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import { useDownload } from "@/files/use-download";
-import { useTRPCClient } from "@/data/trpc";
-import { formatCalendarDay, formatDay } from "@/lib/format";
-import { quoteRoute } from "@/lib/routes";
-import { useHolds, useMe } from "@/session/me-context";
-import { ConfirmClaimDialog, RejectClaimDialog } from "./claim-dialogs";
-import { MarkRefundedDialog } from "./refund-dialog";
+import { formatCalendarDay } from "@/lib/format";
+import { mayBeMissing } from "@/lib/older-api";
+import { InvoiceButton } from "@/quotes/invoice-button";
+import { ReceivedPayments } from "@/quotes/received-payments";
+import { useHolds } from "@/session/me-context";
+import { useWriteAccess } from "@/subscription/write-access";
+import { ClaimsSection } from "./claims-section";
+import { RefundSection } from "./refund-section";
+import { SectionCard } from "./section-card";
 import { ChangeScheduleDialog } from "./schedule-dialogs";
 
-function ClaimRow({ claim, bookingId, mayCheck }: { claim: Claim; bookingId: string; mayCheck: boolean }) {
-  const t = useTranslations("bookings.claims");
-  const client = useTRPCClient();
-  const { timeZone } = useMe().organization;
-  const screenshot = useDownload((attachmentId: string) =>
-    client.bookings.files.downloadLink.mutate({ recordType: "payment_claim", recordId: bookingId, attachmentId }),
-  );
-  const decided =
-    claim.status === "confirmed" ? (
-      <StatusBadge tone="good">{t("status.confirmed")}</StatusBadge>
-    ) : claim.status === "rejected" ? (
-      <StatusBadge tone="bad">{t("status.rejected")}</StatusBadge>
-    ) : (
-      <StatusBadge tone="attention">{t("status.pending")}</StatusBadge>
-    );
-  return (
-    <Item size="sm" role="listitem" className="items-start">
-      <ItemContent>
-        <ItemTitle>
-          <span className="numbers">{rupees(claim.amountPaise)}</span> {decided}
-        </ItemTitle>
-        <ItemDescription>
-          {claim.reference === "" ? t("noReference") : t("reference", { reference: claim.reference })}
-          {" · "}
-          {formatDay(new Date(claim.createdAt), { timeZone })}
-          {claim.rejectReason === null ? "" : ` · ${t(`rejectForm.reasons.${claim.rejectReason}`)}`}
-        </ItemDescription>
-      </ItemContent>
-      <ItemActions className="basis-full flex-wrap md:basis-auto">
-        {claim.screenshotAttachmentId !== null && (
-          <Button
-            variant="outline"
-            disabled={screenshot.isPending}
-            onClick={() => {
-              if (claim.screenshotAttachmentId !== null) screenshot.mutate(claim.screenshotAttachmentId);
-            }}
-          >
-            <ImageIcon aria-hidden="true" />
-            {t("screenshot")}
-          </Button>
-        )}
-        {claim.status === "pending" && mayCheck && (
-          <>
-            <ConfirmClaimDialog claim={claim} />
-            <RejectClaimDialog claim={claim} />
-          </>
-        )}
-      </ItemActions>
-    </Item>
-  );
+type Due = BookingDetail["installments"][number];
+
+function DuePill({ due }: { due: Due }) {
+  const t = useTranslations("bookings.payments");
+  const state = mayBeMissing(due.state) ?? (due.paid ? "paid" : "due");
+  if (state === "paid") return <StatusBadge tone="good">{t("paidBadge")}</StatusBadge>;
+  if (state === "overdue") return <StatusBadge tone="bad">{t("overdue")}</StatusBadge>;
+  return <StatusBadge tone="attention">{t("dueOn", { day: formatCalendarDay(due.dueOn) })}</StatusBadge>;
 }
 
-export function PaymentsCard({ booking }: { booking: BookingDetail }) {
+export function PaymentsCard({
+  booking,
+  onRecordPayment,
+}: {
+  booking: BookingDetail;
+  /** Opens Record payment, for a payment due or, with none named, for what is owed next. */
+  onRecordPayment: (installmentId?: string) => void;
+}) {
   const t = useTranslations("bookings.payments");
   const mayEdit = useHolds("bookings:edit");
-  const mayCheck = useHolds("quotes:record_payments");
+  const mayRecord = useHolds("quotes:record_payments");
+  const access = useWriteAccess("change");
   const cancelled = booking.status === "cancelled";
+  const percent =
+    booking.totalPaise === 0 ? 0 : Math.min(100, Math.round((booking.paidPaise / booking.totalPaise) * 100));
   return (
-    <SectionCard title={t("title")}>
+    <SectionCard title={t("title")} anchor="money">
       <dl className="grid grid-cols-3 gap-3">
         {(
           [
@@ -96,21 +65,14 @@ export function PaymentsCard({ booking }: { booking: BookingDetail }) {
           </div>
         ))}
       </dl>
-
-      {booking.claims.length > 0 && (
-        <>
-          <Separator />
-          <h3 className="font-semibold">{t("claims")}</h3>
-          <ItemGroup>
-            {booking.claims.map((claim) => (
-              <ClaimRow key={claim.id} claim={claim} bookingId={booking.id} mayCheck={mayCheck} />
-            ))}
-          </ItemGroup>
-          {!mayCheck && booking.pendingClaims > 0 && (
-            <p className="text-caption text-muted-foreground">{t("notYours")}</p>
-          )}
-        </>
+      {booking.totalPaise > 0 && (
+        <Progress
+          value={percent}
+          aria-label={t("paidBar", { paid: rupees(booking.paidPaise), total: rupees(booking.totalPaise) })}
+        />
       )}
+
+      <ClaimsSection booking={booking} />
 
       {!cancelled && (
         <>
@@ -127,13 +89,14 @@ export function PaymentsCard({ booking }: { booking: BookingDetail }) {
                 <Item key={due.id} size="sm" role="listitem">
                   <ItemContent>
                     <ItemTitle>{due.label}</ItemTitle>
-                    <ItemDescription>{t("by", { day: formatCalendarDay(due.dueOn) })}</ItemDescription>
+                    {/* A due that is still ahead says its day in its pill. */}
+                    {(mayBeMissing(due.state) ?? (due.paid ? "paid" : "due")) !== "due" && (
+                      <ItemDescription>{t("by", { day: formatCalendarDay(due.dueOn) })}</ItemDescription>
+                    )}
                   </ItemContent>
                   <ItemActions>
                     <span className="numbers">{rupees(due.amountPaise)}</span>
-                    <StatusBadge tone={due.paid ? "good" : "attention"}>
-                      {due.paid ? t("paidBadge") : t("toPay")}
-                    </StatusBadge>
+                    <DuePill due={due} />
                   </ItemActions>
                 </Item>
               ))}
@@ -143,54 +106,30 @@ export function PaymentsCard({ booking }: { booking: BookingDetail }) {
       )}
 
       <Separator />
-      <h3 className="font-semibold">{t("received")}</h3>
-      {booking.payments.length === 0 ? (
-        <p className="text-muted-foreground">{t("noneReceived")}</p>
-      ) : (
-        <ItemGroup>
-          {booking.payments.map((payment) => (
-            <Item key={payment.id} size="sm" role="listitem">
-              <ItemContent>
-                <ItemTitle className="numbers">{rupees(payment.amountPaise)}</ItemTitle>
-                <ItemDescription>
-                  {formatCalendarDay(payment.receivedOn)} · {t(`methods.${payment.method}`)}
-                  {payment.reference === "" ? "" : ` · ${payment.reference}`}
-                </ItemDescription>
-              </ItemContent>
-            </Item>
-          ))}
-        </ItemGroup>
-      )}
-      <TextLink href={quoteRoute(booking.quoteId)}>{t("openQuote")}</TextLink>
-
-      {booking.refund !== null && (
-        <>
-          <Separator />
-          <h3 className="font-semibold">{t("refund")}</h3>
-          <Item size="sm">
-            <ItemContent>
-              <ItemTitle>
-                <span className="numbers">{rupees(booking.refund.amountPaise)}</span>{" "}
-                <StatusBadge tone={booking.refund.status === "refunded" ? "good" : "attention"}>
-                  {t(booking.refund.status === "refunded" ? "refunded" : "refundDue")}
-                </StatusBadge>
-              </ItemTitle>
-              {booking.refund.status === "refunded" && booking.refund.refundedOn !== null && (
-                <ItemDescription>
-                  {formatCalendarDay(booking.refund.refundedOn)}
-                  {booking.refund.method === null ? "" : ` · ${t(`methods.${booking.refund.method as "upi"}`)}`}
-                  {booking.refund.reference === "" ? "" : ` · ${booking.refund.reference}`}
-                </ItemDescription>
-              )}
-            </ItemContent>
-            {booking.refund.status === "due" && mayCheck && (
-              <ItemActions>
-                <MarkRefundedDialog bookingId={booking.id} />
-              </ItemActions>
-            )}
-          </Item>
-        </>
-      )}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="font-semibold">{t("received")}</h3>
+        {mayRecord && !cancelled && booking.balancePaise > 0 && (
+          <Button
+            variant="outline"
+            disabled={!access.allowed}
+            onClick={() => {
+              onRecordPayment();
+            }}
+          >
+            {t("recordPayment")}
+          </Button>
+        )}
+      </div>
+      <ReceivedPayments quoteId={booking.quoteId} payments={booking.payments} mayRecord={mayRecord} />
+      {/* Offered once the booking is confirmed, or when the invoice is already there to open. */}
+      {mayRecord &&
+        (booking.status === "confirmed" || mayBeMissing(booking.invoiceDocumentId) != null) &&
+        !cancelled && (
+          <div className="flex flex-wrap items-center gap-2">
+            <InvoiceButton quoteId={booking.quoteId} issued={mayBeMissing(booking.invoiceDocumentId) != null} />
+          </div>
+        )}
+      <RefundSection booking={booking} />
     </SectionCard>
   );
 }

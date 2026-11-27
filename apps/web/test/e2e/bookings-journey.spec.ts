@@ -36,7 +36,7 @@ test("a customer accepts a quote, a booking waits on Today, and one tap confirms
   await expect(dialog.getByText("₹1,00,000 of ₹1,00,000")).toBeVisible();
   await dialog.getByRole("button", { name: "Confirm booking" }).click();
   await expect(page.getByText("Booking confirmed")).toBeVisible();
-  await expect(page.getByRole("heading", { level: 1, name: "Rahul Sharma" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Spiti in winter" })).toBeVisible();
   const money = page.getByRole("region", { name: "Money" });
   await expect(money).toContainText("Advance");
   await expect(money).toContainText("Balance");
@@ -204,7 +204,8 @@ test("a booking is cancelled with the policy's charge, the refund is marked paid
   });
 
   await page.goto(`/bookings/${bookingId}`);
-  await page.getByRole("button", { name: "Cancel booking" }).click();
+  await page.getByRole("button", { name: "More actions" }).click();
+  await page.getByRole("menuitem", { name: "Cancel booking" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Why it is cancelled").fill("Family emergency");
   // 40 days out: the 30-days-or-more step, 10% of ₹1,00,000, so ₹10,000 kept and ₹20,000 back.

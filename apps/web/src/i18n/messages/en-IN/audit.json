@@ -345,6 +345,7 @@
       "payment-rejected": "Rejected a payment a traveller claimed",
       "reminder-by-hand": "A reminder was left to do by hand",
       "reminders-paused": "Paused a booking's reminders",
+      "travel-date-changed": "Changed a booking's travel date",
       "reminders-resumed": "Resumed a booking's reminders",
       "trip-updates-agreed": "Recorded that a traveller agreed to trip updates",
       "feedback-requested": "Asked a traveller for feedback",
