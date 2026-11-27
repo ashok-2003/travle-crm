@@ -24,6 +24,7 @@ import { BookingCostsCard } from "@/finance/booking-costs-card";
 import { MarginFigures, MarginNotice } from "./margin-notice";
 import { FrozenQuote } from "./frozen-quote";
 import { QuoteForm } from "./quote-form";
+import { BookedMoneyNotice } from "./booked-money-notice";
 import { QuoteMoney } from "./quote-money";
 import { QuoteStatusBadge } from "./quote-status";
 import { useQuote, useQuoteChanges } from "./use-quotes";
@@ -90,6 +91,8 @@ export function QuoteScreen({ quoteId }: { quoteId: string }) {
     if (quote.data) {
       const data = quote.data;
       const paymentWait = mayBeMissing(data.paymentWait);
+      // Once booked, the money is on the booking; an older api sends none, and the quote keeps its money as before.
+      const booking = mayBeMissing(data.booking) ?? null;
       // An AI booking's draft waits on the customer's money, not on a person: it reads as a sent quote until Edit.
       const awaitsPayment = data.status === "draft" && paymentWait != null;
       const reading = data.status !== "draft" || (awaitsPayment && !editing);
@@ -123,10 +126,14 @@ export function QuoteScreen({ quoteId }: { quoteId: string }) {
               />
             )}
             <div className="flex flex-col gap-6 max-xl:contents xl:sticky xl:top-6">
-              <QuoteMoney quote={data} reading={reading} />
+              {booking === null ? (
+                <QuoteMoney quote={data} reading={reading} />
+              ) : (
+                <BookedMoneyNotice booking={booking} />
+              )}
               <MarginFigures quote={data} />
               <QuoteDepartureCard quote={data} />
-              <BookingCostsCard quoteId={data.id} />
+              {booking === null && <BookingCostsCard quoteId={data.id} />}
             </div>
           </div>
           <FrozenNotice quote={data} />

@@ -35,6 +35,7 @@ export function aBooking(changes: Partial<BookingDetail> = {}): BookingDetail {
     },
     installments: [],
     payments: [],
+    invoiceDocumentId: null,
     stays: [],
     travellers: [],
     claims: [],

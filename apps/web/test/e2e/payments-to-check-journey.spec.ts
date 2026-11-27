@@ -153,6 +153,7 @@ test("an AI booking's screenshot and a traveller's claim wait on one list; the o
       stage: (await tx.lead.findUniqueOrThrow({ where: { id: ashaLead } })).stage,
       quoteKept: ai.quoteId === booking.quoteId,
       quoteId: booking.quoteId,
+      bookingId: booking.id,
       conversationId: ai.conversationId,
       paid: (await tx.quotePayment.findMany({ where: { quoteId: booking.quoteId } })).map((row) =>
         Number(row.amountPaise),
@@ -166,8 +167,11 @@ test("an AI booking's screenshot and a traveller's claim wait on one list; the o
       expect.stringMatching(/Thank you .* We have received ₹4,000\.00 for .* Your booking is confirmed\./),
     );
 
-  // The quote the owner would open shows the ₹4,000 as received, and the customer's chat shows the words as a message.
+  // The booking the owner would open shows the ₹4,000 as received (the quote points there), and the customer's chat shows the
+  // words as a message.
   await owner.goto(`/quotes/${recorded.quoteId}`);
+  await expect(owner.getByText(/Its payments are on the booking/)).toBeVisible();
+  await owner.goto(`/bookings/${recorded.bookingId}`);
   await expect(owner.getByText("Payments received")).toBeVisible();
   await expect(owner.getByText("₹4,000").first()).toBeVisible();
   await owner.goto(`/inbox/${recorded.conversationId}`);

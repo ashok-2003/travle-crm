@@ -227,6 +227,8 @@ export const quoteDetail = z.object({
   /** The customer's phone (E.164), to send the link on WhatsApp. */
   customerPhone: z.string().nullable(),
   invoiceDocumentId: recordId.nullable(),
+  /** The booking this quote became, whose page holds its money now; null until it is booked. */
+  booking: z.object({ id: recordId, number: z.string() }).nullable(),
   /** The draft that took this quote's place, when it was replaced. */
   replacedById: recordId.nullable(),
   /**

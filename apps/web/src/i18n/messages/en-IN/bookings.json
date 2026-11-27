@@ -99,10 +99,8 @@
     "noInstallments": "No payments due yet. They are made when the booking is confirmed.",
     "by": "By {day}",
     "paidBadge": "Paid",
-    "toPay": "To pay",
     "received": "Payments received",
     "noneReceived": "No payment has been recorded yet.",
-    "openQuote": "Record a payment or open receipts on the quote",
     "refund": "Refund",
     "refunded": "Refunded",
     "refundDue": "Due",
@@ -112,7 +110,11 @@
       "cash": "Cash",
       "card": "Card",
       "other": "Other"
-    }
+    },
+    "dueOn": "Due {day}",
+    "overdue": "Overdue",
+    "recordPayment": "Record payment",
+    "paidBar": "Paid {paid} of {total}"
   },
   "claims": {
     "status": {
@@ -347,7 +349,8 @@
   "proof": {
     "title": "Proof of payment",
     "body": "What the customer sent in the chat when the AI took this booking.",
-    "open": "Proof {number}"
+    "open": "Proof {number}",
+    "loadFailed": "This file didn't load."
   },
   "feedback": {
     "title": "Feedback",

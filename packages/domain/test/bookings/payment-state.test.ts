@@ -82,4 +82,16 @@ describe("a booking's payment state", () => {
     expect(full.paymentState).toBe("paid");
     expect(full.installments.map((due) => due.state)).toEqual(["paid", "paid"]);
   });
+
+  it("reads no due as overdue on a cancelled booking, and names the invoice once issued", async () => {
+    const { bookingId, quoteId } = await bookingWithDues("2020-01-01", "2999-01-01");
+    await world.inOrg((tx) =>
+      tx.booking.update({ where: { id: bookingId }, data: { status: "cancelled", cancelledAt: new Date() } }),
+    );
+    const detail = await read(bookingId);
+    expect(detail.paymentState).not.toBe("overdue");
+    expect(detail.installments.map((due) => due.state)).toEqual(["due", "due"]);
+    expect(detail.invoiceDocumentId).toBeNull();
+    expect(quoteId).toBeTruthy();
+  });
 });

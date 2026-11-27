@@ -230,7 +230,10 @@ export async function getBooking(tx: OrgTx, access: MemberAccess, bookingId: str
     ).map((file) => [file.id, file.id]),
   );
   const today = calendarDateIn(new Date(), await organizationTimeZone(tx, access.organizationId));
-  const installments = installmentsOf(dues, paidPaise, today);
+  // A cancelled booking asks nothing more: no due reads overdue, the page shows its charge and refund instead.
+  const installments = installmentsOf(dues, paidPaise, today).map((due) =>
+    booking.status === "cancelled" && due.state === "overdue" ? { ...due, state: "due" as const } : due,
+  );
   return bookingDetail.parse({
     id: booking.id,
     number: booking.number,
@@ -266,6 +269,7 @@ export async function getBooking(tx: OrgTx, access: MemberAccess, bookingId: str
       emergencyPhone: booking.emergencyPhone,
     },
     installments,
+    invoiceDocumentId: booking.quote.invoiceDocumentId,
     payments: payments.map((payment) => ({
       id: payment.id,
       amountPaise: Number(payment.amountPaise),

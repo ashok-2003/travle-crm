@@ -51,6 +51,7 @@ export const bookingColumns = {
       version: true,
       startDate: true,
       days: true,
+      invoiceDocumentId: true,
     },
   },
 } as const;

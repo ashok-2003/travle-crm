@@ -40,9 +40,12 @@ function useRefreshQuotes() {
   const queryClient = useQueryClient();
   const refreshWork = useRefreshWork();
   return () =>
-    Promise.all([queryClient.invalidateQueries({ queryKey: trpc.quotes.pathKey() }), refreshWork()]).then(
-      () => undefined,
-    );
+    // A booking's page shows the quote's money, so a change of it loads the bookings again too.
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: trpc.quotes.pathKey() }),
+      queryClient.invalidateQueries({ queryKey: trpc.bookings.pathKey() }),
+      refreshWork(),
+    ]).then(() => undefined);
 }
 
 export function useQuoteChanges() {

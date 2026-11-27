@@ -293,6 +293,8 @@ export const bookingDetail = z.object({
   essentials,
   installments: z.array(installment),
   payments: z.array(payment),
+  /** The quote's invoice, once issued. */
+  invoiceDocumentId: recordId.nullable(),
   stays: z.array(stay),
   travellers: z.array(traveller),
   claims: z.array(claim),

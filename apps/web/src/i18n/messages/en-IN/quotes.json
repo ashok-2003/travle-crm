@@ -210,7 +210,9 @@
         "required": "Fill this in.",
         "invalid": "Check this."
       }
-    }
+    },
+    "onBooking": "This quote is booking {number}. Its payments are on the booking.",
+    "openBooking": "Open the booking"
   },
   "settings": {
     "title": "Quotes and payments",

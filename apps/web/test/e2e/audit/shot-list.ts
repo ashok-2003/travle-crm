@@ -603,7 +603,11 @@ export const SHOTS = [
   { name: "r6-claim-form", screen: "The trip page's payments, with I've paid open", as: visitor },
   { name: "r6-details-form", screen: "The trip page's travellers and one traveller's details form", as: visitor },
   { name: "r6-check-task", screen: "Today with a Check payment task and a trip with details missing", as: owner },
-  { name: "r6-claim-check", screen: "A booking's money with a payment to check: Confirm and Reject", as: owner },
+  {
+    name: "r6-claim-check",
+    screen: "A booking's money: the paid bar, each due's pill, a payment to check, Record payment",
+    as: owner,
+  },
   { name: "r6-booking-travel-date", screen: "A booking's travel date, changed in a dialog", as: owner },
   { name: "r6-voucher", screen: "A hotel voucher, the PDF", as: owner },
   { name: "r6-itinerary", screen: "The itinerary PDF", as: owner },
