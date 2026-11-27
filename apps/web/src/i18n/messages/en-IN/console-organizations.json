@@ -36,6 +36,7 @@
       "cycle": "Billing",
       "cycles": {
         "monthly": "Monthly, {price} before GST",
+        "quarterly": "Every 3 months, {price} before GST",
         "yearly": "Yearly, {price} before GST"
       },
       "start": "How it starts",
@@ -173,6 +174,7 @@
     "planAndCycle": "{plan}, {cycle}",
     "cycles": {
       "monthly": "billed monthly",
+      "quarterly": "billed every 3 months",
       "yearly": "billed yearly"
     },
     "trialEndsOn": "Trial's last day",
@@ -207,15 +209,17 @@
     "price": {
       "caption": {
         "monthly": "What it costs a month",
+        "quarterly": "What it costs for 3 months",
         "yearly": "What it costs a year"
       },
       "plan": "The plan's price",
       "agreed": "The agreed price",
       "extraSeats": "{count, plural, one {# extra seat} other {# extra seats}}",
       "subtotal": "Before GST",
-      "gst": "GST at 18%",
+      "gst": "GST",
       "total": {
         "monthly": "Total a month",
+        "quarterly": "Total for 3 months",
         "yearly": "Total a year"
       }
     },
@@ -254,6 +258,7 @@
       "extraSeatsHint": "Each at the plan's price for an extra seat.",
       "customPrice": {
         "monthly": "Agreed price a month, before GST",
+        "quarterly": "Agreed price for 3 months, before GST",
         "yearly": "Agreed price a year, before GST"
       },
       "customPriceHint": "Optional. Leave it blank for the plan's own price.",

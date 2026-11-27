@@ -36,7 +36,13 @@ export function PlansTable({ plans, editable }: { plans: PlanSummary[]; editable
             {t("columns.monthly")}
           </TableHead>
           <TableHead scope="col" className="text-right">
+            {t("columns.quarterly")}
+          </TableHead>
+          <TableHead scope="col" className="text-right">
             {t("columns.yearly")}
+          </TableHead>
+          <TableHead scope="col" className="text-right">
+            {t("columns.aiCredits")}
           </TableHead>
           <TableHead scope="col" className="text-right">
             {t("columns.seats")}
@@ -78,11 +84,19 @@ export function PlansTable({ plans, editable }: { plans: PlanSummary[]; editable
               </TableCell>
               <TableCell className="text-right">
                 <Price
+                  price={figures.quarterly}
+                  sold={plan.quarterlyPricePaise !== null}
+                  extraSeat={figures.extraSeatQuarterly}
+                />
+              </TableCell>
+              <TableCell className="text-right">
+                <Price
                   price={figures.yearly}
                   sold={plan.yearlyPricePaise !== null}
                   extraSeat={figures.extraSeatYearly}
                 />
               </TableCell>
+              <TableCell className="numbers text-right">{figures.aiCredits}</TableCell>
               <TableCell className="numbers text-right">{figures.seats}</TableCell>
               <TableCell className="numbers text-right">{figures.whatsappNumbers}</TableCell>
               <TableCell className="numbers text-right">{figures.storage}</TableCell>

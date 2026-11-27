@@ -69,6 +69,7 @@
     "trialDays": "Free days",
     "cycle": "Billing after the free days",
     "monthly": "Monthly",
+    "quarterly": "Every 3 months",
     "yearly": "Yearly",
     "gstState": "GST state",
     "gstStateHint": "Their business profile starts in this state; they can change it.",

@@ -21,8 +21,11 @@ function plan(overrides: Partial<PlanSummary> = {}): PlanSummary {
     key: "growth",
     name: "Growth",
     monthlyPricePaise: 499_900,
+    quarterlyPricePaise: null,
     yearlyPricePaise: 4_999_000,
+    aiCreditsPerMonth: 10_000,
     extraSeatMonthlyPricePaise: 29_900,
+    extraSeatQuarterlyPricePaise: null,
     extraSeatYearlyPricePaise: null,
     seatLimit: 10,
     whatsappNumberLimit: 2,
@@ -38,12 +41,14 @@ const starter = plan({
   id: "0199a000-0000-7000-8000-0000000000a2",
   key: "starter",
   name: "Starter",
+  quarterlyPricePaise: null,
   yearlyPricePaise: null,
+  aiCreditsPerMonth: 10_000,
   modules: [],
   archived: true,
 });
 const demo = plan({ id: "0199a000-0000-7000-8000-0000000000a3", key: "platform-demo", name: "Demo", forSale: false });
-const policy = { data: { trialDays: 7, pastDueDays: 7, readOnlyDays: 14 } };
+const policy = { data: { trialDays: 7, pastDueDays: 7, readOnlyDays: 14, subscriptionGstBasisPoints: 0 } };
 
 function open(plans: Answer, staff = platformStaff("super-admin")) {
   const api = stubApi({ "platform.plans.list": plans, "platform.plans.policy": policy });
@@ -112,8 +117,11 @@ describe("PlansScreen", () => {
         key: "growth",
         name: "Growth",
         monthlyPricePaise: 499_900,
+        quarterlyPricePaise: null,
         yearlyPricePaise: null,
+        aiCreditsPerMonth: 10_000,
         extraSeatMonthlyPricePaise: null,
+        extraSeatQuarterlyPricePaise: null,
         extraSeatYearlyPricePaise: null,
         seatLimit: 10,
         whatsappNumberLimit: 2,
@@ -123,6 +131,40 @@ describe("PlansScreen", () => {
     ]);
     expect(await screen.findByRole("row", { name: /Growth/ })).toBeVisible();
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("creates a plan priced for 3 months with its AI credits, and shows both in the table", async () => {
+    screenIs("wide");
+    const quarterly = plan({
+      monthlyPricePaise: null,
+      yearlyPricePaise: null,
+      quarterlyPricePaise: 1_199_900,
+      aiCreditsPerMonth: 20_000,
+    });
+    const api = open({ data: [] });
+    await userEvent.click(await screen.findByRole("button", { name: words.add }));
+    const dialog = screen.getByRole("dialog", { name: form.createTitle });
+    const fill = async (label: string, value: string) => {
+      await userEvent.click(within(dialog).getByLabelText(label));
+      await userEvent.paste(value);
+    };
+    await fill(form.key, "growth");
+    await fill(form.name, "Growth");
+    await fill(form.quarterlyPrice, "11,999");
+    await userEvent.clear(within(dialog).getByLabelText(form.aiCredits));
+    await fill(form.aiCredits, "20000");
+    await fill(form.seats, "10");
+    await fill(form.whatsappNumbers, "2");
+    await fill(form.storageGigabytes, "25");
+    api.answer("platform.plans.create", { data: quarterly });
+    api.answer("platform.plans.list", { data: [quarterly] });
+    await userEvent.click(within(dialog).getByRole("button", { name: form.create }));
+    const row = await screen.findByRole("row", { name: /Growth/ });
+    expect(inputsTo("plans.create")).toEqual([
+      expect.objectContaining({ monthlyPricePaise: null, quarterlyPricePaise: 1_199_900, aiCreditsPerMonth: 20_000 }),
+    ]);
+    expect(within(row).getByText("₹11,999")).toBeVisible();
+    expect(within(row).getByText("20,000")).toBeVisible();
   });
 
   it("says what to fix before anything is sent", async () => {

@@ -1,8 +1,8 @@
 "use client";
 
 // The subscription policy (spec 7.3, Q3), shown to all platform staff: how long a trial lasts when onboarding gives
-// it no end, and how many days an unpaid organization stays past due, then read-only, before it is suspended. Super
-// admins change it.
+// it no end, how many days an unpaid organization stays past due, then read-only, before it is suspended, and the GST charged on
+// subscriptions. Super admins change it.
 import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
 import { Details } from "@/components/details";
@@ -15,7 +15,7 @@ import { PolicyDialog } from "./policy-dialog";
 import type { PolicyField } from "./policy-values";
 import { usePolicy } from "./use-policy";
 
-const FIELDS: readonly PolicyField[] = ["trialDays", "pastDueDays", "readOnlyDays"];
+const FIELDS = ["trialDays", "pastDueDays", "readOnlyDays"] as const satisfies readonly PolicyField[];
 
 export function PolicySection() {
   const t = useTranslations("consolePlatform.policy");
@@ -30,14 +30,20 @@ export function PolicySection() {
       const days = policy.data;
       return (
         <Details
-          rows={FIELDS.map((field) => ({
-            label: t(field),
-            value: (
-              <span>
-                <span className="numbers">{formatCount(days[field])}</span> {t("daysUnit", { count: days[field] })}
-              </span>
-            ),
-          }))}
+          rows={[
+            ...FIELDS.map((field) => ({
+              label: t(field),
+              value: (
+                <span>
+                  <span className="numbers">{formatCount(days[field])}</span> {t("daysUnit", { count: days[field] })}
+                </span>
+              ),
+            })),
+            {
+              label: t("subscriptionGstBasisPoints"),
+              value: days.subscriptionGstBasisPoints === 1800 ? t("gstRates.1800") : t("gstRates.0"),
+            },
+          ]}
         />
       );
     }
