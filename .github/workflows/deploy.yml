@@ -4,7 +4,7 @@
 # builds natively: x86_64, or arm64 when the repository variable ORACLE_API_SERVER_ARCH says `arm64` (an Ampere A1).
 # It runs only where the owner has turned it on (the repository variable ORACLE_DEPLOY_ENABLED), never for a pull
 # request, and one at a time. A merge that changes only the web app (Vercel deploys it) or the docs releases nothing.
-# The deploy key is a repository secret: a private repository on GitHub Free has no environment secrets.
+# The deploy key is the repository secret ORACLE_DEPLOY_SSH_KEY: the deploy needs no environment.
 name: Deploy to Oracle
 
 on:

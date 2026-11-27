@@ -299,8 +299,8 @@ is cut short.
        done
 
    The key reaches `ubuntu`, which can `sudo`, so whoever holds it holds the servers. It is the repository secret
-   `ORACLE_DEPLOY_SSH_KEY`: since the repository went private (2026-11-27), GitHub Free gives it no environment
-   secrets, so the `production` environment and its approval are gone.
+   `ORACLE_DEPLOY_SSH_KEY` (since 2026-11-27): the deploy no longer runs in the `production` environment, so no
+   approval can be asked before a run.
 
 2. **The servers' host keys**, so the runner trusts only them: `ssh-keyscan -t ed25519 <api ip> <console ip>`, and
    check each line's key against the Mac's (`ssh-keygen -F <ip>`).
