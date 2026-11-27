@@ -91,6 +91,8 @@ describe("the bookings table's page", () => {
     expect(await names(seller, { search: "098111-22233" })).toEqual(["Dev Patel"]);
     expect(await names(seller, { search: "KERALA" })).toEqual(["Meera Iyer"]);
     expect(await names(seller, { search: dev.number.toLowerCase() })).toEqual(["Dev Patel"]);
+    // A number's last digits find the number, not every phone with a 2 in it.
+    expect(await names(seller, { search: dev.number.slice(-4) })).toEqual(["Dev Patel"]);
     // LIKE's wildcards are letters; a blank is no search.
     expect(await names(seller, { search: "%" })).toEqual([]);
     expect(await names(seller, { search: "Dev_Patel" })).toEqual([]);
@@ -171,7 +173,7 @@ describe("the bookings table's page", () => {
     expect(await names(seller, { sort: "customer" })).toEqual(["Arjun", "Bela", "Meera", "Zoya"]);
     expect(await names(seller, { sort: "customer", direction: "desc" })).toEqual(["Zoya", "Meera", "Bela", "Arjun"]);
     expect(await names(seller, { sort: "total" })).toEqual(["Bela", "Zoya", "Meera", "Arjun"]);
-    expect(await names(seller, { sort: "created", direction: "desc" })).toEqual(["Bela", "Meera", "Arjun", "Zoya"]);
+    expect(await names(seller, { sort: "total", direction: "desc" })).toEqual(["Arjun", "Meera", "Zoya", "Bela"]);
   });
 
   it("counts every match across its pages and hands each page its own rows", async () => {

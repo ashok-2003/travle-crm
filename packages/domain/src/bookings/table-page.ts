@@ -1,13 +1,13 @@
 // The Bookings table (bookings revamp, 2026-11-27): one numbered page of the member's bookings (or the agency's), searched,
 // filtered and sorted in Postgres, with how many match across every page. The search takes the customer's name, the trip's
-// title or the booking's number in any case, or a phone's digits as typed in any form; LIKE's wildcards in it are letters.
+// title or the booking's number in any case, or a phone's digits as typed in any form; LIKE's wildcards are letters.
 // Every order ends on the id, so a page's rows never move to the next; the travel date puts trips without one last. The
 // payment filter is the payment state's own rule (summaries.ts) run over every booking the other conditions match, which
 // at an agency's size is a few thousand at most: the rule then lives in one place, not again in SQL.
 import type { BookingTablePageInput, BookingTableSort, BookingSummary } from "@travel-crm/contracts/bookings";
-import { emptySql, sql, type OrgTx, type Sql } from "@travel-crm/db";
+import { emptySql, likePattern, sql, type OrgTx, type Sql } from "@travel-crm/db";
 import { organizationTimeZone, scopeFilter, type MemberAccess } from "../identity/index.js";
-import { calendarDateIn, type CalendarDate } from "../kernel/index.js";
+import { calendarDateIn, phoneSearchDigits, type CalendarDate } from "../kernel/index.js";
 import { bookingMoneyOf, summariesOf, summaryColumns } from "./summaries.js";
 
 /** A booking as the table lists it: its summary, the trip's travellers and the lead's owner (its salesperson). */
@@ -18,18 +18,16 @@ const FROM = sql`FROM booking
   JOIN person ON person.organization_id = lead.organization_id AND person.id = lead.person_id
   JOIN quote ON quote.organization_id = booking.organization_id AND quote.id = booking.quote_id`;
 
-/** Escapes LIKE's wildcards, so "%" and "_" in a search are letters. */
-const likePattern = (text: string) => `%${text.replace(/[\\%_]/g, (character) => `\\${character}`)}%`;
-
 /**
- * A name, title or number anywhere in them; and, for a search of only a phone's characters with four digits or more, those
- * digits in the phone, without a leading trunk "0" or "00" (stored numbers are E.164).
+ * A name, title or number anywhere in them; and, for a phone's search (phoneSearchDigits), its digits in the phone. That
+ * needs four digits after the leading zeros go: the search is also a booking number's, and "0001" would otherwise look
+ * for a 1 in every phone.
  */
 function searchCondition(search: string | undefined): Sql {
   const text = search?.trim() ?? "";
   if (text === "") return emptySql;
   const pattern = likePattern(text);
-  const digits = /^[+\d\s()-]+$/.test(text) ? text.replace(/\D/g, "").replace(/^0+/, "") : "";
+  const digits = phoneSearchDigits(text) ?? "";
   return sql`AND (person.name ILIKE ${pattern} OR quote.title ILIKE ${pattern} OR booking.number ILIKE ${pattern}
     ${digits.length < 4 ? emptySql : sql`OR person.phone_e164 LIKE ${`%${digits}%`}`})`;
 }
@@ -56,7 +54,6 @@ function orderOf(sort: BookingTableSort, direction: "asc" | "desc"): Sql {
   const way = direction === "asc" ? sql`ASC` : sql`DESC`;
   const by: Record<BookingTableSort, Sql> = {
     travel: sql`booking.start_date ${way} NULLS LAST`,
-    created: sql`booking.created_at ${way}`,
     customer: sql`person.name ${way}`,
     // What the booking owes, as owedOf says it: a cancelled booking its charge kept.
     total: sql`(CASE WHEN booking.status = 'cancelled' THEN coalesce(booking.charge_paise, 0) ELSE quote.total_paise END) ${way}`,

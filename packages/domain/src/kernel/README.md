@@ -37,6 +37,8 @@ The shared kernel (spec 8, 9.6): building blocks every module uses. It imports n
 - **Phone numbers** are normalised at the API boundary: `phoneNumber` and `toE164(text, defaultCountry?)` in
   `@travel-crm/contracts/kernel`. It checks number ranges with libphonenumber's full metadata but stays lenient about
   full-width digits, a `tel:` prefix and a trailing hyphen (all accepted); an unknown `defaultCountry` gives null.
+  A list's search reads a phone with `phoneSearchDigits(text)`: four or more digits and no letters, its digits without
+  a leading trunk "0" or "00" (all zeros stay), or null for a search that isn't a phone's.
 
 `@travel-crm/contracts/kernel` also has the fields forms use: `moneyField`, `rupeesText`, `gstStateCode`, `gstin`,
 `calendarDate`, `timeZoneName`, `phoneNumber`.

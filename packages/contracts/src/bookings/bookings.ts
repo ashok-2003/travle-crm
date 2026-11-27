@@ -102,8 +102,10 @@ export type BookingPage = z.infer<typeof bookingPage>;
 
 /** The Bookings table's rows per page: 25 unless the member picks 50 or 100. */
 export const BOOKING_TABLE_PAGE_SIZES = [25, 50, 100] as const;
-/** What the table sorts by: the travel date (soonest first, no date last), when made, the customer, the total. */
-export const bookingTableSorts = ["travel", "created", "customer", "total"] as const;
+/** The furthest numbered page the table reads (the Leads list's limit). */
+export const MAX_BOOKING_TABLE_PAGE = 10_000;
+/** What the table's headers sort by: the travel date (soonest first, no date last), the customer, the total. */
+export const bookingTableSorts = ["travel", "customer", "total"] as const;
 export const bookingTableSort = z.enum(bookingTableSorts);
 export type BookingTableSort = z.infer<typeof bookingTableSort>;
 export const sortDirection = z.enum(["asc", "desc"]);
@@ -116,7 +118,7 @@ export type SortDirection = z.infer<typeof sortDirection>;
  * bookings has that filter ignored.
  */
 export const bookingTablePageInput = z.strictObject({
-  page: z.int().min(1),
+  page: z.int().min(1).max(MAX_BOOKING_TABLE_PAGE),
   limit: z.union([z.literal(25), z.literal(50), z.literal(100)]).default(25),
   search: text(80).optional(),
   status: bookingStatus.optional(),

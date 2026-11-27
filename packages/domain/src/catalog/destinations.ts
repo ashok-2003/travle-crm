@@ -8,7 +8,7 @@ import {
   type RenameDestinationInput,
   type SearchDestinationsInput,
 } from "@travel-crm/contracts/catalog";
-import { isUniqueViolation, softDeleted, sql, withDeleted, type OrgTx } from "@travel-crm/db";
+import { isUniqueViolation, likePattern, softDeleted, sql, withDeleted, type OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { publishEvent } from "../jobs/index.js";
@@ -103,11 +103,6 @@ export async function findOrAddDestination(tx: OrgTx, actor: Actor, typed: strin
 /** The destination, or the one it was merged into; null when there is none. */
 export function destinationById(tx: OrgTx, id: string): Promise<Destination | null> {
   return liveDestinationOf(tx, id);
-}
-
-/** Escapes LIKE's wildcards, so "%" and "_" in a search are letters. */
-function likePattern(text: string): string {
-  return `%${text.replace(/[\\%_]/g, (character) => `\\${character}`)}%`;
 }
 
 /** Live destinations alphabetically: all of them, or those whose name holds the query or nearly does (a typo). */
