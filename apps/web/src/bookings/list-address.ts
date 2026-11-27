@@ -7,6 +7,7 @@ import {
   bookingPaymentState,
   bookingTablePageInput,
   bookingTableSort,
+  type BookingExportFilter,
   type BookingPaymentState,
   type BookingTablePageInput,
   type BookingTableSort,
@@ -58,14 +59,10 @@ export function bookingsHref(address: Partial<BookingsAddress>): string {
   return tableAddressHref(routes.bookings, fields, address, bookingsStart);
 }
 
-/** The api's input for the list at this place, with the search when there is one. */
-export function tableInputOf(address: BookingsAddress, search: string): BookingTablePageInput {
-  const { chip, travelFrom, travelTo, ownerUserId, payment, sort, direction, page, limit } = address;
+/** What the list holds at this place, without its page, size or sort: its export's filter too. */
+export function bookingFilterOf(address: BookingsAddress, search: string): BookingExportFilter {
+  const { chip, travelFrom, travelTo, ownerUserId, payment } = address;
   return {
-    page,
-    limit,
-    sort,
-    direction,
     ...(chip === "claims" ? { claimsPending: true } : chip === "all" ? {} : { status: chip }),
     ...(travelFrom !== undefined && { travelFrom }),
     ...(travelTo !== undefined && { travelTo }),
@@ -73,6 +70,12 @@ export function tableInputOf(address: BookingsAddress, search: string): BookingT
     ...(payment !== undefined && { payment }),
     ...(search !== "" && { search }),
   };
+}
+
+/** The api's input for the list at this place, with the search when there is one. */
+export function tableInputOf(address: BookingsAddress, search: string): BookingTablePageInput {
+  const { sort, direction, page, limit } = address;
+  return { page, limit, sort, direction, ...bookingFilterOf(address, search) };
 }
 
 /** Whether the list shows less than every booking: a chip, a filter or a search. */

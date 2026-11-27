@@ -25,7 +25,16 @@ import { Button } from "@/components/ui/button";
 import { formatCount } from "@/lib/format";
 import { quoteRoute } from "@/lib/routes";
 import { useHolds, useMe, viewScope } from "@/session/me-context";
-import { isFiltered, quoteChips, quoteInputOf, quotesHref, quotesStart, readQuotesAddress } from "./list-address";
+import { QuoteExportButton } from "./export/quote-export-button";
+import {
+  isFiltered,
+  quoteChips,
+  quoteFilterOf,
+  quoteInputOf,
+  quotesHref,
+  quotesStart,
+  readQuotesAddress,
+} from "./list-address";
 import { NewQuoteDialog } from "./new-quote-dialog";
 import { useQuoteColumns, useStackedQuote } from "./quotes-table";
 import { useQuoteSalespeople, useQuoteTablePage } from "./use-quotes";
@@ -114,6 +123,12 @@ export function QuotesScreen() {
             apply: t("filtersDialog.apply"),
           }}
           onApply={applyFilters}
+        />
+      }
+      exportButton={
+        <QuoteExportButton
+          filter={quoteFilterOf(address, search)}
+          salespersonName={salespeople.data?.find((person) => person.userId === address.ownerUserId)?.name ?? null}
         />
       }
       applied={chips}

@@ -2,17 +2,14 @@
 
 // The Leads header's Export (spec 3.1, 3.3), for everyone who sees the list (leads:view): a dialog that asks for the
 // list as it is on screen, the stage, filters (its "came in" period and Show too) and search included, as Excel or CSV. It is an export (ADR 0021), so it
-// works while the agency is read-only. The dialog stays mounted while closed, so an export being prepared shows its
-// progress again on opening (exports/export-dialog.tsx).
+// works while the agency is read-only. The shared ExportButton keeps the dialog mounted while closed, so an export being
+// prepared shows its progress again on opening.
 import type { LeadExportFilter } from "@travel-crm/contracts/crm";
 import { useQuery } from "@tanstack/react-query";
-import { DownloadIcon } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
 import { useTRPC } from "@/data/trpc";
-import { Button } from "@/components/ui/button";
-import { ExportDialog } from "@/exports/export-dialog";
+import { ExportButton } from "@/exports/export-button";
 import { useHolds, useMe, viewScope } from "@/session/me-context";
 import { listFiltersOf } from "../list/list-filters";
 import { useListSearch } from "../list/use-list-search";
@@ -38,7 +35,6 @@ export function LeadExportButton() {
     ...(listed.show && { show: listed.show }),
     ...(search !== "" && { search }),
   };
-  const [open, setOpen] = useState(false);
   const calls = useLeadExportCalls(asked);
   const holds = useLeadExportHolds();
   // The owner and the destination are ids in the address; the api names them by id, whichever destination it is.
@@ -54,28 +50,16 @@ export function LeadExportButton() {
   );
   if (!mayExport) return null;
   return (
-    <>
-      <Button
-        variant="outline"
-        onClick={() => {
-          setOpen(true);
-        }}
-      >
-        <DownloadIcon aria-hidden="true" />
-        {t("button")}
-      </Button>
-      <ExportDialog
-        open={open}
-        onOpenChange={setOpen}
-        title={t("dialog.title")}
-        intro={t("dialog.intro")}
-        holds={holds(asked, {
-          ownerName: asked.ownerUserId === undefined ? null : (names.data?.people[asked.ownerUserId] ?? null),
-          destinationName: names.data?.destinationName ?? null,
-        })}
-        rowsWord="leads"
-        calls={calls}
-      />
-    </>
+    <ExportButton
+      label={t("button")}
+      title={t("dialog.title")}
+      intro={t("dialog.intro")}
+      holds={holds(asked, {
+        ownerName: asked.ownerUserId === undefined ? null : (names.data?.people[asked.ownerUserId] ?? null),
+        destinationName: names.data?.destinationName ?? null,
+      })}
+      rowsWord="leads"
+      calls={calls}
+    />
   );
 }

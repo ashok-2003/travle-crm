@@ -139,7 +139,7 @@ describe("the api and the worker, end to end", () => {
     expect(webhooks?.concurrency).toBe(3);
   });
 
-  it("runs imports.read-file, the two lead import listeners, the two staff import listeners and both export listeners", () => {
+  it("runs imports.read-file, the two lead import listeners, the two staff import listeners and the four export listeners", () => {
     const names = flow.work.listeners.map((listener) => listener.name);
     expect(names).toEqual(
       expect.arrayContaining([
@@ -150,6 +150,8 @@ describe("the api and the worker, end to end", () => {
         "imports.add-staff-import",
         "crm.make-lead-export",
         "exports.make-staff-export",
+        "bookings.make-booking-export",
+        "quotes.make-quote-export",
       ]),
     );
     expect(new Set(names).size).toBe(names.length);

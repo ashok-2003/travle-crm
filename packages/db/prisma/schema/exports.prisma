@@ -1,13 +1,13 @@
-// Bulk exports (release 2, spec 5): one requested file of an agency's leads or staff, made by the worker and kept 24
-// hours for its requester. Organization-owned: row-level security applies. Not soft-deleted; the runtime role never
-// deletes one (the console's sweep marks it expired).
+// Bulk exports (release 2, spec 5): one requested file of an agency's leads, staff, bookings or quotes, made by the
+// worker and kept 24 hours for its requester. Organization-owned: row-level security applies. Not soft-deleted; the
+// runtime role never deletes one (the console's sweep marks it expired).
 
 /// One export, from its request to its file's deletion (B41, B42, B54).
 model DataExport {
   /// Filled from db.forOrg()'s organization when omitted.
   organizationId   String       @default(dbgenerated("(NULLIF(current_setting('app.org_id'::text, true), ''::text))::uuid")) @map("organization_id") @db.Uuid
   id               String       @id @default(uuid(7)) @db.Uuid
-  /// leads or staff (CHECK data_export_kind_value).
+  /// leads, staff, bookings or quotes (CHECK data_export_kind_value).
   kind             String
   /// xlsx or csv.
   format           String

@@ -1,9 +1,9 @@
-// An export of leads or staff (spec 5, 6.5, B37-B42): its kinds, formats and statuses, why it may fail, how it is
+// An export of leads, staff, bookings or quotes (spec 5, 6.5, B37-B42; bookings revamp, 2026-11-27): its kinds, formats and statuses, why it may fail, how it is
 // asked for and followed, and the event the worker makes its file on.
 import { z } from "zod";
 import { recordId } from "../identity/fields.js";
 
-export const exportKinds = ["leads", "staff"] as const;
+export const exportKinds = ["leads", "staff", "bookings", "quotes"] as const;
 export const exportKind = z.enum(exportKinds);
 export type ExportKind = z.infer<typeof exportKind>;
 

@@ -30,8 +30,11 @@ const BALANCE_DUE = sql`AND quote.status = 'accepted' AND quote.total_paise > (
   WHERE quote_payment.organization_id = quote.organization_id AND quote_payment.quote_id = quote.id
     AND quote_payment.voided_at IS NULL)`;
 
+/** What the table and its export both filter by: the table's input without its page, size and sort. */
+export type QuoteFilter = Omit<QuoteTablePageInput, "page" | "limit" | "sort" | "direction">;
+
 /** Whose quotes and which: an own-scope member's own (the salesperson filter is then ignored), then the filters. */
-function conditions(access: MemberAccess, input: QuoteTablePageInput): Sql {
+function conditions(access: MemberAccess, input: QuoteFilter): Sql {
   const owner = scopeFilter(access, "quotes:view", "ownerUserId").ownerUserId ?? input.ownerUserId;
   return sql`WHERE quote.deleted_at IS NULL
     ${owner === undefined ? emptySql : sql`AND lead.owner_user_id = ${owner}::uuid`}
@@ -54,26 +57,43 @@ function orderOf(sort: QuoteTableSort, direction: "asc" | "desc"): Sql {
   return sql`ORDER BY ${by[sort]}, quote.id ${way}`;
 }
 
+/** The quotes the filter holds, in this order, and how many there are: those in the window (a page, or a file's rows). */
+export async function matchingQuotes(
+  tx: OrgTx,
+  access: MemberAccess,
+  filter: QuoteFilter,
+  order: { sort: QuoteTableSort; direction: "asc" | "desc" },
+  window: { offset: number; limit: number },
+): Promise<{ ids: string[]; total: number }> {
+  const where = conditions(access, filter);
+  const ordered = orderOf(order.sort, order.direction);
+  const [found, counted] = await Promise.all([
+    tx.$queryRaw<{ id: string }[]>(
+      sql`SELECT quote.id ${FROM} ${where} ${ordered} LIMIT ${window.limit} OFFSET ${window.offset}`,
+    ),
+    tx.$queryRaw<{ n: number }[]>(sql`SELECT count(*)::int AS n ${FROM} ${where}`),
+  ]);
+  return { ids: found.map((row) => row.id), total: counted[0]?.n ?? 0 };
+}
+
+/** These quotes as the table lists them, in the order given. */
+export async function quoteTableItemsOf(tx: OrgTx, ids: readonly string[]): Promise<QuoteTableItem[]> {
+  const rows = await tx.quote.findMany({ where: { id: { in: [...ids] } }, select: quoteColumns });
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  return ids.flatMap((id) => {
+    const row = byId.get(id);
+    return row === undefined ? [] : [{ ...toSummary(row), ownerUserId: row.lead.ownerUserId }];
+  });
+}
+
 export async function quoteTablePageOf(
   tx: OrgTx,
   access: MemberAccess,
   input: QuoteTablePageInput,
 ): Promise<{ items: QuoteTableItem[]; total: number }> {
-  const where = conditions(access, input);
-  const offset = (input.page - 1) * input.limit;
-  const [found, counted] = await Promise.all([
-    tx.$queryRaw<{ id: string }[]>(
-      sql`SELECT quote.id ${FROM} ${where} ${orderOf(input.sort, input.direction)} LIMIT ${input.limit} OFFSET ${offset}`,
-    ),
-    tx.$queryRaw<{ n: number }[]>(sql`SELECT count(*)::int AS n ${FROM} ${where}`),
-  ]);
-  const rows = await tx.quote.findMany({ where: { id: { in: found.map((row) => row.id) } }, select: quoteColumns });
-  const byId = new Map(rows.map((row) => [row.id, row]));
-  return {
-    items: found.flatMap(({ id }) => {
-      const row = byId.get(id);
-      return row === undefined ? [] : [{ ...toSummary(row), ownerUserId: row.lead.ownerUserId }];
-    }),
-    total: counted[0]?.n ?? 0,
-  };
+  const { ids, total } = await matchingQuotes(tx, access, input, input, {
+    offset: (input.page - 1) * input.limit,
+    limit: input.limit,
+  });
+  return { items: await quoteTableItemsOf(tx, ids), total };
 }

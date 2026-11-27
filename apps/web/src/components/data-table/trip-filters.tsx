@@ -142,35 +142,45 @@ function TripFiltersForm({
   );
 }
 
+/**
+ * The travel dates' and the salesperson's words when applied ("Travel 1 Dec to 31 Dec", "Salesperson: Ravi Kumar"), as
+ * their chips say them and an export's "What it holds" too; null for each not applied.
+ */
+export function useTripWords(): (
+  filters: TripFilters,
+  salespersonName: string | null | undefined,
+) => { travel: string | null; salesperson: string | null } {
+  const t = useTranslations("common.tripFilters.applied");
+  const day = (date: string) => formatCalendarDay(date);
+  return ({ travelFrom, travelTo, ownerUserId }, salespersonName) => ({
+    travel:
+      travelFrom !== undefined && travelTo !== undefined
+        ? t("travel", { from: day(travelFrom), to: day(travelTo) })
+        : travelFrom !== undefined
+          ? t("travelFrom", { from: day(travelFrom) })
+          : travelTo !== undefined
+            ? t("travelTo", { to: day(travelTo) })
+            : null,
+    salesperson: ownerUserId === undefined ? null : t("salesperson", { name: salespersonName ?? t("someone") }),
+  });
+}
+
 /** The travel dates and the salesperson, when applied, as chips that each let their filter go. */
 export function useTripChips(
   filters: TripFilters,
   salespeople: LeadWorker[] | undefined,
   onApply: (filters: TripFilters) => void,
 ): AppliedFilter[] {
-  const t = useTranslations("common.tripFilters.applied");
-  const { travelFrom, travelTo, ownerUserId } = filters;
-  const day = (date: string) => formatCalendarDay(date);
-  const travel =
-    travelFrom !== undefined && travelTo !== undefined
-      ? t("travel", { from: day(travelFrom), to: day(travelTo) })
-      : travelFrom !== undefined
-        ? t("travelFrom", { from: day(travelFrom) })
-        : travelTo !== undefined
-          ? t("travelTo", { to: day(travelTo) })
-          : null;
-  const chips: AppliedFilter[] = [];
+  const words = useTripWords();
+  const name = salespeople?.find((person) => person.userId === filters.ownerUserId)?.name;
+  const { travel, salesperson } = words(filters, name);
   const without = (left: TripFilters) => () => {
     onApply({ ...filters, ...left });
   };
-  if (travel !== null) {
-    chips.push({ label: travel, onRemove: without({ travelFrom: undefined, travelTo: undefined }) });
-  }
-  if (ownerUserId !== undefined) {
-    const name = salespeople?.find((person) => person.userId === ownerUserId)?.name ?? t("someone");
-    chips.push({ label: t("salesperson", { name }), onRemove: without({ ownerUserId: undefined }) });
-  }
-  return chips;
+  return [
+    ...(travel === null ? [] : [{ label: travel, onRemove: without({ travelFrom: undefined, travelTo: undefined }) }]),
+    ...(salesperson === null ? [] : [{ label: salesperson, onRemove: without({ ownerUserId: undefined }) }]),
+  ];
 }
 
 export function TripFiltersDialog({

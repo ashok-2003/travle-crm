@@ -26,6 +26,8 @@ import { reportsRouter } from "./reports.js";
 import { whatsappTemplatesRouter } from "./whatsapp-templates.js";
 import { insightsRouter } from "./insights.js";
 import { leadExportsRouter } from "./lead-exports.js";
+import { bookingExportsRouter } from "./booking-exports.js";
+import { quoteExportsRouter } from "./quote-exports.js";
 import { leadImportsRouter } from "./lead-imports.js";
 import { leadSheetsRouter } from "./lead-sheets.js";
 import { metaLeadsRouter } from "./meta-leads.js";
@@ -87,6 +89,8 @@ export const appRouter = router({
   reports: reportsRouter,
   whatsappTemplates: whatsappTemplatesRouter,
   leadExports: leadExportsRouter,
+  bookingExports: bookingExportsRouter,
+  quoteExports: quoteExportsRouter,
   staffImports: staffImportsRouter,
   staffExports: staffExportsRouter,
   websiteForm: websiteFormRouter,

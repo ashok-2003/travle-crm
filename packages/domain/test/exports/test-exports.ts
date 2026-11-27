@@ -1,5 +1,6 @@
 // What the exports module's tests share: the imports' test harness, a requester, a fake identity, a source of three
 // test rows, and the export.requested event the worker would hand the runner.
+import type { ExportKind } from "@travel-crm/contracts/exports";
 import type { DomainEvent } from "../../src/jobs/index.js";
 import type { MemberAccess } from "../../src/identity/index.js";
 import type { ExportIdentity, ExportJobDependencies, ExportSource } from "../../src/exports/index.js";
@@ -84,11 +85,11 @@ export function exportDependencies(test: TestImports, access: MemberAccess | nul
   };
 }
 
-export const requested = (organizationId: string, exportId: string, kind: "leads" | "staff" = "leads") =>
+export const requested = (organizationId: string, exportId: string, kind: ExportKind = "leads") =>
   ({
     id: crypto.randomUUID(),
     organizationId,
     type: "export.requested",
     payload: { exportId, kind },
     occurredAt: new Date(),
-  }) satisfies DomainEvent<{ exportId: string; kind: "leads" | "staff" }>;
+  }) satisfies DomainEvent<{ exportId: string; kind: ExportKind }>;

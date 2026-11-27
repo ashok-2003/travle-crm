@@ -25,6 +25,7 @@ import {
   BOOKING_COMPLETE_QUEUE,
   BOOKING_DUE_WORK_QUEUE,
   completeFinishedBookings,
+  makeBookingExportListener,
   quoteAcceptedListener,
   quoteRevertedListener,
   runBookingDueWork,
@@ -37,6 +38,7 @@ import {
   seatsFreedListener,
 } from "@travel-crm/domain/departures";
 import { renderIssuedDocumentListener } from "@travel-crm/domain/documents";
+import { makeQuoteExportListener } from "@travel-crm/domain/quotes";
 import { makeStaffExportListener, type ExportJobDependencies } from "@travel-crm/domain/exports";
 import type { Files } from "@travel-crm/domain/files";
 import type { Identity, SeatLimit } from "@travel-crm/domain/identity";
@@ -97,6 +99,7 @@ import {
   scoreHandler,
   scoreOnCustomerWroteListener,
   createTraceSink,
+  paymentWaitsOf,
   type BookingRecipients,
 } from "@travel-crm/domain/ai";
 import { purgeExpiredRateLimits, RATE_LIMIT_PURGE_QUEUE, type RateLimiter } from "@travel-crm/domain/rate-limits";
@@ -432,6 +435,9 @@ export function workerJobs(dependencies: WorkerJobDependencies): WorkerJobs {
       addStaffImportListener(importJobs),
       makeLeadExportListener(exportJobs, leadsToShow),
       makeStaffExportListener(exportJobs),
+      makeBookingExportListener(exportJobs),
+      // What the AI's bookings make each quote wait for: the ai module's, as quotes can't call it.
+      makeQuoteExportListener(exportJobs, paymentWaitsOf),
       ...(sheetsJobs === null
         ? []
         : [

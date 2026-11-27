@@ -35,7 +35,8 @@
   "readLess": "Less",
   "table": {
     "appliedFilters": "Filters in use",
-    "removeFilter": "Remove the filter {filter}"
+    "removeFilter": "Remove the filter {filter}",
+    "matching": "matching \"{search}\""
   },
   "tripFilters": {
     "travelFrom": "Travel from",
