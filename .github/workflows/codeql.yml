@@ -1,12 +1,15 @@
 # GitHub code scanning (spec 12.4): CodeQL's extended security queries on our TypeScript and JavaScript, and on these
 # workflows, on every pull request, every push to main and once a week for advisories found since. Findings show in
 # the repository's Security tab; on a private repository that needs GitHub Code Security.
-#
-# PAUSED since 2026-11-27 (the owner): the repository is private and has no Code Security, so it runs only by hand.
 name: CodeQL
 
 on:
-  workflow_dispatch:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    # Mondays at 09:00 in India (03:30 UTC), when Renovate's week starts.
+    - cron: "30 3 * * 1"
 
 permissions:
   contents: read
