@@ -7,7 +7,7 @@ export type {
   SampleDocumentData,
 } from "./document-input.js";
 export { imageOf, isSafeToDraw, type ImageHeader } from "./image-type.js";
-export type { PlatformInvoiceData, RenderPlatformInvoice } from "./platform-invoice-input.js";
+export type { PlatformInvoiceData, PlatformInvoiceImage, RenderPlatformInvoice } from "./platform-invoice-input.js";
 export { jpegForDrawing } from "./jpeg.js";
 export {
   characterLabel,

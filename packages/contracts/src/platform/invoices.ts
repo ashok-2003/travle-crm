@@ -1,6 +1,7 @@
 // The console's invoices (super admins only): the firm's billing details, and invoices made by hand, numbered and frozen.
 import { z } from "zod";
 import { emailAddress, recordId } from "../identity/index.js";
+import { presignedUpload } from "../files/attachments.js";
 import { calendarDate, gstin, gstStateCode, phoneNumber } from "../kernel/index.js";
 
 /** The GST rates an invoice may charge, in hundredths of a percent: 0, 5, 12, 18 and 28 %. */
@@ -20,6 +21,12 @@ export const invoiceStatus = z.enum(["issued", "cancelled"]);
 
 /** The most one line may charge: ₹10 crore, in paise. Far above any plan, far below what overflows a sum. */
 export const MAX_INVOICE_LINE_PAISE = 1_000_000_000;
+
+/** The largest logo or signature image: 1 MB. */
+export const MAX_BILLING_IMAGE_BYTES = 1_048_576;
+
+/** The most one line's quantity may be. */
+export const MAX_INVOICE_QUANTITY = 999;
 
 /** Free text that may be left empty: empty or absent both mean "not given". */
 const optionalText = (max: number) => z.string().trim().max(max).optional();
@@ -44,6 +51,11 @@ export const billingDetails = z.object({
   bankNameBranch: z.string().nullable(),
   upiId: z.string().nullable(),
   defaultTerms: z.string().nullable(),
+  /** Storage keys of the images, under "platform/billing/"; null when none. */
+  logoKey: z.string().nullable(),
+  signatureKey: z.string().nullable(),
+  signatoryName: z.string().nullable(),
+  signatoryTitle: z.string().nullable(),
   proformaPrefix: z.string(),
   invoicePrefix: z.string(),
 });
@@ -64,6 +76,11 @@ export const setBillingDetailsInput = z
     bankNameBranch: optionalText(120),
     upiId: optionalText(80),
     defaultTerms: optionalText(1000),
+    /** A key from `billingImageUploadLink`; null or absent: no image (every save sends the whole picture). */
+    logoKey: z.string().max(200).nullish(),
+    signatureKey: z.string().max(200).nullish(),
+    signatoryName: optionalText(80),
+    signatoryTitle: optionalText(40),
     proformaPrefix: numberPrefix,
     invoicePrefix: numberPrefix,
   })
@@ -74,9 +91,42 @@ export const setBillingDetailsInput = z
   });
 export type SetBillingDetailsInput = z.infer<typeof setBillingDetailsInput>;
 
-export const invoiceLine = z.strictObject({
-  description: z.string().trim().min(1).max(200),
-  amountPaise: z.int().min(1).max(MAX_INVOICE_LINE_PAISE),
+export const billingImageKind = z.enum(["logo", "signature"]);
+export type BillingImageKind = z.infer<typeof billingImageKind>;
+
+export const billingImageContentType = z.enum(["image/png", "image/jpeg"]);
+
+export const billingImageUploadLinkInput = z.strictObject({
+  kind: billingImageKind,
+  contentType: billingImageContentType,
+  sizeBytes: z.int().min(1).max(MAX_BILLING_IMAGE_BYTES),
+});
+export type BillingImageUploadLinkInput = z.infer<typeof billingImageUploadLinkInput>;
+
+/** Where the browser PUTs the image, and the key to save on the billing details once it has. */
+export const billingImageUploadLink = presignedUpload.extend({ key: z.string() });
+export type BillingImageUploadLink = z.infer<typeof billingImageUploadLink>;
+
+export const billingImageLinkInput = z.strictObject({ kind: billingImageKind });
+
+/** A line: what, how many and at what rate; its amount is quantity × rate, which may not pass the per-line cap. */
+export const invoiceLine = z
+  .strictObject({
+    description: z.string().trim().min(1).max(200),
+    quantity: z.int().min(1).max(MAX_INVOICE_QUANTITY),
+    ratePaise: z.int().min(1).max(MAX_INVOICE_LINE_PAISE),
+  })
+  .refine((line) => line.quantity * line.ratePaise <= MAX_INVOICE_LINE_PAISE, {
+    path: ["ratePaise"],
+    message: "A line's amount can't pass ₹10 crore",
+  });
+
+/** A line as stored: invoices made before quantities hold only a description and an amount. */
+export const storedInvoiceLine = z.object({
+  description: z.string(),
+  amountPaise: z.int(),
+  quantity: z.int().min(1).optional(),
+  ratePaise: z.int().optional(),
 });
 
 export const createInvoiceInput = z
@@ -119,7 +169,8 @@ export const invoiceDetail = invoiceSummary.extend({
   billToAddress: z.string().nullable(),
   billToStateCode: z.string().nullable(),
   billToGstin: z.string().nullable(),
-  lines: z.array(z.object({ description: z.string(), amountPaise: z.int() })),
+  /** Each line as it was made; one made before quantities (no quantity stored) reads as 1 at its amount. */
+  lines: z.array(z.object({ description: z.string(), quantity: z.int(), ratePaise: z.int(), amountPaise: z.int() })),
   gstRateBasisPoints: z.int(),
   subtotalPaise: z.int(),
   cgstPaise: z.int(),

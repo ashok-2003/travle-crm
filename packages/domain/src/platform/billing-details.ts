@@ -3,6 +3,7 @@ import { billingDetails, type BillingDetails, type SetBillingDetailsInput } from
 import type { PlatformTx } from "@travel-crm/db/platform";
 import { characterLabel, unprintableCharactersIn } from "@travel-crm/integrations/pdf";
 import { DomainError } from "../kernel/index.js";
+import { assertBillingImages, deleteReplacedImages } from "./billing-images.js";
 import { recordPlatformAudit } from "./platform-log.js";
 import type { PlatformServices } from "./services.js";
 
@@ -33,6 +34,10 @@ function details(input: SetBillingDetailsInput): BillingDetails {
     bankNameBranch: given(input.bankNameBranch),
     upiId: given(input.upiId),
     defaultTerms: given(input.defaultTerms),
+    logoKey: given(input.logoKey ?? undefined),
+    signatureKey: given(input.signatureKey ?? undefined),
+    signatoryName: given(input.signatoryName),
+    signatoryTitle: given(input.signatoryTitle),
     proformaPrefix: input.proformaPrefix,
     invoicePrefix: input.invoicePrefix,
   };
@@ -40,7 +45,8 @@ function details(input: SetBillingDetailsInput): BillingDetails {
 
 /**
  * Replaces the details. Invoices already made keep the details they were made with. The log names the fields that
- * changed, never their values: bank details stay out of it.
+ * changed, never their values: bank details stay out of it. A new logo or signature must be a stored PNG or JPEG of at
+ * most 1 MB under the platform's own prefix (BILLING_IMAGE_INVALID); one replaced or removed is deleted from storage.
  */
 export async function setBillingDetails(
   services: PlatformServices,
@@ -57,8 +63,9 @@ export async function setBillingDetails(
       `The billing details have characters the PDF can't show yet: ${unprintable.map(characterLabel).join(", ")}`,
     );
   }
-  return services.platformDb.transaction(async (tx) => {
+  const { before } = await services.platformDb.transaction(async (tx) => {
     const before = await readBillingDetails(tx);
+    await assertBillingImages(services.storage, next, before);
     await tx.platformBillingDetails.upsert({
       where: { id: true },
       create: { ...next, updatedBy: staff.userId },
@@ -73,6 +80,8 @@ export async function setBillingDetails(
         after: { changed },
       });
     }
-    return next;
+    return { before };
   });
+  await deleteReplacedImages(services, before, next);
+  return next;
 }

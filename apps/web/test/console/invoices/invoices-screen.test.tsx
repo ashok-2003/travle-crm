@@ -92,7 +92,7 @@ describe("InvoicesScreen", () => {
     expect(within(dialog).getByLabelText(form.notes)).toHaveValue(billing.defaultTerms);
     await fill(dialog, form.billToName, "Acme Holidays");
     await fill(dialog, form.lineDescription, "Starter plan, 3 months");
-    await fill(dialog, form.lineAmount, "10,000");
+    await fill(dialog, form.lineRate, "10,000");
     await choose(dialog, form.billToState, "Maharashtra");
     await choose(dialog, form.gstRate, "18%");
     const totals = within(within(dialog).getByRole("region", { name: form.totals }));
@@ -112,7 +112,7 @@ describe("InvoicesScreen", () => {
         kind: "invoice",
         issuedOn: "2026-11-26",
         billTo: { name: "Acme Holidays", stateCode: "32" },
-        lines: [{ description: "Starter plan, 3 months", amountPaise: 1_000_000 }],
+        lines: [{ description: "Starter plan, 3 months", quantity: 1, ratePaise: 1_000_000 }],
         gstRateBasisPoints: 1800,
         notes: "Pay within 7 days.",
       },
@@ -125,7 +125,7 @@ describe("InvoicesScreen", () => {
     const dialog = await newInvoice();
     await fill(dialog, form.billToName, "Acme Holidays");
     await fill(dialog, form.lineDescription, "Starter plan");
-    await fill(dialog, form.lineAmount, "10,000");
+    await fill(dialog, form.lineRate, "10,000");
     await choose(dialog, form.gstRate, "18%");
     await userEvent.click(within(dialog).getByRole("button", { name: form.create }));
     expect(await within(dialog).findByText(form.problems.stateNeededForGst)).toBeVisible();
@@ -137,9 +137,42 @@ describe("InvoicesScreen", () => {
     const dialog = await newInvoice();
     expect(within(dialog).queryByRole("button", { name: form.removeLine.replace("{number}", "1") })).toBeNull();
     await userEvent.click(within(dialog).getByRole("button", { name: form.addLine }));
-    expect(within(dialog).getAllByLabelText(form.lineAmount)).toHaveLength(2);
+    expect(within(dialog).getAllByLabelText(form.lineRate)).toHaveLength(2);
     await userEvent.click(within(dialog).getByRole("button", { name: form.removeLine.replace("{number}", "2") }));
-    expect(within(dialog).getAllByLabelText(form.lineAmount)).toHaveLength(1);
+    expect(within(dialog).getAllByLabelText(form.lineRate)).toHaveLength(1);
+  });
+
+  it("multiplies Qty by Rate for each line, showing its amount, and sends quantity and rate", async () => {
+    const api = open();
+    const dialog = await newInvoice();
+    await fill(dialog, form.billToName, "Acme Holidays");
+    await fill(dialog, form.lineDescription, "Extra seats");
+    await fill(dialog, form.lineRate, "4,000");
+    await userEvent.clear(within(dialog).getByLabelText(form.lineQuantity));
+    await userEvent.type(within(dialog).getByLabelText(form.lineQuantity), "2");
+    expect(within(dialog).getByLabelText(form.lineAmount)).toHaveTextContent("₹8,000.00");
+    const totals = within(within(dialog).getByRole("region", { name: form.totals }));
+    expect(totals.getAllByText("₹8,000.00")).toHaveLength(2);
+    api.answer("platform.invoices.create", { data: detail });
+    await userEvent.click(within(dialog).getByRole("button", { name: form.create }));
+    await vi.waitFor(() => {
+      expect(inputsTo("invoices.create")).toMatchObject([
+        { lines: [{ description: "Extra seats", quantity: 2, ratePaise: 400_000 }] },
+      ]);
+    });
+  });
+
+  it("names a wrong quantity on its own field before anything is sent", async () => {
+    open();
+    const dialog = await newInvoice();
+    await fill(dialog, form.billToName, "Acme Holidays");
+    await fill(dialog, form.lineDescription, "Extra seats");
+    await fill(dialog, form.lineRate, "4,000");
+    await userEvent.clear(within(dialog).getByLabelText(form.lineQuantity));
+    await userEvent.type(within(dialog).getByLabelText(form.lineQuantity), "1000");
+    await userEvent.click(within(dialog).getByRole("button", { name: form.create }));
+    expect(await within(dialog).findByText(form.problems.quantityInvalid)).toBeVisible();
+    expect(inputsTo("invoices.create")).toEqual([]);
   });
 
   it("downloads an invoice, a cancelled one too (marked so), by opening the api's link in this tab", async () => {
@@ -170,7 +203,8 @@ describe("InvoicesScreen", () => {
     const dialog = await screen.findByRole("dialog", { name: form.copyTitle.replace("{number}", detail.number) });
     expect(within(dialog).getByLabelText(form.billToName)).toHaveValue("Acme Holidays");
     expect(within(dialog).getByLabelText(form.lineDescription)).toHaveValue("Starter plan, 3 months");
-    expect(within(dialog).getByLabelText(form.lineAmount)).toHaveValue("10,000");
+    expect(within(dialog).getByLabelText(form.lineRate)).toHaveValue("10,000");
+    expect(within(dialog).getByLabelText(form.lineQuantity)).toHaveValue("1");
     expect(within(dialog).getByLabelText(form.issuedOn)).toHaveValue("26/11/2026");
     expect(within(dialog).getByLabelText(form.dueOn)).toHaveValue("");
     api.answer("platform.invoices.create", { data: { ...detail, number: "INV/2026-27/002" } });
@@ -181,7 +215,7 @@ describe("InvoicesScreen", () => {
           kind: "invoice",
           issuedOn: "2026-11-26",
           billTo: { name: "Acme Holidays", address: "2 Sample Street, Pune", stateCode: "27" },
-          lines: [{ description: "Starter plan, 3 months", amountPaise: 1_000_000 }],
+          lines: [{ description: "Starter plan, 3 months", quantity: 1, ratePaise: 1_000_000 }],
           gstRateBasisPoints: 1800,
           notes: "Pay within 7 days.",
         },

@@ -99,6 +99,7 @@
     "PASSWORD_ALREADY_SET": "This person has a password already. They can reset it from the sign-in page.",
     "PLAN_NOT_FOUND": "This plan no longer exists.",
     "BILLING_DETAILS_MISSING": "Add your billing details first.",
+    "BILLING_IMAGE_INVALID": "The logo and signature must be PNG or JPEG images of at most 1 MB. Choose the file again.",
     "GST_NEEDS_GSTIN": "Add your GSTIN in Billing details to charge GST.",
     "GST_NEEDS_STATE": "Choose the billed company's state to charge GST.",
     "PDF_RENDERER_MISSING": "Invoices can't be made on this server yet.",

@@ -20,6 +20,12 @@ model PlatformBillingDetails {
   bankNameBranch    String?  @map("bank_name_branch")
   upiId             String?  @map("upi_id")
   defaultTerms      String?  @map("default_terms")
+  /// Keys of the firm's logo and signature images under platform/billing/ in object storage (PNG or JPEG, at most 1 MB).
+  logoKey           String?  @map("logo_key")
+  signatureKey      String?  @map("signature_key")
+  /// Printed under the signature, e.g. "Proprietor".
+  signatoryName     String?  @map("signatory_name")
+  signatoryTitle    String?  @map("signatory_title")
   /// Number prefixes, e.g. "PI" and "INV" (CHECK platform_billing_details_prefixes).
   proformaPrefix    String   @default("PI") @map("proforma_prefix")
   invoicePrefix     String   @default("INV") @map("invoice_prefix")

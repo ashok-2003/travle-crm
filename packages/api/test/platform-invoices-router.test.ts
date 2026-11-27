@@ -48,11 +48,13 @@ describe("the invoices router", () => {
         kind: "proforma",
         issuedOn: "2026-11-26",
         billTo: { name: "Acme Holidays" },
-        lines: [{ description: "Starter plan", amountPaise: 100 }],
+        lines: [{ description: "Starter plan", quantity: 1, ratePaise: 100 }],
         gstRateBasisPoints: 0,
       }),
       caller.cancel({ invoiceId, reason: "Test" }),
       caller.downloadLink({ invoiceId }),
+      caller.billingImageUploadLink({ kind: "logo", contentType: "image/png", sizeBytes: 100 }),
+      caller.billingImageLink({ kind: "logo" }),
     ];
     for (const call of calls) expect(await refusal(call)).toBe("SUPER_ADMIN_ONLY");
   });

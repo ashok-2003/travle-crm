@@ -58,8 +58,10 @@
     "issuedOn": "Invoice date",
     "dueOn": "Due date (optional)",
     "linesLegend": "What it charges",
-    "linesHint": "Each amount is before GST.",
+    "linesHint": "Each rate is for one, before GST. The amount is the quantity times the rate.",
     "lineDescription": "Description",
+    "lineQuantity": "Qty",
+    "lineRate": "Rate",
     "lineAmount": "Amount",
     "addLine": "Add a line",
     "removeLine": "Remove line {number}",
@@ -76,7 +78,8 @@
     "problems": {
       "required": "Fill this in.",
       "invalid": "Check this.",
-      "amountInvalid": "Enter an amount in rupees, more than zero.",
+      "quantityInvalid": "Enter a whole number from 1 to 999.",
+      "rateInvalid": "Enter a rate in rupees, more than zero, so that quantity times rate stays under ₹10 crore.",
       "stateNeededForGst": "Choose the billed company's state to charge GST."
     }
   },
@@ -113,6 +116,24 @@
     "bankIfsc": "IFSC",
     "bankNameBranch": "Bank and branch",
     "upiId": "UPI ID",
+    "signLegend": "Logo and signature",
+    "signIntro": "Printed on every new invoice: the logo beside the firm's name, the signature above the signatory's name. PNG or JPEG, at most 1 MB each. Optional.",
+    "logo": "Logo",
+    "signature": "Signature",
+    "choose": "Choose the {name} file",
+    "replace": "Replace the {name}",
+    "remove": "Remove the {name}",
+    "uploading": "Uploading",
+    "uploaded": "Ready. It is saved when you save the details.",
+    "imageAlt": "Preview of the {name}",
+    "imageProblems": {
+      "type": "Choose a PNG or JPEG image.",
+      "size": "This file is over 1 MB. Choose a smaller one.",
+      "upload": "The upload didn't work. Try again."
+    },
+    "signatoryName": "Signatory name (optional)",
+    "signatoryTitle": "Signatory title (optional)",
+    "signatoryTitleHint": "For example Proprietor. Printed under the name.",
     "invoicesLegend": "On the invoice",
     "defaultTerms": "Default terms",
     "defaultTermsHint": "Fills the notes of every new invoice; each invoice can change it.",
@@ -122,6 +143,10 @@
     "problems": {
       "required": "Fill this in.",
       "invalid": "Check this."
+    },
+    "names": {
+      "logo": "logo",
+      "signature": "signature"
     }
   }
 }

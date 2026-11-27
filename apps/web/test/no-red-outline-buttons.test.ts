@@ -100,6 +100,8 @@ const allowed: Record<string, string> = {
   "imports/import-file-step.tsx · Stop": "stops a file's upload still under way: nothing saved ends",
   "ai/fill/fill-source-fields.tsx · Stop ({time})": "stops the microphone's recording: nothing saved ends",
   "ai/fill/fill-source-fields.tsx · Remove": "takes a file off the form before it is sent: nothing saved ends",
+  "console/invoices/billing-image-field.tsx · Remove the {name}":
+    "takes the logo or signature off the form: nothing ends until the details are saved, and the old image can be chosen again",
   "shell/stop-impersonating.tsx · Stop": "support's way out of a member's session: nothing of the agency's ends",
   "shell/stop-impersonating.tsx · Stopping": "the same button while it leaves the session",
 };
