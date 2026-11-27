@@ -208,3 +208,22 @@ describe("a booked quote", () => {
     expect(await screen.findByRole("button", { name: messages.quotes.money.recordPayment })).toBeVisible();
   });
 });
+
+describe("the booked quote's notice", () => {
+  const quoteId = "0199a000-0000-7000-8000-0000000000a1";
+  it("offers no link to a member who may not open bookings", async () => {
+    stubApi({
+      "quotes.get": { data: aQuote({ status: "accepted", booking: { id: owing.id, number: "BK-2026-0007" } }) },
+    });
+    renderScreen(<QuoteScreen quoteId={quoteId} />, { me: member({ permissions: ["quotes:view"] }), width: "wide" });
+    expect(await screen.findByText(/This quote is booking BK-2026-0007/)).toBeVisible();
+    expect(screen.queryByRole("link", { name: messages.quotes.money.openBooking })).toBeNull();
+  });
+});
+
+describe("the tax invoice on a booking", () => {
+  it("is not offered to a booking still waiting to be confirmed, unless one exists", async () => {
+    await open({ ...owing, status: "requested" });
+    expect(within(money()).queryByRole("button", { name: messages.quotes.quote.issueInvoice })).toBeNull();
+  });
+});

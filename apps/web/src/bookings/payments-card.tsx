@@ -121,11 +121,14 @@ export function PaymentsCard({
         )}
       </div>
       <ReceivedPayments quoteId={booking.quoteId} payments={booking.payments} mayRecord={mayRecord} />
-      {mayRecord && !cancelled && (
-        <div className="flex flex-wrap items-center gap-2">
-          <InvoiceButton quoteId={booking.quoteId} issued={mayBeMissing(booking.invoiceDocumentId) != null} />
-        </div>
-      )}
+      {/* Offered once the booking is confirmed, or when the invoice is already there to open. */}
+      {mayRecord &&
+        (booking.status === "confirmed" || mayBeMissing(booking.invoiceDocumentId) != null) &&
+        !cancelled && (
+          <div className="flex flex-wrap items-center gap-2">
+            <InvoiceButton quoteId={booking.quoteId} issued={mayBeMissing(booking.invoiceDocumentId) != null} />
+          </div>
+        )}
       <RefundSection booking={booking} />
     </SectionCard>
   );

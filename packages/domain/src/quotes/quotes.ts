@@ -80,7 +80,11 @@ async function detailOf(tx: OrgTx, access: MemberAccess, row: Parameters<typeof 
     quoteSettingsOf(tx),
     departure === null ? null : seatsSoldAndHeld(tx, [departure.id], new Date()),
   ]);
-  const booking = await tx.booking.findFirst({ where: { quoteId: row.id }, select: { id: true, number: true } });
+  const booking = await tx.booking.findFirst({
+    where: { quoteId: row.id },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, number: true },
+  });
   const taken = departure === null ? undefined : seats?.get(departure.id);
   return toDetail(row, {
     booking,
