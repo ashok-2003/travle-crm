@@ -444,7 +444,7 @@ describe("the natural turn's live reads", () => {
     expect(prepared).toMatchObject({
       timeZone: "Asia/Kolkata",
       today: "2026-11-20",
-      voice: { agentName: "Riya", agencyName: "Case Trips", tone: "friendly" },
+      voice: { agentName: "Riya", agencyName: "Case Trips" },
       booking: { id: booking.id, awaitingPayment: true, paymentConfirmed: false, confirmed: false },
       paymentReady: true,
       supplierStateCode: "05",

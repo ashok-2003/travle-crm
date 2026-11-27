@@ -6,14 +6,14 @@ import { renderNaturalPrompt } from "../../../src/ai/natural/prompt.js";
 import { langfusePromptAt } from "../../../src/ai/natural/prompt-source.js";
 
 const NAME = "whatsapp-agent/real-agent";
-const voice = { agentName: "Riya", agencyName: "Sharma Holidays", tone: "friendly" } as const;
+const voice = { agentName: "Riya", agencyName: "Sharma Holidays" } as const;
 const kept = (version: number, label: string, text: string) => ({ name: NAME, version, label, text });
-const liveText = "# {{agent_name}} of {{agency_name}}, in a {{ tone }} voice. {{agency_name}} again.";
+const liveText = "# {{agent_name}} of {{ agency_name }}. {{agency_name}} again.";
 
 describe("a prompt's placeholders", () => {
-  it("fills the agent's name, the agency's name and the tone, spaces inside the braces too", () => {
+  it("fills the agent's name and the agency's name, spaces inside the braces too", () => {
     expect(renderNaturalPrompt({ version: "langfuse:x@1", text: liveText }, voice)).toBe(
-      "# Riya of Sharma Holidays, in a friendly voice. Sharma Holidays again.",
+      "# Riya of Sharma Holidays. Sharma Holidays again.",
     );
   });
 

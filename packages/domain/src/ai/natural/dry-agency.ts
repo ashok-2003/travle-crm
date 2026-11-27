@@ -38,11 +38,7 @@ export function dryAgency(db: Database, organizationId: string, agencyName: stri
       sheets: await tripSheetsOf(tx, sellable, today, now),
       answers,
       contact: await agencyContactOf(tx, organizationId),
-      voice: {
-        agentName: basics.agentName,
-        agencyName,
-        tone: basics.tone === "professional" ? "professional" : "friendly",
-      },
+      voice: { agentName: basics.agentName, agencyName },
       paymentLines: paymentDetailsReady(payment) ? paymentLinesOf(payment) : null,
     };
   });

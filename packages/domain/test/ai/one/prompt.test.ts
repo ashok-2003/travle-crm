@@ -1,4 +1,4 @@
-// The one agent's prompt: the built-in text equals the prompt file's v11, it fills the three placeholders, and it comes
+// The one agent's prompt: the built-in text equals the prompt file's v12, it fills the two placeholders, and it comes
 // from Langfuse's real-agent prompt (production for live turns and Try it, or draft when Try it asks), else the
 // built-in text.
 import { readFileSync } from "node:fs";
@@ -9,7 +9,7 @@ import { renderNaturalPrompt } from "../../../src/ai/natural/prompt.js";
 import { BUILT_IN_ONE_PROMPT, ONE_PROMPT_NAME, onePromptOf, oneTryItPrompt } from "../../../src/ai/one/prompt.js";
 import { ONE_PROMPT_TEXT } from "../../../src/ai/one/prompt-text.js";
 
-const voice = { agentName: "Riya", agencyName: "Sharma Holidays", tone: "friendly" } as const;
+const voice = { agentName: "Riya", agencyName: "Sharma Holidays" } as const;
 const kept = (version: number, label: string, text: string) => ({ name: ONE_PROMPT_NAME, version, label, text });
 
 function promptFileText(): string {
@@ -24,16 +24,15 @@ function promptFileText(): string {
 }
 
 describe("the one agent's prompt", () => {
-  it("holds the prompt file's v11 text exactly", () => {
+  it("holds the prompt file's v12 text exactly", () => {
     expect(ONE_PROMPT_TEXT).toBe(promptFileText());
-    expect(BUILT_IN_ONE_PROMPT).toEqual({ version: "built-in-one-11", text: ONE_PROMPT_TEXT });
+    expect(BUILT_IN_ONE_PROMPT).toEqual({ version: "built-in-one-12", text: ONE_PROMPT_TEXT });
   });
 
-  it("fills the agency, the agent and the tone, and leaves no placeholder", () => {
+  it("fills the agency and the agent, and leaves no placeholder", () => {
     const text = renderNaturalPrompt(BUILT_IN_ONE_PROMPT, voice);
     expect(text).toContain("**Sharma Holidays**");
     expect(text).toContain("Riya");
-    expect(text).toContain("friendly");
     expect(text).not.toMatch(/\{\{/);
   });
 

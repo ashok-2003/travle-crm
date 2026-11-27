@@ -76,7 +76,7 @@ const answers: AgencyAnswers = {
   payment_methods: "UPI or bank transfer.",
 };
 
-const voice = { agentName: "Riya", agencyName: "Sharma Holidays", tone: "friendly" } as const;
+const voice = { agentName: "Riya", agencyName: "Sharma Holidays" } as const;
 const noContact = { office: "", instagramUrl: "", about: "" };
 
 describe("the agency's data", () => {
@@ -107,7 +107,7 @@ describe("the agency's data", () => {
     ) as AgencyAnswers;
     // Answers are saved at 500 characters at most, an agent's name at 80 and an organization's name at 120.
     const block = agencyBlock(
-      { agentName: "R".repeat(80), agencyName: "S".repeat(120), tone: "professional" },
+      { agentName: "R".repeat(80), agencyName: "S".repeat(120) },
       "Asia/Kolkata",
       longest,
       noContact,

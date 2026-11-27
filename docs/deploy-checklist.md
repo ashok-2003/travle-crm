@@ -353,8 +353,8 @@ Secrets come from the platform's secret manager as environment variables, never 
 - **The one agent's prompts** (`@travel-crm/integrations/prompts`) live in Langfuse's prompt management, in the same
   project as the traces and read with the same three `LANGFUSE_*` settings; nothing else is set (the lite and natural
   agents, and the natural agent's prompt `whatsapp-agent/natural-system`, are gone since 2026-11-24):
-  - The agent's prompt is the text prompt `whatsapp-agent/real-agent`, with the variables `{{agency_name}}`,
-    `{{agent_name}}` and `{{tone}}`. Live turns read the label `production`; Try it reads it too, or the label `draft`
+  - The agent's prompt is the text prompt `whatsapp-agent/real-agent`, with the variables `{{agency_name}}` and
+    `{{agent_name}}` (no `{{tone}}` since v12). Live turns read the label `production`; Try it reads it too, or the label `draft`
     when the person chooses Draft (read past the cache, the live one when there is no draft; its Why says so).
   - The label `production` is live: a process keeps the version it read for a minute, then fetches the new one behind
     the next turn. When Langfuse doesn't answer within 2 seconds the built-in text stands in (asked again after 30
