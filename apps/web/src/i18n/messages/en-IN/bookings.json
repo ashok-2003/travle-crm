@@ -36,22 +36,24 @@
   "booking": {
     "title": "Booking",
     "backToBookings": "All bookings",
-    "openLead": "Open {name}'s lead",
-    "requestedTitle": "Waiting for you to confirm",
-    "requestedBody": "{name} accepted the quote. Confirm the booking to ask for the advance and send them their trip page.",
     "cancelledTitle": "Cancelled on {day}",
     "cancelledBody": "The cancellation charge is {charge}. Reason: {reason}.",
     "refundDue": "A refund of {amount} is due.",
-    "claimsWaiting": "{count, plural, one {A traveller says they paid. Check it against your bank.} other {# payments to check against your bank.}}",
     "notFound": "This booking doesn't exist, or it isn't one of yours.",
     "loadFailed": "This booking didn't load.",
-    "loading": "Loading the booking"
+    "loading": "Loading the booking",
+    "people": "{count, plural, one {# person} other {# people}}",
+    "noDate": "No travel date yet"
   },
   "actions": {
+    "label": "Booking actions",
     "sendWhatsapp": "Send the trip link on WhatsApp",
-    "makeLink": "Make the trip link",
+    "makeLink": "Trip link",
+    "tripLink": "Trip link",
     "copyLink": "Copy the link",
-    "linkLabel": "The traveller's trip link",
+    "more": "More actions",
+    "changeDate": "Change the travel date",
+    "cancel": "Cancel booking",
     "noPhone": "This customer has no phone number. Copy the link and send it yourself.",
     "whatsappWords": "Hi {name}, here is the page for your trip, {title}: {link}"
   },
@@ -336,7 +338,11 @@
       "TEMPLATE_CAP_REACHED": "daily limit reached",
       "TIER_LIMIT_REACHED": "daily limit reached",
       "TEMPLATE_NOT_ON_NUMBER": "template not on that number"
-    }
+    },
+    "more": "More about reminders",
+    "recordTitle": "Record that they agreed to trip updates?",
+    "recordBody": "You are recording the traveller's agreement to trip updates on WhatsApp on their behalf. It is kept with your name on it. Only do this if they told you so.",
+    "recordConfirm": "Record their agreement"
   },
   "proof": {
     "title": "Proof of payment",
@@ -495,6 +501,34 @@
       "confirmedTemplate": "Template for a confirmed payment",
       "notFoundTemplate": "Template for a payment not found",
       "hint": "A message goes as plain words while the customer's chat is open (24 hours). After that it goes as the template you pick, and with no template it becomes a task for the lead's owner."
+    }
+  },
+  "needsYou": {
+    "title": "Needs you",
+    "confirmTitle": "Waiting for you to confirm",
+    "confirmBody": "{name} accepted the quote. Confirm the booking to ask for the advance and send them their trip page.",
+    "overdue": "{label}, {amount}, is overdue",
+    "overdueSince": "Was due {day}",
+    "recordPayment": "Record payment",
+    "claims": "{count, plural, one {# payment to check against your bank} other {# payments to check against your bank}}",
+    "proof": "The customer sent proof of payment in the chat",
+    "check": "Check",
+    "details": "{done} of {total} travellers' details are filled in",
+    "fillIn": "Fill in",
+    "noDate": "This booking has no travel date"
+  },
+  "travelDate": {
+    "add": "Add the travel date",
+    "addTitle": "Add the travel date",
+    "changeTitle": "Change the travel date",
+    "description": "The last day, the cut-off for travellers' details and the reminders not yet sent move with it. The payments due stay as they are.",
+    "field": "First day of the trip",
+    "submit": "Save the date",
+    "submitting": "Saving",
+    "saved": "Travel date saved",
+    "problems": {
+      "required": "Choose the first day.",
+      "invalid": "Type the day as dd/mm/yyyy."
     }
   }
 }

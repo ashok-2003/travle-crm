@@ -15,6 +15,7 @@ export { confirmAiPayment, refuseAiPayment, type PaymentRefusalReason } from "./
 export { linkAiBooking, travellersOf, type AiBookingFacts } from "./from-ai.js";
 export { confirmBooking, confirmBookingAs, defaultSchedule, offeredSchedule, saveSchedule } from "./confirm.js";
 export { recordTripUpdatesConsentByStaff, setRemindersPaused } from "./controls.js";
+export { setTravelDate } from "./travel-date.js";
 export {
   BOOKING_REQUESTED_KIND,
   createBookingFromQuote,

@@ -10,11 +10,12 @@ import { useWatch } from "react-hook-form";
 import { Details } from "@/components/details";
 import { ErrorState } from "@/components/error-state";
 import { checked } from "@/components/forms/checked";
-import { FormAlert, FormDialog, useFormDialog } from "@/components/forms/form-dialog";
+import { FormAlert, FormDialog, useFormDialog, type OpenState } from "@/components/forms/form-dialog";
 import { MoneyField, rupees, rupeesFieldText } from "@/components/forms/money-field";
 import { TextField } from "@/components/forms/text-field";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { LoadingRows } from "@/components/loading-rows";
+import type { ReturnFocusTo } from "@/components/return-focus";
 import { NoteField } from "@/leads/form/note-field";
 import { useBookingChanges, useCancelPreview } from "./use-bookings";
 
@@ -135,15 +136,24 @@ function CancelBody({
   return <CancelForm formId={formId} bookingId={bookingId} preview={preview.data} cancel={cancel} dialog={dialog} />;
 }
 
-export function CancelBookingDialog({ bookingId }: { bookingId: string }) {
+/** Cancel booking: opened by its own button, or, `held`, by the item of a menu that says so. */
+export function CancelBookingDialog({
+  bookingId,
+  held,
+  returnFocusTo,
+}: {
+  bookingId: string;
+  held?: OpenState;
+  returnFocusTo?: ReturnFocusTo;
+}) {
   const t = useTranslations("bookings.cancel");
-  const dialog = useFormDialog(t("cancelled"));
+  const dialog = useFormDialog(t("cancelled"), undefined, held);
   const { cancel } = useBookingChanges();
   return (
     <FormDialog
       dialog={dialog}
       sending={cancel}
-      trigger={{ label: t("open"), variant: "destructive" }}
+      {...(held === undefined ? { trigger: { label: t("open"), variant: "destructive" as const } } : { returnFocusTo })}
       title={t("title")}
       description={t("description")}
       submit={t("submit")}

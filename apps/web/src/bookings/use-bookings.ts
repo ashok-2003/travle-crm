@@ -85,6 +85,7 @@ export function useBookingChanges() {
     issueVoucher: useMutation(trpc.bookings.issueVoucher.mutationOptions(options)),
     prepareTripPdf: useMutation(trpc.bookings.prepareTripPdf.mutationOptions(options)),
     tripLink: useMutation(trpc.bookings.tripLink.mutationOptions(options)),
+    setTravelDate: useMutation(trpc.bookings.setTravelDate.mutationOptions(options)),
     pauseReminders: useMutation(trpc.bookings.pauseReminders.mutationOptions(options)),
     recordTripUpdates: useMutation(trpc.bookings.recordTripUpdates.mutationOptions(options)),
     requestFeedback: useMutation(trpc.bookings.requestFeedback.mutationOptions(options)),

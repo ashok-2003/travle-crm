@@ -28,7 +28,7 @@ export function TravellersCard({ booking }: { booking: BookingDetail }) {
   const count = booking.travellers.length;
   const busy = setLevel.isPending || setTravellerCount.isPending || !access.allowed;
   return (
-    <SectionCard title={t("heading")}>
+    <SectionCard title={t("heading")} anchor="travellers">
       <p>
         <span className="numbers font-semibold">
           {t("progress", { done: booking.travellersComplete, total: booking.travellersTotal })}

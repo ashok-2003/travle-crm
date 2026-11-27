@@ -55,6 +55,9 @@ const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use a time like 06:3
 
 export const bookingIdInput = z.strictObject({ bookingId: recordId });
 export type BookingIdInput = z.infer<typeof bookingIdInput>;
+/** Staff set or change a booking's own travel date; a booking on a group departure follows its departure instead. */
+export const setTravelDateInput = z.strictObject({ bookingId: recordId, startDate: calendarDate });
+export type SetTravelDateInput = z.infer<typeof setTravelDateInput>;
 export const leadBookingsInput = z.strictObject({ leadId: recordId });
 
 export const BOOKINGS_PAGE_SIZE = 25;

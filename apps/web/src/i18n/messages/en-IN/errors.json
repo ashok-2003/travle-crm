@@ -285,6 +285,7 @@
     "INVALID_MORNING_SETTING": "Choose a time on the quarter hour.",
     "AMOUNT_INVALID": "Type the amount as a number of rupees.",
     "BOOKING_CANCELLED": "This booking was cancelled.",
+    "BOOKING_ON_DEPARTURE": "This booking follows its departure's date. Change the departure instead.",
     "BOOKING_NOT_CANCELLABLE": "Only a requested or confirmed booking can be cancelled.",
     "BOOKING_NOT_CONFIRMED": "Confirm the booking first.",
     "AI_PAYMENT_OVER_TOTAL": "This is more than the trip's total. Check the amount, or change the quote first.",

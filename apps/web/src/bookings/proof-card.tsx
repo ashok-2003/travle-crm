@@ -18,7 +18,7 @@ export function ProofCard({ booking }: { booking: BookingDetail }) {
   const { apiError } = useErrorMessage();
   if (booking.proofMessageIds.length === 0) return null;
   return (
-    <SectionCard title={t("title")}>
+    <SectionCard title={t("title")} anchor="proof">
       <p className="text-muted-foreground">{t("body")}</p>
       <div className="flex flex-wrap gap-2">
         {booking.proofMessageIds.map((messageId, index) => (

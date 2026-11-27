@@ -81,7 +81,7 @@ export function PaymentsCard({ booking }: { booking: BookingDetail }) {
   const mayCheck = useHolds("quotes:record_payments");
   const cancelled = booking.status === "cancelled";
   return (
-    <SectionCard title={t("title")}>
+    <SectionCard title={t("title")} anchor="money">
       <dl className="grid grid-cols-3 gap-3">
         {(
           [

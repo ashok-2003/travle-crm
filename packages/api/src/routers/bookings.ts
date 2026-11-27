@@ -12,6 +12,7 @@ import {
 import {
   bookingDetail,
   bookingIdInput,
+  setTravelDateInput,
   bookingPage,
   bookingSettingsView,
   cancelBookingInput,
@@ -65,6 +66,7 @@ import {
   saveTravellersByStaff,
   setLevel,
   setRemindersPaused,
+  setTravelDate,
   setTravellerCount,
   travellerIdentityOf,
   removeStay,
@@ -370,6 +372,12 @@ export const bookingsRouter = router({
     .input(z.strictObject({ bookingId: z.uuid(), paused: z.boolean() }))
     .mutation(({ ctx, input }) =>
       ctx.db.forOrg(ctx.member.organizationId, (tx) => setRemindersPaused(tx, ctx.member, input, new Date())),
+    ),
+
+  setTravelDate: editor
+    .input(setTravelDateInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => setTravelDate(tx, ctx.member, input, new Date())),
     ),
 
   recordTripUpdates: editor

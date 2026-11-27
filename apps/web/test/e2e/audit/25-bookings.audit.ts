@@ -85,6 +85,8 @@ test("bookings, the trip page, the PDFs and a cancellation", async ({ page, brow
     emergencyName: "",
     emergencyPhone: "",
     medicalNotes: "",
+    roomRequest: "none",
+    roomNote: "",
     identity: null,
   });
   const traveller = await anotherPersonsDevice(browser);
@@ -127,6 +129,11 @@ test("bookings, the trip page, the PDFs and a cancellation", async ({ page, brow
   await expect(page.getByRole("region", { name: "Money" })).toContainText("UTR448802217");
   await shoot(page, "r6-booking");
   await shoot(page, "r6-claim-check", { element: page.getByRole("region", { name: "Money" }) });
+  await page.getByRole("button", { name: "More actions" }).click();
+  await page.getByRole("menuitem", { name: "Change the travel date" }).click();
+  await expect(page.getByRole("dialog").getByRole("textbox", { name: "First day of the trip" })).toBeVisible();
+  await shoot(page, "r6-booking-travel-date");
+  await page.keyboard.press("Escape");
 
   await page.goto("/today");
   await expect(page.getByText(/Check payment of ₹45,000.00 from Meera Iyer/)).toBeVisible();
@@ -193,7 +200,8 @@ test("bookings, the trip page, the PDFs and a cancellation", async ({ page, brow
     requestId: crypto.randomUUID(),
   });
   await page.goto(`/bookings/${isha.bookingId}`);
-  await page.getByRole("button", { name: "Cancel booking" }).click();
+  await page.getByRole("button", { name: "More actions" }).click();
+  await page.getByRole("menuitem", { name: "Cancel booking" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Why it is cancelled").fill("Travel dates clash with a wedding");
   await expect(dialog.getByText("10% of the trip total")).toBeVisible();
