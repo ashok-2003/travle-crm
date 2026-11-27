@@ -1,6 +1,9 @@
 // The console's billing details and invoices, made by hand: money, so super admins only.
 import {
   billingDetails,
+  billingImageLinkInput,
+  billingImageUploadLink as billingImageUploadLinkOutput,
+  billingImageUploadLinkInput,
   cancelInvoiceInput,
   createInvoiceInput,
   invoiceDetail,
@@ -11,6 +14,8 @@ import {
   setBillingDetailsInput,
 } from "@travel-crm/contracts/platform";
 import {
+  billingImageLink,
+  billingImageUploadLink,
   cancelInvoice,
   createInvoice,
   getBillingDetails,
@@ -31,6 +36,18 @@ export const invoicesRouter = platformT.router({
     .input(setBillingDetailsInput)
     .output(billingDetails)
     .mutation(({ ctx, input }) => setBillingDetails(ctx.services, ctx.staff, input)),
+  /** A link to PUT the logo or signature to, straight to storage, and the key to save once it has arrived. */
+  billingImageUploadLink: superAdminProcedure
+    .input(billingImageUploadLinkInput)
+    .output(billingImageUploadLinkOutput)
+    .mutation(({ ctx, input }) => billingImageUploadLink(ctx.services, input)),
+  /** A short-lived link to show the saved logo or signature from; null when none is saved. */
+  billingImageLink: superAdminProcedure
+    .input(billingImageLinkInput)
+    .output(invoiceDownloadLinkOutput.nullable())
+    .query(({ ctx, input }) =>
+      getBillingDetails(ctx.services).then((saved) => billingImageLink(ctx.services, saved, input.kind)),
+    ),
   list: superAdminProcedure
     .input(listInvoicesInput)
     .output(invoicePage)

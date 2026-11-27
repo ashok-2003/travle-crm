@@ -2,14 +2,16 @@
 // price for each, before GST.
 import type { BillingCycle, PlanSummary } from "@travel-crm/contracts/subscriptions";
 
-const billingCycles: readonly BillingCycle[] = ["monthly", "yearly"];
+const billingCycles: readonly BillingCycle[] = ["monthly", "quarterly", "yearly"];
+type Prices = Pick<PlanSummary, "monthlyPricePaise" | "quarterlyPricePaise" | "yearlyPricePaise">;
 
 /** The plan's flat price for a cycle, in paise, or null when it isn't sold that way. */
-export function priceOf(plan: Pick<PlanSummary, "monthlyPricePaise" | "yearlyPricePaise">, cycle: BillingCycle) {
-  return cycle === "monthly" ? plan.monthlyPricePaise : plan.yearlyPricePaise;
+export function priceOf(plan: Prices, cycle: BillingCycle) {
+  if (cycle === "monthly") return plan.monthlyPricePaise;
+  return cycle === "quarterly" ? plan.quarterlyPricePaise : plan.yearlyPricePaise;
 }
 
-/** The cycles the plan is sold on, monthly first. */
-export function cyclesOf(plan: Pick<PlanSummary, "monthlyPricePaise" | "yearlyPricePaise">): BillingCycle[] {
+/** The cycles the plan is sold on, shortest first. */
+export function cyclesOf(plan: Prices): BillingCycle[] {
   return billingCycles.filter((cycle) => priceOf(plan, cycle) !== null);
 }

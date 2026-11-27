@@ -1,5 +1,6 @@
-// WhatsApp's voice note formats through the AI port: an OGG note goes to OpenRouter as input_audio with its format, the
-// content types WhatsApp sends map to a format (none for AMR), and a trace names a note by format and size, never bytes.
+// WhatsApp's voice note formats through the AI port: an OGG note goes to OpenRouter as input_audio with its format (to
+// Google AI Studio labelled mp3), the content types WhatsApp sends map to a format (none for AMR), and a trace names a
+// note by format and size, never bytes.
 import { describe, expect, it } from "vitest";
 import { audioFormatOf, createMemoryAiModel, createOpenRouterModel, withTracing } from "../../src/ai/index.js";
 import { createMemoryTracing } from "../../src/tracing/index.js";
@@ -39,6 +40,35 @@ describe("voice notes in the AI port", () => {
     expect(sent[0]?.content).toEqual([
       { type: "text", text: "Transcribe" },
       { type: "input_audio", input_audio: { data: "AQID", format: "ogg" } },
+    ]);
+  });
+
+  it("labels a voice note mp3 for Google AI Studio, whose format takes only wav or mp3 and reads the audio itself", async () => {
+    // Live from 21 Nov: AI Studio answered 400 "Invalid audio format \"ogg\"... Valid formats are: [wav, mp3]" to every
+    // WhatsApp voice note; the same OGG bytes labelled mp3 or wav are transcribed (tried 2026-11-27).
+    const bodies: Record<string, unknown>[] = [];
+    const fetcher: typeof fetch = (_url, init) => {
+      bodies.push(JSON.parse(typeof init?.body === "string" ? init.body : "{}") as Record<string, unknown>);
+      return Promise.resolve(
+        new Response(JSON.stringify({ model: "m", choices: [{ message: { content: "ok" }, finish_reason: "stop" }] })),
+      );
+    };
+    const model = createOpenRouterModel({
+      apiKey: "ai-studio-key-1234567890",
+      baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
+      models: { sales_agent: ["gemini-3.5-flash-lite"] },
+      fetch: fetcher,
+    });
+    const wav = { type: "audio" as const, format: "wav" as const, bytes: new Uint8Array([4]) };
+    await model.complete({
+      feature: "sales_agent",
+      messages: [{ role: "user", content: "Transcribe", attachments: [voiceNote(new Uint8Array([1, 2, 3])), wav] }],
+    });
+    const sent = bodies[0]?.messages as { content: unknown }[];
+    expect(sent[0]?.content).toEqual([
+      { type: "text", text: "Transcribe" },
+      { type: "input_audio", input_audio: { data: "AQID", format: "mp3" } },
+      { type: "input_audio", input_audio: { data: "BA==", format: "wav" } },
     ]);
   });
 

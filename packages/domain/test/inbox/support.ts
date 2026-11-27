@@ -47,6 +47,7 @@ export function createTestInbox(): TestInbox {
     status: "active",
     access,
     planName: "Test",
+    planKey: "starter",
     modules: new Set(["crm", "inbox"]),
     limits: { seats: 10, whatsappNumbers: 1, storageBytes: 1e9 },
     trialEndsOn: null,

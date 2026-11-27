@@ -22,7 +22,7 @@ import { formatMoney, money } from "../../kernel/index.js";
 import { modelRefusal, refuse } from "../refusals.js";
 import { aiEnabled } from "../settings.js";
 import { hashOf } from "../suggest.js";
-import { MONTHLY_AI_LIMIT, recordTokens, releaseAiCall, reserveAiCall, usedThisMonth } from "../usage.js";
+import { monthlyAiLimitOf, recordTokens, releaseAiCall, reserveAiCall, usedThisMonth } from "../usage.js";
 import { withoutTypedAmounts } from "../typed-amounts.js";
 import { assertOfferable, offerableLeads, type Candidate } from "./interested.js";
 import { managedPrompt } from "../managed-prompt.js";
@@ -196,7 +196,7 @@ export async function writeSeatMessage(
       text,
       removedAmounts,
       usedThisMonth: await usedThisMonth(tx, context.now, prepared.timeZone),
-      monthlyLimit: MONTHLY_AI_LIMIT,
+      monthlyLimit: await monthlyAiLimitOf(tx),
     };
   });
 }

@@ -353,20 +353,30 @@ describe("the one agent's loop", () => {
     expect(stagedOf(end)).toEqual(["book"]);
   });
 
-  it("sends words beside stay_quiet and drops it", async () => {
-    const words = "Great! Let me know if you need anything.";
+  it("stays quiet when the model calls stay_quiet, never sending the words beside it (the owner, 2026-11-27)", async () => {
+    // Live, 27 Nov: the words beside stay_quiet were the model's reasoning.
+    const words = 'The customer said "Ok sure". Since nothing is open, I will use stay_quiet.';
     model.answer({ text: words, toolCalls: [quietCall] });
     const end = await loop();
-    expect(end).toMatchObject({ end: "final", messages: [words] });
-    expect(stagedOf(end)).toEqual([]);
-    expect(finished().flags).toEqual(["quiet_with_words"]);
-    expect(finished().staged).toEqual([]);
+    expect(end).toMatchObject({ end: "final", messages: [] });
+    expect(stagedOf(end)).toEqual(["stay_quiet"]);
+    expect(finished().flags).toEqual(["quiet_dropped_words"]);
+    expect(model.requests).toHaveLength(1);
 
-    // Without words, it ends the turn in silence.
+    // Without words, it ends the turn in silence as before.
     model.answer({ toolCalls: [quietCall] });
     const quiet = await loop();
     expect(quiet).toMatchObject({ end: "final", messages: [] });
     expect(stagedOf(quiet)).toEqual(["stay_quiet"]);
+  });
+
+  it("sends the words beside stay_quiet only when the turn owes them, as with a hold", async () => {
+    const line = "Sat 19 Dec ki 2 seats hold kar di hain; advance ₹6,000 ka QR neeche hai.";
+    model.answer({ text: line, toolCalls: [bookCall, quietCall] });
+    const end = await loop();
+    expect(end).toMatchObject({ end: "final", messages: [line] });
+    expect(stagedOf(end)).toEqual(["book"]);
+    expect(finished().flags).toEqual(["quiet_with_words"]);
   });
 
   it("falls back after too many steps: the line in their language, the agency's actions kept, the task naming the rest", async () => {

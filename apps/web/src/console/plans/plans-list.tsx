@@ -45,15 +45,24 @@ export function PlansList({ plans, editable }: { plans: PlanSummary[]; editable:
                 <ItemDescription className="numbers">{plan.key}</ItemDescription>
                 <span className="flex flex-wrap gap-x-4 gap-y-1 text-label">
                   <Figure label={t("columns.monthly")} value={figures.monthly} mono={plan.monthlyPricePaise !== null} />
+                  <Figure
+                    label={t("columns.quarterly")}
+                    value={figures.quarterly}
+                    mono={plan.quarterlyPricePaise !== null}
+                  />
                   <Figure label={t("columns.yearly")} value={figures.yearly} mono={plan.yearlyPricePaise !== null} />
                   {figures.extraSeatMonthly !== null && (
                     <Figure label={t("extraSeatMonthly")} value={figures.extraSeatMonthly} />
+                  )}
+                  {figures.extraSeatQuarterly !== null && (
+                    <Figure label={t("extraSeatQuarterly")} value={figures.extraSeatQuarterly} />
                   )}
                   {figures.extraSeatYearly !== null && (
                     <Figure label={t("extraSeatYearly")} value={figures.extraSeatYearly} />
                   )}
                 </span>
                 <span className="flex flex-wrap gap-x-4 gap-y-1 text-label">
+                  <Figure label={t("columns.aiCredits")} value={figures.aiCredits} />
                   <Figure label={t("columns.seats")} value={figures.seats} />
                   <Figure label={t("columns.whatsappNumbers")} value={figures.whatsappNumbers} />
                   <Figure label={t("columns.storage")} value={figures.storage} />

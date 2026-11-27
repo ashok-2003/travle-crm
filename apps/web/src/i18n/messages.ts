@@ -28,6 +28,7 @@ import leads from "./messages/en-IN/leads.json";
 import metaLeads from "./messages/en-IN/meta-leads.json";
 import packagePages from "./messages/en-IN/package-pages.json";
 import payments from "./messages/en-IN/payments.json";
+import planBilling from "./messages/en-IN/plan-billing.json";
 import packages from "./messages/en-IN/packages.json";
 import notifications from "./messages/en-IN/notifications.json";
 import home from "./messages/en-IN/home.json";
@@ -82,6 +83,7 @@ export const messages = {
   notifications,
   packages,
   payments,
+  planBilling,
   packagePages,
   home,
   pwa,

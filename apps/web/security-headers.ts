@@ -22,7 +22,7 @@ export interface PolicySettings {
  * The Content-Security-Policy. Scripts and styles allow 'unsafe-inline' because Next.js inlines its boot scripts and
  * the component library sets inline styles; nonces would make every page render per request, and pages must stay
  * static so the service worker can keep them for offline use. Everything else is our own origin only, but for
- * storage: files go straight to it (a PUT to a presigned URL) and images come from it. The accepted risk is recorded
+ * storage: files go straight to it (a PUT to a presigned URL), and images, voice notes and videos come from it. The accepted risk is recorded
  * in ADR 0018; test/no-inner-html.test.ts keeps its premise, that the app renders no HTML of its own.
  */
 export function contentSecurityPolicy(
@@ -38,6 +38,8 @@ export function contentSecurityPolicy(
     `script-src 'self' 'unsafe-inline'${development ? " 'unsafe-eval'" : ""}${widget}`,
     "style-src 'self' 'unsafe-inline'",
     `img-src 'self' data: blob:${storage}`,
+    // A chat's voice notes and videos play from storage; a voice note being recorded plays from a blob before it goes.
+    `media-src 'self' blob:${storage}`,
     "font-src 'self'",
     `connect-src 'self'${storage}${widget}`,
     ...(turnstile ? [`frame-src ${TURNSTILE_ORIGIN}`] : []),

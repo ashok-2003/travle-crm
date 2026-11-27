@@ -8,6 +8,7 @@ const growth: Entitlements = {
   status: "active",
   access: "full",
   planName: "Growth",
+  planKey: "growth",
   modules: new Set(["crm"]),
   limits: { seats: 7, whatsappNumbers: 1, storageBytes: 5_000_000 },
   trialEndsOn: null,

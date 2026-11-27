@@ -18,6 +18,7 @@ const entitlements = (modules: ModuleName[]): Entitlements => ({
   status: "active",
   access: "full",
   planName: "Test",
+  planKey: "starter",
   modules: new Set(modules),
   limits: { seats: 10, whatsappNumbers: 1, storageBytes: 1e9 },
   trialEndsOn: null,

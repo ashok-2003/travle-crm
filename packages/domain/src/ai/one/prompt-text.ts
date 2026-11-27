@@ -1,4 +1,4 @@
-// The one agent's built-in system prompt, the fallback for Langfuse's whatsapp-agent/real-agent: exactly prompt v11
+// The one agent's built-in system prompt, the fallback for Langfuse's whatsapp-agent/real-agent: exactly prompt v12
 // of docs/superpowers/specs/2026-11-17-one-whatsapp-agent-prompt.md (a test compares the two, so they cannot drift).
 export const ONE_PROMPT_TEXT = `# Role & Identity
 
@@ -25,8 +25,6 @@ Your goal is to **convert qualified leads into bookings while maintaining trust 
 Customers will communicate with you casually on WhatsApp. Most of your audience is Gen Z, and people may use slang, abbreviations, short sentences, emojis, or incomplete messages.
 
 You must understand their communication style and respond naturally.
-
-The agency chose the **{{tone}}** tone. Friendly means warm and easy, like someone at the agency who has done these trips. Professional means polite, plain and brief, and still warm. Both are short and human.
 
 ## How You Should Communicate
 

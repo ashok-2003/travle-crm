@@ -20,7 +20,7 @@ export type GroupTotal =
       /** One per room type, their shares adding up to the subtotal. */
       lines: { roomType: RoomType; people: number; sharePaise: number }[];
     }
-  | { ok: false; reason: "NO_PRICE" | "ROOM_SPLIT"; roomType: RoomType };
+  | { ok: false; reason: "NO_PRICE"; roomType: RoomType };
 
 const taxLine = (unitPricePaise: number) => ({
   description: "Tour package",
@@ -29,14 +29,9 @@ const taxLine = (unitPricePaise: number) => ({
   unitPricePaise,
 });
 
-/** The total of the rooms of a package selling `offered` (one room type sold alone is per person: see `totalFor`). */
-export function groupTotal(
-  prices: RoomPrices,
-  rooms: readonly RoomBooking[],
-  tax: GroupTax,
-  offered: readonly RoomType[],
-): GroupTotal {
-  const priced = totalFor(prices, rooms, offered);
+/** The total of a group's people, each at their sharing's price per person (see `totalFor`). */
+export function groupTotal(prices: RoomPrices, rooms: readonly RoomBooking[], tax: GroupTax): GroupTotal {
+  const priced = totalFor(prices, rooms);
   if (!priced.ok) return priced;
   const moneyOf = (subtotalPaise: number) =>
     quoteMoney([taxLine(subtotalPaise)], tax.taxRateBasisPoints, tax.supplierStateCode, null);

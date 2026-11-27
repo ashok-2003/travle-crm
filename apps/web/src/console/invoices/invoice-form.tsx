@@ -10,6 +10,7 @@ import { MinusCircleIcon, PlusIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useFieldArray, useWatch, type Control } from "react-hook-form";
 import { DateField } from "@/components/date-field";
+import { FormField } from "@/components/form-field";
 import { ChoiceField } from "@/components/forms/choice-field";
 import { FormAlert } from "@/components/forms/form-dialog";
 import { GstStateField } from "@/components/forms/gst-state-field";
@@ -23,6 +24,8 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { NoteField } from "@/leads/form/note-field";
 import {
+  emptyLine,
+  lineAmountPaise,
   MAX_LINES,
   previewAmounts,
   toCreateInvoiceInput,
@@ -32,6 +35,21 @@ import {
 
 const rate = (basisPoints: number) => `${String(basisPoints / 100)}%`;
 
+/** A line's amount, quantity × rate, shown beside its fields as the person types. */
+function LineAmount({ control, index }: { control: Control<InvoiceValues>; index: number }) {
+  const t = useTranslations("consoleInvoices.invoiceForm");
+  const line = useWatch({ control, name: `lines.${String(index)}` as `lines.${number}` });
+  return (
+    <FormField label={t("lineAmount")}>
+      {({ id }) => (
+        <output id={id} className="numbers flex min-h-11 items-center justify-end sm:min-w-28">
+          {formatMoney(money(lineAmountPaise(line)))}
+        </output>
+      )}
+    </FormField>
+  );
+}
+
 function Totals({ control, billing }: { control: Control<InvoiceValues>; billing: BillingDetails }) {
   const t = useTranslations("consoleInvoices.invoiceForm");
   const [lines, gstRate, billToStateCode] = useWatch({ control, name: ["lines", "gstRate", "billToStateCode"] });
@@ -39,7 +57,7 @@ function Totals({ control, billing }: { control: Control<InvoiceValues>; billing
   const sellerState = isGstStateCode(billing.stateCode) ? billing.stateCode : null;
   if (sellerState === null) return null;
   const sums = previewAmounts(
-    lines.map((line) => line.amount),
+    lines,
     basisPoints,
     sellerState,
     isGstStateCode(billToStateCode) ? billToStateCode : null,
@@ -135,18 +153,31 @@ export function InvoiceForm({
           <FieldLegend variant="label">{t("linesLegend")}</FieldLegend>
           <FieldDescription>{t("linesHint")}</FieldDescription>
           {lines.fields.map((line, index) => (
-            <div key={line.id} className="grid gap-3 sm:grid-cols-[1fr_10rem_auto] sm:items-end">
+            <div
+              key={line.id}
+              className="grid grid-cols-[1fr_1fr] gap-3 sm:grid-cols-[1fr_5rem_9rem_8rem_auto] sm:items-end"
+            >
               <TextField
                 control={control}
                 name={`lines.${String(index)}.description` as `lines.${number}.description`}
                 label={t("lineDescription")}
                 autoComplete="off"
+                className="col-span-2 sm:col-span-1"
+              />
+              <TextField
+                control={control}
+                name={`lines.${String(index)}.quantity` as `lines.${number}.quantity`}
+                label={t("lineQuantity")}
+                inputMode="numeric"
+                autoComplete="off"
+                inputClassName="numbers text-right"
               />
               <MoneyField
                 control={control}
-                name={`lines.${String(index)}.amount` as `lines.${number}.amount`}
-                label={t("lineAmount")}
+                name={`lines.${String(index)}.rate` as `lines.${number}.rate`}
+                label={t("lineRate")}
               />
+              <LineAmount control={control} index={index} />
               {lines.fields.length > 1 && (
                 <Button
                   type="button"
@@ -168,7 +199,7 @@ export function InvoiceForm({
               variant="outline"
               className="self-start"
               onClick={() => {
-                lines.append({ description: "", amount: "" });
+                lines.append({ ...emptyLine });
               }}
             >
               <PlusIcon aria-hidden="true" />

@@ -21,13 +21,13 @@ export const starterRoles: readonly StarterRole[] = [
   // Holds every permission, including ones added to the catalog later; it has no stored grants.
   { key: OWNER_ROLE_KEY, name: "Owner", isOwner: true, grants: [] },
   {
-    // Runs the agency day to day: everything except changing roles and permissions.
+    // Runs the agency day to day: everything except changing roles and permissions, and the plan's billing.
     key: "org-admin",
     name: "Admin",
     isOwner: false,
     grants: PermissionSet.everything()
       .toGrants()
-      .filter((grant) => grant.permission !== "roles:manage"),
+      .filter((grant) => grant.permission !== "roles:manage" && grant.permission !== "billing:view"),
   },
   {
     // Works their own leads through to bookings. No margins, no staff or settings.

@@ -17,6 +17,7 @@ export interface Entitlements {
   status: SubscriptionStatus;
   access: LifecycleAccess;
   planName: string;
+  planKey: string;
   /** The plan's modules and those switched on early. */
   modules: ReadonlySet<PlanModule>;
   /** Seats are the plan's own plus the extra ones bought. */
@@ -50,6 +51,7 @@ export function entitlementsFrom(facts: SubscriptionFacts, now: Date): Entitleme
     status: today.status,
     access: lifecycleAccessOf(today.status),
     planName: row.plan.name,
+    planKey: row.plan.key,
     modules: new Set([...modulesOf(row.plan.modules), ...modulesOf(row.extraModules)]),
     limits: {
       seats: row.plan.seatLimit + row.extraSeats,
@@ -74,6 +76,7 @@ export function overviewOf(entitlements: Entitlements): SubscriptionOverview {
     status: entitlements.status,
     access: entitlements.access,
     planName: entitlements.planName,
+    planKey: entitlements.planKey,
     modules: [...entitlements.modules].sort(),
     trialEndsOn: entitlements.trialEndsOn,
     paidThrough: entitlements.paidThrough,

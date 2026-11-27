@@ -4,6 +4,7 @@
 // checked and shown before anything is made; the plan they start on, its billing cycle, the free days and the GST state
 // their profile starts with. Only the rows that read are invited; each gets its own link at once.
 import { gstStates } from "@travel-crm/contracts/kernel";
+import type { BillingCycle } from "@travel-crm/contracts/subscriptions";
 import { useTranslations } from "next-intl";
 import { useId, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -38,7 +39,7 @@ export function AddInvitesDialog({
   const plans = usePlansForSale();
   const [text, setText] = useState("");
   const [planId, setPlanId] = useState("");
-  const [cycle, setCycle] = useState<"monthly" | "yearly">("monthly");
+  const [cycle, setCycle] = useState<BillingCycle>("monthly");
   const [trialDays, setTrialDays] = useState("30");
   const [state, setState] = useState("07");
   const ids = { rows: useId(), plan: useId(), days: useId(), state: useId() };
@@ -168,10 +169,11 @@ export function AddInvitesDialog({
           inline
           value={cycle}
           onChange={(chosen) => {
-            setCycle(chosen === "yearly" ? "yearly" : "monthly");
+            setCycle(chosen === "yearly" || chosen === "quarterly" ? chosen : "monthly");
           }}
           options={[
             { value: "monthly", label: t("monthly") },
+            { value: "quarterly", label: t("quarterly") },
             { value: "yearly", label: t("yearly") },
           ]}
         />

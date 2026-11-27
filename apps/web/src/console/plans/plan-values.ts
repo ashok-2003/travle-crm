@@ -17,9 +17,12 @@ export interface PlanValues {
   key: string;
   name: string;
   monthlyPrice: string;
+  quarterlyPrice: string;
   yearlyPrice: string;
   extraSeatMonthlyPrice: string;
+  extraSeatQuarterlyPrice: string;
   extraSeatYearlyPrice: string;
+  aiCredits: string;
   seats: string;
   whatsappNumbers: string;
   storageGigabytes: string;
@@ -37,7 +40,8 @@ export type PlanProblem =
   | "priceRequired"
   | "seatsInvalid"
   | "whatsappInvalid"
-  | "storageInvalid";
+  | "storageInvalid"
+  | "aiCreditsInvalid";
 
 /** Storage is entered in GB of 1,024 MB, as formatFileSize shows it. */
 const GIGABYTE = 1024 ** 3;
@@ -47,9 +51,12 @@ const fieldOf = {
   key: ["key", "keyInvalid"],
   name: ["name", "nameInvalid"],
   monthlyPricePaise: ["monthlyPrice", "priceInvalid"],
+  quarterlyPricePaise: ["quarterlyPrice", "priceInvalid"],
   yearlyPricePaise: ["yearlyPrice", "priceInvalid"],
   extraSeatMonthlyPricePaise: ["extraSeatMonthlyPrice", "priceInvalid"],
+  extraSeatQuarterlyPricePaise: ["extraSeatQuarterlyPrice", "priceInvalid"],
   extraSeatYearlyPricePaise: ["extraSeatYearlyPrice", "priceInvalid"],
+  aiCreditsPerMonth: ["aiCredits", "aiCreditsInvalid"],
   seatLimit: ["seats", "seatsInvalid"],
   whatsappNumberLimit: ["whatsappNumbers", "whatsappInvalid"],
   storageLimitBytes: ["storageGigabytes", "storageInvalid"],
@@ -84,9 +91,12 @@ export function planValues(plan?: PlanSummary): PlanValues {
       key: "",
       name: "",
       monthlyPrice: "",
+      quarterlyPrice: "",
       yearlyPrice: "",
       extraSeatMonthlyPrice: "",
+      extraSeatQuarterlyPrice: "",
       extraSeatYearlyPrice: "",
+      aiCredits: "10000",
       seats: "",
       whatsappNumbers: "",
       storageGigabytes: "",
@@ -97,9 +107,12 @@ export function planValues(plan?: PlanSummary): PlanValues {
     key: plan.key,
     name: plan.name,
     monthlyPrice: priceText(plan.monthlyPricePaise),
+    quarterlyPrice: priceText(plan.quarterlyPricePaise),
     yearlyPrice: priceText(plan.yearlyPricePaise),
     extraSeatMonthlyPrice: priceText(plan.extraSeatMonthlyPricePaise),
+    extraSeatQuarterlyPrice: priceText(plan.extraSeatQuarterlyPricePaise),
     extraSeatYearlyPrice: priceText(plan.extraSeatYearlyPricePaise),
+    aiCredits: String(plan.aiCreditsPerMonth),
     seats: String(plan.seatLimit),
     whatsappNumbers: String(plan.whatsappNumberLimit),
     storageGigabytes: gigabytesTextOf(plan.storageLimitBytes),
@@ -131,9 +144,12 @@ function fieldsOf(values: PlanValues, original?: PlanSummary) {
   return {
     name: values.name,
     monthlyPricePaise: paiseOf(values.monthlyPrice),
+    quarterlyPricePaise: paiseOf(values.quarterlyPrice),
     yearlyPricePaise: paiseOf(values.yearlyPrice),
     extraSeatMonthlyPricePaise: paiseOf(values.extraSeatMonthlyPrice),
+    extraSeatQuarterlyPricePaise: paiseOf(values.extraSeatQuarterlyPrice),
     extraSeatYearlyPricePaise: paiseOf(values.extraSeatYearlyPrice),
+    aiCreditsPerMonth: wholeNumberOf(values.aiCredits),
     seatLimit: wholeNumberOf(values.seats),
     whatsappNumberLimit: wholeNumberOf(values.whatsappNumbers),
     storageLimitBytes: bytesOf(values.storageGigabytes, original),
@@ -142,7 +158,7 @@ function fieldsOf(values: PlanValues, original?: PlanSummary) {
 }
 
 /**
- * The schema's verdict, each problem on its field. A plan priced neither monthly nor yearly is said so whatever else is
+ * The schema's verdict, each problem on its field. A plan priced for no cycle is said so whatever else is
  * wrong: the schema checks that only once every field is valid.
  */
 function verdict<Input>(
@@ -150,7 +166,8 @@ function verdict<Input>(
   values: PlanValues,
   fields: ReturnType<typeof fieldsOf>,
 ): Checked<PlanValues, Input, PlanProblem> {
-  const unpriced = fields.monthlyPricePaise === null && fields.yearlyPricePaise === null;
+  const unpriced =
+    fields.monthlyPricePaise === null && fields.quarterlyPricePaise === null && fields.yearlyPricePaise === null;
   return checked(parsed, values, formFieldOf, problemOf, unpriced ? { monthlyPrice: "priceRequired" } : {});
 }
 

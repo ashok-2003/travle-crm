@@ -8,22 +8,21 @@ export interface NaturalPrompt {
   /** Where Langfuse keeps it, when it came from there: the turn's model calls are linked to it. */
   source?: { name: string; version: number; label: string };
 }
+/** The agency picks no tone (the owner, 2026-11-27): the prompt's rules and examples set how the agent writes. */
 export interface AgentVoice {
   agentName: string;
   agencyName: string;
-  tone: "friendly" | "professional";
 }
-export const NATURAL_PROMPT_PLACEHOLDERS = ["agent_name", "agency_name", "tone"] as const;
+export const NATURAL_PROMPT_PLACEHOLDERS = ["agent_name", "agency_name"] as const;
 
 /** A placeholder as Langfuse writes it, with the spaces its editor allows inside the braces. */
-const PLACEHOLDER = /\{\{\s*(agent_name|agency_name|tone)\s*\}\}/g;
+const PLACEHOLDER = /\{\{\s*(agent_name|agency_name)\s*\}\}/g;
 
 // With no agent name the agent is introduced as the agency's team.
 export function renderNaturalPrompt(prompt: NaturalPrompt, voice: AgentVoice): string {
   const values: Record<(typeof NATURAL_PROMPT_PLACEHOLDERS)[number], string> = {
     agent_name: voice.agentName.trim() === "" ? `the ${voice.agencyName} team` : voice.agentName,
     agency_name: voice.agencyName,
-    tone: voice.tone,
   };
   return prompt.text.replace(PLACEHOLDER, (_match, key: keyof typeof values) => values[key]);
 }

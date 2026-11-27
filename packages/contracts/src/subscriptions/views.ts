@@ -15,8 +15,8 @@ export type LifecycleAccess = z.infer<typeof lifecycleAccess>;
 
 /**
  * What a subscription costs per billing cycle, in paise: the plan's flat price (or the agreed one) and the extra seats
- * at the plan's seat price, before GST; then GST at 18 % apart, as Indian buyers expect "+18% GST": CGST and SGST at
- * 9 % each, rounded on their own as the kernel's GST engine does, so the halves always add up to `gstPaise`.
+ * at the plan's seat price, before GST; then GST apart (none while the policy's rate is 0; at 18 %, CGST and SGST at
+ * 9 % each), rounded on their own as the kernel's GST engine does, so the halves always add up to `gstPaise`.
  */
 export const subscriptionPrice = z.object({
   cycle: billingCycle,
@@ -93,6 +93,8 @@ export const subscriptionOverview = z.object({
   status: subscriptionStatus,
   access: lifecycleAccess,
   planName: z.string(),
+  /** The plan's key, so the app can tell the demo's own plan; not a price, so every member may have it. */
+  planKey: planKey,
   modules: z.array(planModule),
   trialEndsOn: calendarDate.nullable(),
   paidThrough: calendarDate.nullable(),
@@ -101,3 +103,29 @@ export const subscriptionOverview = z.object({
   limits: z.object({ seats: z.int(), whatsappNumbers: z.int(), storageBytes: z.int() }),
 });
 export type SubscriptionOverview = z.infer<typeof subscriptionOverview>;
+
+/** One of the plan's limits beside what the organization uses of it today (the Owner's Plan & billing page). */
+const limitAndUse = z.object({ limit: z.int(), used: z.int() });
+
+/**
+ * What the Owner's Plan & billing page shows: the plan, what it includes beside this month's use, and the payments
+ * recorded (voided ones left out, newest first, at most 24). Nothing in it changes anything.
+ */
+export const billingView = z.object({
+  planName: z.string(),
+  status: subscriptionStatus,
+  paidThrough: calendarDate.nullable(),
+  seats: limitAndUse,
+  whatsappNumbers: limitAndUse,
+  storageBytes: limitAndUse,
+  aiCredits: limitAndUse,
+  payments: z.array(
+    z.object({
+      paidOn: calendarDate,
+      amountPaise: z.int(),
+      paidThrough: calendarDate,
+      reference: z.string().nullable(),
+    }),
+  ),
+});
+export type BillingView = z.infer<typeof billingView>;

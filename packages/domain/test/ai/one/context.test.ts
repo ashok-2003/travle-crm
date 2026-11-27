@@ -70,7 +70,7 @@ function line(from: NaturalChatLine["from"], daysAgo: number, text: string, more
 function input(overrides: Partial<OneContextInput> = {}): OneContextInput {
   return {
     prompt: BUILT_IN_ONE_PROMPT,
-    voice: { agentName: "Riya", agencyName: "Sharma Holidays", tone: "friendly" },
+    voice: { agentName: "Riya", agencyName: "Sharma Holidays" },
     timeZone: "Asia/Kolkata",
     today,
     now,

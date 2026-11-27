@@ -9,6 +9,8 @@ export const permissions = [
   "staff:manage",
   "roles:manage",
   "settings:manage",
+  // The Plan & billing page: the plan, its use this month and the payments recorded; held by the Owner alone
+  "billing:view",
   "audit:view",
   "money:view_margin",
   // The sales and collections reports: what the agency earned and was paid

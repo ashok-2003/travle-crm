@@ -54,6 +54,7 @@ export function crmEntitlements(access: Entitlements["access"] = "full"): Entitl
     status: access === "full" ? "active" : "read_only",
     access,
     planName: "Growth",
+    planKey: "starter",
     modules: new Set(["crm"]),
     limits: { seats: 10, whatsappNumbers: 1, storageBytes: 1_000_000 },
     trialEndsOn: null,

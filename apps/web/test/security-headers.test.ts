@@ -57,6 +57,13 @@ describe("security headers", () => {
     expect(contentSecurityPolicy({ development: false })).toContain("connect-src 'self';");
   });
 
+  it("let a chat's voice notes and videos play from storage, and a recording play before it is sent", () => {
+    // Live until 2026-11-27: with no media-src, default-src 'self' blocked every voice note and video in the inbox.
+    const policy = contentSecurityPolicy({ development: false, storageOrigin: "https://files.example.in" });
+    expect(policy).toContain("media-src 'self' blob: https://files.example.in;");
+    expect(contentSecurityPolicy({ development: false })).toContain("media-src 'self' blob:;");
+  });
+
   it("let only development evaluate code", () => {
     expect(contentSecurityPolicy({ development: false })).not.toContain("unsafe-eval");
     expect(contentSecurityPolicy({ development: true })).toContain("'unsafe-eval'");

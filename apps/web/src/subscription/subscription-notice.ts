@@ -28,3 +28,13 @@ export function noticeOf(overview: SubscriptionOverview, today: CalendarDate): S
       return null;
   }
 }
+
+/** How many days before the paid-through day, that day included, the Owner is quietly reminded to renew. */
+const RENEWAL_REMINDER_DAYS = 7;
+
+/** The day an active agency's plan is paid through when `today` is within its last week, else null. */
+export function renewalReminderOf(overview: SubscriptionOverview, today: CalendarDate): string | null {
+  const { paidThrough } = overview;
+  if (overview.status !== "active" || paidThrough === null || paidThrough < today) return null;
+  return addDays(parseCalendarDate(paidThrough), -RENEWAL_REMINDER_DAYS) <= today ? paidThrough : null;
+}

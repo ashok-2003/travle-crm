@@ -11,7 +11,7 @@ import { screenIs } from "../../organization/render";
 import { inputsTo, renderConsole } from "../../support/render-console";
 
 const { policy: words } = messages.consolePlatform;
-const policy = { trialDays: 7, pastDueDays: 7, readOnlyDays: 14 };
+const policy = { trialDays: 7, pastDueDays: 7, readOnlyDays: 14, subscriptionGstBasisPoints: 0 };
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -41,8 +41,28 @@ describe("PolicySection", () => {
     api.answer("platform.plans.policy", { data: { ...policy, pastDueDays: 10 } });
     await userEvent.click(within(dialog).getByRole("button", { name: messages.common.save }));
     expect(await screen.findByText(words.saved)).toBeVisible();
-    expect(inputsTo("plans.setPolicy")).toEqual([{ trialDays: 7, pastDueDays: 10, readOnlyDays: 14 }]);
+    expect(inputsTo("plans.setPolicy")).toEqual([
+      { trialDays: 7, pastDueDays: 10, readOnlyDays: 14, subscriptionGstBasisPoints: 0 },
+    ]);
     expect(await screen.findByText("10")).toBeVisible();
+  });
+
+  it("shows the GST on subscriptions and lets a super admin choose 18 %", async () => {
+    screenIs("wide");
+    const api = stubApi({ "platform.plans.policy": { data: policy } });
+    renderConsole(<PolicySection />);
+    expect((await screen.findByText(words.subscriptionGstBasisPoints)).closest("div")).toHaveTextContent(
+      words.gstRates["0"],
+    );
+    await userEvent.click(screen.getByRole("button", { name: words.change }));
+    const dialog = screen.getByRole("dialog", { name: words.changeTitle });
+    await userEvent.click(within(dialog).getByRole("radio", { name: words.gstRates["1800"] }));
+    api.answer("platform.plans.setPolicy", { data: { ...policy, subscriptionGstBasisPoints: 1800 } });
+    api.answer("platform.plans.policy", { data: { ...policy, subscriptionGstBasisPoints: 1800 } });
+    await userEvent.click(within(dialog).getByRole("button", { name: messages.common.save }));
+    await vi.waitFor(() => {
+      expect(inputsTo("plans.setPolicy")).toEqual([{ ...policy, subscriptionGstBasisPoints: 1800 }]);
+    });
   });
 
   it("says what to fix before anything is sent", async () => {

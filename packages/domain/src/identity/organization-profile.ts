@@ -71,6 +71,11 @@ export async function organizationsPage(
  * without taking it from the caller. The organization table has no row-level security, so this reads the id it is
  * given: pass the transaction's own organization.
  */
+/** The people holding a seat in the organization (its members): for Plan & billing. Same reach as organizationTimeZone. */
+export async function seatsUsed(tx: OrgTx, organizationId: string): Promise<number> {
+  return (tx as IdentityTx).member.count({ where: { organizationId } });
+}
+
 export async function organizationTimeZone(tx: OrgTx, organizationId: string): Promise<string> {
   // OrgTx hides the sign-in models; every forOrg() transaction is the same client underneath, and only this module
   // may reach the organization model.

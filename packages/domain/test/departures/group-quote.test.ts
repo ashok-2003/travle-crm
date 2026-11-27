@@ -159,12 +159,14 @@ describe("a group trip's quote", () => {
     expect(quote.startDate).toBe("2026-11-20");
   });
 
-  it("a package selling triple alone is per person: four in triple are quoted four times the price", async () => {
-    const { id, name } = await aPackage({ roomTypes: ["triple"] });
+  it("prices people, not rooms: four in triple and one in double sharing (the owner, 2026-11-27)", async () => {
+    const { id, name } = await aPackage();
     const departureId = await aDepartureOf(id);
-    const quote = await make(id, departureId, [{ roomType: "triple", people: 4 }]);
-    expect(Math.abs(quote.totals.totalPaise - 4 * 699_900)).toBeLessThanOrEqual(2);
-    expect(quote.items[0]).toMatchObject({ description: `${name}, Triple sharing × 4` });
+    const four = await make(id, departureId, [{ roomType: "triple", people: 4 }]);
+    expect(Math.abs(four.totals.totalPaise - 4 * 699_900)).toBeLessThanOrEqual(2);
+    expect(four.items[0]).toMatchObject({ description: `${name}, Triple sharing × 4` });
+    const solo = await make(id, departureId, [{ roomType: "double", people: 1 }]);
+    expect(Math.abs(solo.totals.totalPaise - 800_000)).toBeLessThanOrEqual(2);
   });
 
   it("a premium batch is priced from its own price, and the season's for the rooms it leaves out", async () => {
@@ -195,11 +197,6 @@ describe("a group trip's quote", () => {
     expect(await reasonOf(make(id, await aDepartureOf(id, { startDate: "2026-11-23", seatsTotal: 2 }), rooms))).toBe(
       "NOT_ENOUGH_SEATS",
     );
-    expect(
-      await reasonOf(
-        make(id, await aDepartureOf(id, { startDate: "2026-11-25" }), [{ roomType: "triple", people: 4 }]),
-      ),
-    ).toBe("ROOM_SPLIT");
   });
 
   it("a group quote with the same room type twice is refused", async () => {
