@@ -128,7 +128,7 @@ describe("QuotesScreen", () => {
     await userEvent.click(await screen.findByRole("button", { name: list.new }));
     const dialog = await screen.findByRole("dialog", { name: list.newQuote.title });
     expect(dialog).toBeVisible();
-    expect(screen.getByRole("combobox")).toHaveTextContent(list.newQuote.choose);
+    expect(screen.getByPlaceholderText(list.newQuote.search)).toBeVisible();
     expect(screen.getByRole("link", { name: list.newQuote.newLead })).toHaveAttribute("href", "/leads/new");
   });
 });

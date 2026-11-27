@@ -37,9 +37,12 @@
     "newQuote": {
       "title": "New quote",
       "description": "A quote is made on a lead. Choose the lead first.",
-      "lead": "Lead",
-      "leadHint": "Search by name or phone.",
-      "choose": "Choose a lead",
+      "search": "Search by name or phone",
+      "hint": "Newest leads first. Type at least 2 letters, or 4 digits of a phone, to search.",
+      "searching": "Searching",
+      "noMatch": "No open lead matches.",
+      "listFailed": "Leads didn't load.",
+      "change": "Change",
       "newLead": "Not there? Make a new lead",
       "loadFailed": "That lead didn't load."
     }

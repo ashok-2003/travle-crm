@@ -37,6 +37,60 @@ describe("NewQuoteMenu", () => {
 });
 
 describe("NewQuoteDialog", () => {
+  const open = (width: "wide" | "phone" = "wide") =>
+    renderScreen(<NewQuoteDialog open onOpenChange={vi.fn()} returnFocusTo={{ current: null }} />, { width });
+
+  it("is a centred dialog, not a bottom sheet, on a phone", async () => {
+    stubApi({ "leads.list": aPage([aListItem()]) });
+    open("phone");
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    expect(document.querySelector('[data-slot="sheet-content"]')).toBeNull();
+  });
+
+  it("lists the newest leads before anything is typed, with no dropdown", async () => {
+    const inputs: unknown[] = [];
+    stubApi({
+      "leads.list": (input) => {
+        inputs.push(input);
+        return aPage([aListItem()]);
+      },
+    });
+    open();
+    expect(await screen.findByText("Rahul Sharma", { selector: "span" })).toBeInTheDocument();
+    expect(document.querySelector("[data-slot=popover-content]")).toBeNull();
+    expect(inputs[0]).toMatchObject({ limit: 8 });
+    expect(inputs[0]).not.toHaveProperty("search");
+  });
+
+  it("asks leads.list with what is typed", async () => {
+    const inputs: unknown[] = [];
+    stubApi({
+      "leads.list": (input) => {
+        inputs.push(input);
+        return aPage([aListItem()]);
+      },
+    });
+    open();
+    await userEvent.type(await screen.findByPlaceholderText(messages.quotes.list.newQuote.search), "Rah");
+    await waitFor(() => {
+      expect(inputs.some((input) => (input as { search?: string }).search === "Rah")).toBe(true);
+    });
+  });
+
+  it("shows the chosen lead with Change and the quote choices, and Change goes back to the list", async () => {
+    stubApi({
+      "leads.list": aPage([aListItem()]),
+      "leads.get": { data: aLead() },
+      "quotes.packages": { data: [] },
+      "quotes.settings": { data: { defaultTaxRateBasisPoints: 500 } },
+    });
+    open();
+    await userEvent.click(await screen.findByText("Rahul Sharma", { selector: "span" }));
+    expect(await screen.findByRole("button", { name: messages.quotes.lead.new })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: messages.quotes.list.newQuote.change }));
+    expect(await screen.findByText("Rahul Sharma", { selector: "span" })).toBeInTheDocument();
+  });
+
   it("holds itself open while the quote is made, then opens the quote", async () => {
     address.set("/quotes");
     const held = heldAnswer({ data: { id: quoteId } });
@@ -51,15 +105,12 @@ describe("NewQuoteDialog", () => {
     renderScreen(<NewQuoteDialog open onOpenChange={onOpenChange} returnFocusTo={{ current: null }} />, {
       width: "wide",
     });
-    await userEvent.click(await screen.findByRole("combobox"));
-    await userEvent.type(await screen.findByPlaceholderText("Search by name or phone"), "Ra");
     await userEvent.click(await screen.findByText("Rahul Sharma", { selector: "span" }));
     await userEvent.click(await screen.findByRole("button", { name: messages.quotes.lead.new }));
     await userEvent.click(await screen.findByRole("menuitem", { name: messages.quotes.lead.blank }));
     await userEvent.keyboard("{Escape}");
     expect(onOpenChange).not.toHaveBeenCalledWith(false);
-    // The lead can't change under the quote being made.
-    expect(screen.getByRole("combobox")).toBeDisabled();
+    expect(screen.getByRole("button", { name: messages.quotes.list.newQuote.change })).toBeDisabled();
     held.release();
     await waitFor(() => {
       expect(address.href).toContain(quoteId);

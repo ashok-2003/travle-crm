@@ -43,6 +43,7 @@ export function ResponsiveDialog({
   footer,
   cancel = true,
   wide: roomy = false,
+  centered = false,
   returnFocusTo,
   children,
 }: {
@@ -58,12 +59,14 @@ export function ResponsiveDialog({
   cancel?: boolean;
   /** A dialog of a wider frame on desktop, for a long review (a phone's sheet is the screen's width either way). */
   wide?: boolean;
+  /** A centred popup on every screen, a phone's too, never the bottom sheet. */
+  centered?: boolean;
   /** The button that opened it, which takes the focus back when it closes. */
   returnFocusTo?: ReturnFocusTo | undefined;
   children: ReactNode;
 }) {
   const t = useTranslations("common");
-  const wide = useWideScreen();
+  const wide = useWideScreen() || centered;
   const changeOpen = (next: boolean) => {
     if (next || !busy) onOpenChange(next);
   };
