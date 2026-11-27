@@ -469,6 +469,16 @@ describe("the one agent's live turn", () => {
     expect(await late.outbound()).toEqual([]);
   });
 
+  it("answers when the customer's later line was deleted for everyone", async () => {
+    // They wrote again and deleted it: the line the turn answers is still their newest, as the reply job reads it.
+    const on = await world();
+    const deleted = await on.writes("Hy any trip available", -30);
+    await on.inOrg((tx) => tx.whatsappMessage.update({ where: { id: deleted }, data: { revokedAt: liveAt(-10) } }));
+    on.model.answer({ text: priceWords });
+    expect(await on.turn()).toBe("replied");
+    expect((await on.outbound()).map((message) => message.body)).toEqual([priceWords]);
+  });
+
   it("sends nothing when the model fails, for the worker to try again", async () => {
     const on = await world();
     on.model.answer({ ok: false, reason: "unavailable" });
