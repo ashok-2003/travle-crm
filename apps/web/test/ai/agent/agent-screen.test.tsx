@@ -62,6 +62,11 @@ describe("the AI agent page's header", () => {
     expect(await screen.findByRole("link", { name: "Setup · 4 of 7" })).toHaveAttribute("href", "/ai-agent/setup");
   });
 
+  it("makes Setup the main button", async () => {
+    await open("/ai-agent");
+    expect(await screen.findByRole("link", { name: "Setup · 4 of 7" })).toHaveAttribute("data-variant", "default");
+  });
+
   it("reads plain Setup once every step is done", async () => {
     api(checklist(7));
     await open("/ai-agent");

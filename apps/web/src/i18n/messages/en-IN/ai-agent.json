@@ -123,9 +123,9 @@
         "todo": "Answer the questions customers ask"
       },
       "basics": {
-        "title": "Agent name and tone",
-        "done": "Name and tone chosen",
-        "todo": "Choose a name and a tone"
+        "title": "Agent name",
+        "done": "Name chosen",
+        "todo": "Choose the agent's name"
       },
       "ads": {
         "title": "Ads",
@@ -177,20 +177,16 @@
       "saved": "Answers saved"
     },
     "basics": {
-      "loading": "Loading the name and tone",
-      "loadFailed": "The name and tone didn't load.",
+      "loading": "Loading the name",
+      "loadFailed": "The name didn't load.",
       "agentName": "Agent name",
       "namePlaceholder": "{agency} team",
-      "tone": "Tone",
-      "friendly": "Friendly",
-      "professional": "Professional",
-      "save": "Save name and tone",
+      "save": "Save name",
       "saving": "Saving",
-      "saved": "Name and tone saved",
+      "saved": "Name saved",
       "problems": {
         "required": "Fill this in",
-        "agentName": "Use up to 80 characters",
-        "tone": "Choose a tone"
+        "agentName": "Use up to 80 characters"
       }
     },
     "ads": {

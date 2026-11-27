@@ -155,7 +155,7 @@
       "packages": "packages the AI can sell",
       "payment": "payment QR",
       "answers": "answers to the fixed questions",
-      "basics": "agent name and tone",
+      "basics": "agent name",
       "ads": "ad links"
     },
     "answering": "Ready to answer",

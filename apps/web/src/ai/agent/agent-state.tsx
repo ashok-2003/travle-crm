@@ -40,7 +40,7 @@ export function SetupButton() {
   const setup = useAgentSetup().data;
   const progress = setup === undefined ? null : setupProgress(setup.steps);
   return (
-    <Button variant="outline" asChild>
+    <Button asChild>
       <Link href={routes.aiAgentSetup}>
         {progress === null || progress.done === progress.total ? t("done") : t("progress", progress)}
       </Link>
