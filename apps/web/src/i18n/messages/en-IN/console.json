@@ -92,6 +92,10 @@
       "workerStalled": {
         "title": "The worker isn't taking jobs",
         "meaning": "The worker didn't answer the console's ping. Follow-ups, WhatsApp replies, the AI and emails wait until it runs again."
+      },
+      "whatsappRefused": {
+        "title": "MSG91 is refusing WhatsApp messages",
+        "meaning": "MSG91 refused messages the AI or the team sent through the app, for the reason shown. For insufficient balance, recharge MSG91's wallet. Customers don't get them; the phone app's own messages still go."
       }
     }
   }

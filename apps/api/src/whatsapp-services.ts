@@ -4,6 +4,7 @@ import type { Database } from "@travel-crm/db";
 import type { Files } from "@travel-crm/domain/files";
 import type { Identity } from "@travel-crm/domain/identity";
 import type { InboxDependencies } from "@travel-crm/domain/inbox";
+import type { IncidentReporter } from "@travel-crm/domain/jobs";
 import type { RateLimiter } from "@travel-crm/domain/rate-limits";
 import type { SubscriptionAccess } from "@travel-crm/domain/subscriptions";
 import type { JobQueue } from "@travel-crm/integrations/jobs";
@@ -40,6 +41,8 @@ export function inboxDependenciesOf(
     limiter: Pick<RateLimiter, "hit">;
     identity: Pick<Identity, "firstOwner" | "leadWorkers" | "organizationProfile" | "membersHolding">;
     subscriptions: Pick<SubscriptionAccess, "entitlementsOf">;
+    /** The webhook work tells the console when MSG91 refuses our sends (incidents.ts). */
+    incidents?: IncidentReporter | null;
   },
 ): InboxDependencies {
   return {
