@@ -61,8 +61,14 @@ function BillingImage({
 
   const choose = (file: File) => {
     setProblem(null);
-    if (!isImageType(file.type)) { setProblem("type"); return; }
-    if (file.size === 0 || file.size > MAX_BILLING_IMAGE_BYTES) { setProblem("size"); return; }
+    if (!isImageType(file.type)) {
+      setProblem("type");
+      return;
+    }
+    if (file.size === 0 || file.size > MAX_BILLING_IMAGE_BYTES) {
+      setProblem("size");
+      return;
+    }
     upload.mutate(
       { file, contentType: file.type },
       {
