@@ -28,7 +28,8 @@ export interface PlatformInvoiceData {
   /** "Rupees Ten Thousand Only". */
   totalInWords: string;
   /** How to pay, a labelled row for each detail the firm has given ("Account number"); null when it has given none. */
-  payment: { rows: readonly { label: string; value: string }[] } | null;
+  /** `mono` for the figures (account number, IFSC, UPI ID); names (account name, bank) read in the body font. */
+  payment: { rows: readonly { label: string; value: string; mono?: boolean | undefined }[] } | null;
   notes?: string | undefined;
   /** The firm's logo, drawn in a box 48 pt high beside its name, when set. */
   logo?: PlatformInvoiceImage | undefined;
