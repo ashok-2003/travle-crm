@@ -15,8 +15,8 @@ export type LifecycleAccess = z.infer<typeof lifecycleAccess>;
 
 /**
  * What a subscription costs per billing cycle, in paise: the plan's flat price (or the agreed one) and the extra seats
- * at the plan's seat price, before GST; then GST at 18 % apart, as Indian buyers expect "+18% GST": CGST and SGST at
- * 9 % each, rounded on their own as the kernel's GST engine does, so the halves always add up to `gstPaise`.
+ * at the plan's seat price, before GST; then GST apart (none while the policy's rate is 0; at 18 %, CGST and SGST at
+ * 9 % each), rounded on their own as the kernel's GST engine does, so the halves always add up to `gstPaise`.
  */
 export const subscriptionPrice = z.object({
   cycle: billingCycle,

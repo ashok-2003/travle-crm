@@ -17,7 +17,7 @@ import {
 } from "../identity/index.js";
 import { addDays, calendarDateIn, DomainError, platformActor } from "../kernel/index.js";
 import { saveOrganizationProfile } from "../profile/index.js";
-import { startSubscription } from "../subscriptions/index.js";
+import { planPriceFor, startSubscription } from "../subscriptions/index.js";
 import { markOrganizationBegun } from "../usage/index.js";
 import { hashPassword } from "./password-hash.js";
 import { recordPlatformAudit } from "./platform-log.js";
@@ -47,10 +47,16 @@ export async function createVipInvites(
   return services.platformDb.transaction(async (tx) => {
     const plan = await tx.plan.findUnique({
       where: { id: input.planId },
-      select: { archivedAt: true, forSale: true, monthlyPricePaise: true, yearlyPricePaise: true },
+      select: {
+        archivedAt: true,
+        forSale: true,
+        monthlyPricePaise: true,
+        quarterlyPricePaise: true,
+        yearlyPricePaise: true,
+      },
     });
     if (plan?.archivedAt !== null || !plan.forSale) throw notFound();
-    const priced = input.billingCycle === "monthly" ? plan.monthlyPricePaise : plan.yearlyPricePaise;
+    const priced = planPriceFor(plan, input.billingCycle);
     if (priced === null)
       throw new DomainError("VALIDATION", "PLAN_NOT_SOLD_THAT_WAY", "The plan isn't sold on that billing cycle");
     for (const row of input.rows) {

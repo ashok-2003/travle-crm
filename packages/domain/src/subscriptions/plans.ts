@@ -13,6 +13,7 @@ export function planColumns<Fields extends Omit<CreatePlanInput, "key">>(fields:
   return {
     ...fields,
     extraSeatMonthlyPricePaise: fields.extraSeatMonthlyPricePaise ?? null,
+    extraSeatQuarterlyPricePaise: fields.extraSeatQuarterlyPricePaise ?? null,
     extraSeatYearlyPricePaise: fields.extraSeatYearlyPricePaise ?? null,
     storageLimitBytes: BigInt(fields.storageLimitBytes),
   };
@@ -47,7 +48,7 @@ export async function updatePlan(
   await tx.$queryRaw`SELECT 1 FROM "plan" WHERE id = ${input.planId}::uuid FOR NO KEY UPDATE`;
   const before = await findPlan(tx, input.planId);
   const { planId, ...fields } = input;
-  for (const cycle of ["monthly", "yearly"] as const) {
+  for (const cycle of ["monthly", "quarterly", "yearly"] as const) {
     if (planPriceFor(before, cycle) !== null && planPriceFor(fields, cycle) === null) {
       await assertNoneOnCycle(tx, planId, cycle);
     }

@@ -9,7 +9,7 @@ import { agentSetupOf } from "../agent-setup.js";
 import { autopilotOf, type AutopilotRow } from "../autopilot.js";
 import { chatRowOf, mayWrite, repliesToday, type ChatRow } from "../may-write.js";
 import { aiEnabled } from "../settings.js";
-import { MONTHLY_AI_LIMIT, usedThisMonth } from "../usage.js";
+import { monthlyAiLimitOf, usedThisMonth } from "../usage.js";
 import { markedNotALead } from "./open-lead.js";
 import type { LiteOutcome, LiteTurnInput } from "./types.js";
 
@@ -79,7 +79,7 @@ export async function turnGates(
   if (!(await agentSetupOf(tx, input.organizationId, today, sellable)).ready) return "not_ready";
   const passed = { settings, chat, timeZone, today, sellable };
   // Each model call reserves its own call later; here only a month already full ends the turn.
-  const monthFull = (await usedThisMonth(tx, now, timeZone)) >= MONTHLY_AI_LIMIT;
+  const monthFull = (await usedThisMonth(tx, now, timeZone)) >= (await monthlyAiLimitOf(tx));
   if (ending) return monthFull ? "limit" : passed;
   const state = await tx.aiChat.findFirst({
     where: { conversationId: chat.id },

@@ -29,7 +29,7 @@ export { placeholderPlans, seedPlaceholderPlans } from "./placeholder-plans.js";
 export { planLimits, type PlanLimits } from "./plan-limits.js";
 export { archivePlan, createPlan, DEMO_PLAN_KEY, findPlan, listPlans, updatePlan } from "./plans.js";
 export { getSubscriptionPolicy, samePolicy, setSubscriptionPolicy } from "./policy.js";
-export { assertSoldOn, planPriceFor, SUBSCRIPTION_GST_BASIS_POINTS, subscriptionPriceOf } from "./pricing.js";
+export { assertSoldOn, planPriceFor, subscriptionPriceOf } from "./pricing.js";
 export {
   assertLifecycleAllows,
   assertModulesOnPlan,

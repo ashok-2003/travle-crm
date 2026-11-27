@@ -17,7 +17,9 @@ const starter = {
   key: "starter",
   name: "Starter",
   monthlyPricePaise: 250_000,
+  quarterlyPricePaise: null,
   yearlyPricePaise: null,
+  aiCreditsPerMonth: 10_000,
   seatLimit: 5,
   whatsappNumberLimit: 1,
   storageLimitBytes: 5_000_000_000,
@@ -38,6 +40,18 @@ describe("plan contracts", () => {
     const withSeats = { ...starter, extraSeatMonthlyPricePaise: 29_900, extraSeatYearlyPricePaise: null };
     expect(createPlanInput.parse(withSeats)).toEqual(withSeats);
     expect(createPlanInput.safeParse({ ...starter, extraSeatMonthlyPricePaise: -1 }).success).toBe(false);
+  });
+
+  it("takes a plan priced for 3 months alone, and AI credits from 1 to 1,000,000", () => {
+    const quarterly = { ...starter, monthlyPricePaise: null, quarterlyPricePaise: 1_199_900 };
+    expect(createPlanInput.parse(quarterly)).toEqual(quarterly);
+    expect(createPlanInput.safeParse({ ...quarterly, extraSeatQuarterlyPricePaise: 80_000 }).success).toBe(true);
+    for (const aiCreditsPerMonth of [0, 1_000_001, 2.5]) {
+      expect(createPlanInput.safeParse({ ...starter, aiCreditsPerMonth }).success).toBe(false);
+    }
+    const { aiCreditsPerMonth, ...without } = starter;
+    expect(aiCreditsPerMonth).toBe(10_000);
+    expect(createPlanInput.safeParse(without).success).toBe(false);
   });
 
   it("refuses bad keys, limits and modules, and unknown fields", () => {
@@ -98,9 +112,15 @@ describe("subscription contracts", () => {
   });
 
   it("holds the trial's days and the unpaid states' days, each within bounds", () => {
-    const policy = { trialDays: 7, pastDueDays: 7, readOnlyDays: 14 };
+    const policy = { trialDays: 7, pastDueDays: 7, readOnlyDays: 14, subscriptionGstBasisPoints: 0 };
     expect(setSubscriptionPolicyInput.parse(policy)).toEqual(policy);
+    expect(setSubscriptionPolicyInput.safeParse({ ...policy, subscriptionGstBasisPoints: 1800 }).success).toBe(true);
+    for (const subscriptionGstBasisPoints of [500, -1, 1801]) {
+      expect(setSubscriptionPolicyInput.safeParse({ ...policy, subscriptionGstBasisPoints }).success).toBe(false);
+    }
     expect(setSubscriptionPolicyInput.safeParse({ ...policy, trialDays: 0 }).success).toBe(false);
-    expect(setSubscriptionPolicyInput.safeParse({ pastDueDays: 7, readOnlyDays: 14 }).success).toBe(false);
+    expect(
+      setSubscriptionPolicyInput.safeParse({ pastDueDays: 7, readOnlyDays: 14, subscriptionGstBasisPoints: 0 }).success,
+    ).toBe(false);
   });
 });

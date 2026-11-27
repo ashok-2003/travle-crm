@@ -1,23 +1,34 @@
-// How many AI credits (one per AI call) an agency has used this month, against its limit (a named constant): every AI feature (a suggested
-// reply, a lead's score) shares it. The count is one row a month, raised in a single statement that refuses to pass the limit,
-// so two members asking at once never go over it.
+// How many AI credits (one per AI call) an agency has used this month, against its plan's limit: every AI feature (a
+// suggested reply, a lead's score) shares it. The count is one row a month, raised in a single statement that refuses
+// to pass the limit, so two members asking at once never go over it.
 import type { OrgTx } from "@travel-crm/db";
 import { monthStartOf } from "../inbox/index.js";
 
 /**
- * AI credits an agency may use in a month (one per AI call), whatever its plan: shared by every AI feature and the autopilot
- * (the owner: 8,000 on 2026-11-06, 10,000 on 2026-11-22, when calls were renamed credits for the first paid plans).
+ * The AI credits a month (one per AI call) an agency has without a plan to say otherwise, and what every plan made
+ * before plans carried their own has (the owner: 8,000 on 2026-11-06, 10,000 on 2026-11-22).
  */
 export const MONTHLY_AI_LIMIT = 10_000;
+
+/**
+ * The credits a month the organization's plan gives, shared by every AI feature and the autopilot; an organization
+ * without a subscription keeps the default. Read in the transaction that spends or shows them, so a plan change counts
+ * at once.
+ */
+export async function monthlyAiLimitOf(tx: OrgTx): Promise<number> {
+  const row = await tx.subscription.findFirst({ select: { plan: { select: { aiCreditsPerMonth: true } } } });
+  return row?.plan.aiCreditsPerMonth ?? MONTHLY_AI_LIMIT;
+}
 
 /** Takes one of this month's calls; false when none is left. */
 export async function reserveAiCall(tx: OrgTx, now: Date, timeZone: string): Promise<boolean> {
   const month = monthStartOf(now, timeZone);
+  const limit = await monthlyAiLimitOf(tx);
   const rows = await tx.$queryRaw<{ calls: number }[]>`
     INSERT INTO ai_usage (id, month, calls)
     VALUES (gen_random_uuid(), ${month}::date, 1)
     ON CONFLICT (organization_id, month)
-    DO UPDATE SET calls = ai_usage.calls + 1 WHERE ai_usage.calls < ${MONTHLY_AI_LIMIT}
+    DO UPDATE SET calls = ai_usage.calls + 1 WHERE ai_usage.calls < ${limit}
     RETURNING calls`;
   return rows.length > 0;
 }

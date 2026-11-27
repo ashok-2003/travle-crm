@@ -15,9 +15,12 @@ export interface PlanRow {
   key: string;
   name: string;
   monthlyPricePaise: number | null;
+  quarterlyPricePaise: number | null;
   yearlyPricePaise: number | null;
   extraSeatMonthlyPricePaise: number | null;
+  extraSeatQuarterlyPricePaise: number | null;
   extraSeatYearlyPricePaise: number | null;
+  aiCreditsPerMonth: number;
   seatLimit: number;
   whatsappNumberLimit: number;
   storageLimitBytes: bigint;
@@ -32,9 +35,12 @@ export function planSummaryOf(row: PlanRow): PlanSummary {
     key: row.key,
     name: row.name,
     monthlyPricePaise: row.monthlyPricePaise,
+    quarterlyPricePaise: row.quarterlyPricePaise,
     yearlyPricePaise: row.yearlyPricePaise,
     extraSeatMonthlyPricePaise: row.extraSeatMonthlyPricePaise,
+    extraSeatQuarterlyPricePaise: row.extraSeatQuarterlyPricePaise,
     extraSeatYearlyPricePaise: row.extraSeatYearlyPricePaise,
+    aiCreditsPerMonth: row.aiCreditsPerMonth,
     seatLimit: row.seatLimit,
     whatsappNumberLimit: row.whatsappNumberLimit,
     // Limits are at most 10 TB (the contract's), well within a safe integer.

@@ -26,10 +26,14 @@ export function subscriptionDetailsOf(row: StoredSubscription, today: Subscripti
     extraSeats: row.extraSeats,
     customPricePaise: row.customPricePaise,
     extraModules: modulesOf(row.extraModules),
-    price: subscriptionPriceOf(row.plan, {
-      billingCycle: cycle,
-      extraSeats: row.extraSeats,
-      customPricePaise: row.customPricePaise,
-    }),
+    price: subscriptionPriceOf(
+      row.plan,
+      {
+        billingCycle: cycle,
+        extraSeats: row.extraSeats,
+        customPricePaise: row.customPricePaise,
+      },
+      today.policy.subscriptionGstBasisPoints,
+    ),
   };
 }

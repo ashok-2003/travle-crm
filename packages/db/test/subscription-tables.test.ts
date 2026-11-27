@@ -65,6 +65,9 @@ describe("subscription tables", () => {
       [{ ...plan(), monthlyPricePaise: null }, "plan_priced"],
       [{ ...plan(), monthlyPricePaise: -1 }, "plan_prices_not_negative"],
       [{ ...plan(), extraSeatYearlyPricePaise: -1 }, "plan_prices_not_negative"],
+      [{ ...plan(), quarterlyPricePaise: -1 }, "plan_prices_not_negative"],
+      [{ ...plan(), extraSeatQuarterlyPricePaise: -1 }, "plan_prices_not_negative"],
+      [{ ...plan(), aiCreditsPerMonth: 0 }, "plan_ai_credits_positive"],
       [{ ...plan(), seatLimit: 0 }, "plan_limits_positive"],
       [{ ...plan(), storageLimitBytes: 0n }, "plan_limits_positive"],
       [{ ...plan(), modules: ["crm", "teleport"] }, "plan_modules_known"],
@@ -72,6 +75,22 @@ describe("subscription tables", () => {
     for (const [bad, constraint] of cases) {
       await expect(platform.plan.create({ data: bad }), constraint).rejects.toThrow(new RegExp(`\\b${constraint}\\b`));
     }
+  });
+
+  it("prices a plan for 3 months alone, and gives every plan 10,000 AI credits unless told otherwise", async () => {
+    const quarterly = await platform.plan.create({
+      data: {
+        ...plan(),
+        key: `quarterly-${randomUUID().slice(0, 8)}`,
+        monthlyPricePaise: null,
+        quarterlyPricePaise: 1_199_900,
+      },
+    });
+    expect(quarterly).toMatchObject({
+      monthlyPricePaise: null,
+      quarterlyPricePaise: 1_199_900,
+      aiCreditsPerMonth: 10_000,
+    });
   });
 
   it("keeps subscriptions in the lifecycle's states, a trial dated and an active one paid through a day", async () => {
@@ -100,6 +119,12 @@ describe("subscription tables", () => {
     await expect(
       platform.subscription.create({ data: { ...base, status: "active", billingCycle: "yearly" } }),
     ).resolves.toMatchObject({ billingCycle: "yearly" });
+    const quarterlyOrganization = await createTestOrganization(platform, "Quarterly checks");
+    await expect(
+      platform.subscription.create({
+        data: { ...base, organizationId: quarterlyOrganization, status: "active", billingCycle: "quarterly" },
+      }),
+    ).resolves.toMatchObject({ billingCycle: "quarterly" });
   });
 
   it("keeps payments positive, voided with a reason, and a provider's once; arrears may be for days already past", async () => {
@@ -129,6 +154,14 @@ describe("subscription tables", () => {
         /subscription_policy_days/,
       );
     }
+    for (const subscriptionGstBasisPoints of [-1, 500, 1801]) {
+      await expect(
+        platform.subscriptionPolicy.update({ where: { id: true }, data: { subscriptionGstBasisPoints } }),
+      ).rejects.toThrow(/subscription_policy_gst/);
+    }
+    expect(await platform.subscriptionPolicy.findUniqueOrThrow({ where: { id: true } })).toMatchObject({
+      subscriptionGstBasisPoints: 0,
+    });
   });
 
   it("makes its isolation fixtures in either order", async () => {

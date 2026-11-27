@@ -17,7 +17,7 @@ import { jsonObjectIn } from "../fill/json.js";
 import { modelRefusal, refuse } from "../refusals.js";
 import { aiEnabled } from "../settings.js";
 import { hashOf } from "../suggest.js";
-import { MONTHLY_AI_LIMIT, recordTokens, releaseAiCall, reserveAiCall, usedThisMonth } from "../usage.js";
+import { monthlyAiLimitOf, recordTokens, releaseAiCall, reserveAiCall, usedThisMonth } from "../usage.js";
 import { managedPrompt } from "../managed-prompt.js";
 import { RATE_SHEET_PROMPT_NAME, rateSheetInstructions, rateSheetPrompt } from "./prompt.js";
 import { RATE_SHEET_PROMPT_TEXT } from "./prompt-text.js";
@@ -123,7 +123,6 @@ export async function readRateSheet(
     questions: [],
     cut: false,
     sources,
-    monthlyLimit: MONTHLY_AI_LIMIT,
   };
   let part: SheetPart | null = null;
   let partIndex = 0;
@@ -131,8 +130,11 @@ export async function readRateSheet(
     const chosen = input.part ?? (source.parts.length === 1 ? 0 : null);
     if (chosen === null) {
       // A big sheet: nothing is read yet. The parts are offered, and no call is used.
-      const used = await db.forOrg(organizationId, (tx) => usedThisMonth(tx, now, checked.timeZone));
-      return { ...empty, parts: labels, part: null, usedThisMonth: used };
+      const month = await db.forOrg(organizationId, async (tx) => ({
+        usedThisMonth: await usedThisMonth(tx, now, checked.timeZone),
+        monthlyLimit: await monthlyAiLimitOf(tx),
+      }));
+      return { ...empty, parts: labels, part: null, ...month };
     }
     part = source.parts[chosen] ?? null;
     if (part === null) throw refuse("RATE_SHEET_PART", "There is no such part of this sheet", "VALIDATION");
@@ -211,7 +213,7 @@ export async function readRateSheet(
       cut: proposed.cut,
       sources,
       usedThisMonth: await usedThisMonth(tx, now, checked.timeZone),
-      monthlyLimit: MONTHLY_AI_LIMIT,
+      monthlyLimit: await monthlyAiLimitOf(tx),
     };
   });
   if (saved === null) throw refuse("RATE_SHEET_NOTHING", "The AI found no rates on this sheet", "VALIDATION");

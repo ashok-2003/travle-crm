@@ -5,7 +5,7 @@ import { aiSettings, type AiSettings, type SaveAiSettingsInput } from "@travel-c
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import { organizationTimeZone, type MemberAccess } from "../identity/index.js";
-import { MONTHLY_AI_LIMIT, usedThisMonth } from "./usage.js";
+import { monthlyAiLimitOf, usedThisMonth } from "./usage.js";
 
 const columns = {
   enabled: true,
@@ -41,7 +41,7 @@ export async function aiSettingsOf(
     fillLeads: row?.fillLeads ?? true,
     writeStyle: row?.writeStyle ?? "warm",
     providerReady: context.providerReady,
-    monthlyLimit: MONTHLY_AI_LIMIT,
+    monthlyLimit: await monthlyAiLimitOf(tx),
     usedThisMonth: await usedThisMonth(tx, context.now, timeZone),
   });
 }
