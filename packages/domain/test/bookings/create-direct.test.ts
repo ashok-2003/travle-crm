@@ -59,6 +59,16 @@ describe("a booking made in one step", () => {
     );
   });
 
+  it("asks nobody to confirm what its maker just confirmed, and fills traveller 1 from the lead", async () => {
+    const bookingId = await make();
+    expect(await world.inOrg((tx) => tx.task.count({ where: { recordId: bookingId } }))).toBe(0);
+    expect(await world.inOrg((tx) => tx.notification.count({ where: { kind: "booking.requested" } }))).toBe(0);
+    const first = await world.inOrg((tx) =>
+      tx.bookingTraveller.findFirstOrThrow({ where: { bookingId, position: 0 }, select: { prefilledFields: true } }),
+    );
+    expect(first.prefilledFields).toContain("name");
+  });
+
   it("is not made twice when the quote.accepted listener runs", async () => {
     const bookingId = await make();
     const { quoteId } = await world.inOrg((tx) => tx.booking.findUniqueOrThrow({ where: { id: bookingId } }));

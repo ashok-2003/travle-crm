@@ -49,10 +49,19 @@ function conditions(access: MemberAccess, input: BookingTablePageInput): Sql {
     ${searchCondition(input.search)}`;
 }
 
-/** What each sort orders by, then the id in the same direction; a trip without a travel date comes last either way. */
-function orderOf(sort: BookingTableSort, direction: "asc" | "desc"): Sql {
+/**
+ * What each sort orders by, then the id in the same direction; a trip without a travel date comes last either way. The
+ * default, "upcoming", is the next trips first (from the agency's today, soonest first), then the past ones (latest
+ * first), then those without a date, whatever the direction.
+ */
+function orderOf(sort: BookingTableSort, direction: "asc" | "desc", today: CalendarDate): Sql {
   const way = direction === "asc" ? sql`ASC` : sql`DESC`;
-  const by: Record<BookingTableSort, Sql> = {
+  if (sort === "upcoming") {
+    return sql`ORDER BY (booking.start_date IS NULL), (booking.start_date < ${today}::date),
+      (CASE WHEN booking.start_date >= ${today}::date THEN booking.start_date END) ASC,
+      booking.start_date DESC, booking.id ASC`;
+  }
+  const by: Record<Exclude<BookingTableSort, "upcoming">, Sql> = {
     travel: sql`booking.start_date ${way} NULLS LAST`,
     customer: sql`person.name ${way}`,
     // What the booking owes, as owedOf says it: a cancelled booking its charge kept.
@@ -77,7 +86,7 @@ async function pageIds(
   today: CalendarDate,
 ): Promise<{ ids: string[]; total: number }> {
   const where = conditions(access, input);
-  const order = orderOf(input.sort, input.direction);
+  const order = orderOf(input.sort, input.direction, today);
   const offset = (input.page - 1) * input.limit;
   if (input.payment === undefined) {
     const [rows, counted] = await Promise.all([

@@ -179,6 +179,28 @@ describe("the bookings table's page", () => {
     expect(await names(seller, { sort: "total", direction: "desc" })).toEqual(["Arjun", "Meera", "Zoya", "Bela"]);
   });
 
+  it("opens on the next trips, then the past ones latest first, then those without a date", async () => {
+    await aTableBooking({ name: "Past early", startDate: "2026-09-01" });
+    await aTableBooking({ name: "Later", startDate: "2026-12-20" });
+    await aTableBooking({ name: "No date", startDate: null });
+    await aTableBooking({ name: "Past late", startDate: "2026-10-20" });
+    await aTableBooking({ name: "Today", startDate: "2026-10-29" });
+    await aTableBooking({ name: "Soon", startDate: "2026-11-02" });
+    const { seller } = world;
+    const order = ["Today", "Soon", "Later", "Past late", "Past early", "No date"];
+    expect(await names(seller, { sort: "upcoming" })).toEqual(order);
+    expect((await page(seller, { sort: "upcoming" })).total).toBe(6);
+    // A header's travel date sort stays plain.
+    expect(await names(seller, { sort: "travel" })).toEqual([
+      "Past early",
+      "Past late",
+      "Today",
+      "Soon",
+      "Later",
+      "No date",
+    ]);
+  });
+
   it("counts every match across its pages and hands each page its own rows", async () => {
     for (let index = 0; index < 27; index += 1) {
       await aTableBooking({ name: `Customer ${String(index).padStart(2, "0")}`, startDate: "2026-12-20" });

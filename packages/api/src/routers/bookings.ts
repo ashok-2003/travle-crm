@@ -94,7 +94,7 @@ const editor = orgProcedure.requires("bookings:view", "bookings:edit");
 // What takes a document number or changes a booking's money is read from the database, never the five-minute session cache.
 const freshEditor = freshProcedure.requires("bookings:view", "bookings:edit");
 // A new booking makes the quote as well as the booking.
-const bookingMaker = freshProcedure.requires("bookings:view", "bookings:edit", "quotes:edit");
+const bookingMaker = freshProcedure.requires("bookings:view", "bookings:create", "quotes:create", "quotes:edit");
 const paymentChecker = freshProcedure.requires("bookings:view", "quotes:record_payments");
 
 type BookingContext = Pick<Context, "db" | "files" | "identity" | "profiles" | "appUrl"> & { member: MemberAccess };

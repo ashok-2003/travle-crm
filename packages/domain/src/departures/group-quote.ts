@@ -16,7 +16,8 @@ import {
   type QuoteContext,
 } from "../quotes/index.js";
 import { getLead } from "../crm/index.js";
-import { countsOf, dayOf, findDeparture, ownPricesOf, seatsSoldAndHeld } from "./rows.js";
+import { assertDepartureTakes } from "./assert-takes.js";
+import { dayOf, findDeparture, ownPricesOf } from "./rows.js";
 
 /** The words on a quote line. The domain has no translations, so a line is stored in English. */
 export const roomLabel: Record<RoomType, string> = {
@@ -53,15 +54,6 @@ export async function makeGroupQuoteFor(
   const row = await findPackage(tx, input.packageId);
   const departure = await findDeparture(tx, input.departureId);
   const startDate = parseCalendarDate(dayOf(departure.startDate));
-  const cutoff = departure.cutoffOn === null ? null : dayOf(departure.cutoffOn);
-  if (
-    departure.templateId !== row.id ||
-    departure.status !== "open" ||
-    startDate < today ||
-    (cutoff !== null && cutoff < today)
-  ) {
-    throw new DomainError("CONFLICT", "DEPARTURE_NOT_OPEN", "This departure is not open for booking");
-  }
   // For callers that skip the contract: two lines of one room type are one line.
   if (new Set(input.rooms.map((room) => room.roomType)).size !== input.rooms.length) {
     throw new DomainError("VALIDATION", "DUPLICATE_ROOM_TYPE", "Each room type may appear once");
@@ -72,10 +64,7 @@ export async function makeGroupQuoteFor(
   if (children === people) {
     throw new DomainError("VALIDATION", "CHILDREN_NEED_ADULT", "Children travel with at least one adult");
   }
-  const found = (await seatsSoldAndHeld(tx, [departure.id], context.now)).get(departure.id) ?? { sold: 0, held: 0 };
-  if (people > countsOf(departure.seatsTotal, found.sold, found.held).free) {
-    throw new DomainError("CONFLICT", "NOT_ENOUGH_SEATS", "There aren't that many seats free on this departure");
-  }
+  await assertDepartureTakes(tx, departure, row.id, people, today, context.now);
   const offered = row.roomTypes as RoomType[];
   const priced = priceOn(
     startDate,

@@ -7,7 +7,7 @@ import { recordId } from "../identity/fields.js";
 import { calendarDate, sortDirection, tablePage, tablePageSize } from "../kernel/index.js";
 import { departureRef } from "../departures/departures.js";
 import { roomRequest } from "../departures/rooming.js";
-import { installment, payment, quoteTaxRate } from "../quotes/quotes.js";
+import { installment, MAX_QUOTE_PAISE, payment, quoteTaxRate } from "../quotes/quotes.js";
 
 export const bookingStatuses = ["requested", "confirmed", "cancelled", "completed"] as const;
 export const bookingStatus = z.enum(bookingStatuses);
@@ -64,7 +64,7 @@ export const createBookingInput = z.strictObject({
   startDate: calendarDate.nullable(),
   adults: z.int().min(1).max(500),
   children: z.int().min(0).max(500),
-  totalPaise: paise.min(1),
+  totalPaise: paise.min(1).max(MAX_QUOTE_PAISE),
   taxRateBasisPoints: quoteTaxRate,
 });
 export type CreateBookingInput = z.infer<typeof createBookingInput>;
@@ -116,8 +116,12 @@ export type BookingSummary = z.infer<typeof bookingSummary>;
 export const bookingPage = z.object({ items: z.array(bookingSummary), nextCursor: recordId.nullable() });
 export type BookingPage = z.infer<typeof bookingPage>;
 
-/** What the table's headers sort by: the travel date (soonest first, no date last), the customer, the total. */
-export const bookingTableSorts = ["travel", "customer", "total"] as const;
+/**
+ * What the table sorts by. "upcoming" is the default (no header): trips from the agency's today soonest first, then past
+ * trips most recent first, then bookings without a date. "travel" is the header's plain order by the travel date (no date
+ * last), then the customer and the total.
+ */
+export const bookingTableSorts = ["upcoming", "travel", "customer", "total"] as const;
 export const bookingTableSort = z.enum(bookingTableSorts);
 export type BookingTableSort = z.infer<typeof bookingTableSort>;
 
@@ -139,7 +143,7 @@ export const bookingTablePageInput = z.strictObject({
   travelTo: calendarDate.optional(),
   ownerUserId: recordId.optional(),
   payment: bookingPaymentState.optional(),
-  sort: bookingTableSort.default("travel"),
+  sort: bookingTableSort.default("upcoming"),
   direction: sortDirection.default("asc"),
 });
 export type BookingTablePageInput = z.infer<typeof bookingTablePageInput>;

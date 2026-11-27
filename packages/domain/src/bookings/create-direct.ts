@@ -5,11 +5,11 @@ import type { CreateBookingInput } from "@travel-crm/contracts/bookings";
 import type { OrgTx } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import { advanceLeadStage, getLead } from "../crm/index.js";
-import { countsOf, findDeparture, seatsSoldAndHeld } from "../departures/index.js";
+import { assertDepartureTakes, findDeparture } from "../departures/index.js";
 import type { MemberAccess } from "../identity/index.js";
 import { organizationTimeZone } from "../identity/index.js";
 import { publishEvent } from "../jobs/index.js";
-import { calendarDateIn, DomainError } from "../kernel/index.js";
+import { calendarDateIn } from "../kernel/index.js";
 import { createQuoteFor, daysOf, findPackage, quoteMoney, type QuoteContext } from "../quotes/index.js";
 import { confirmBookingAs } from "./confirm.js";
 import { createBookingFromQuote } from "./create-booking.js";
@@ -41,21 +41,8 @@ export async function createBookingDirect(
   if (input.departureId !== null) {
     const departure = await findDeparture(tx, input.departureId);
     const today = calendarDateIn(now, await organizationTimeZone(tx, access.organizationId));
-    const day = dayOf(departure.startDate);
-    const cutoff = departure.cutoffOn === null ? "" : dayOf(departure.cutoffOn);
-    if (
-      departure.templateId !== row?.id ||
-      departure.status !== "open" ||
-      day < today ||
-      (cutoff !== "" && cutoff < today)
-    ) {
-      throw new DomainError("CONFLICT", "DEPARTURE_NOT_OPEN", "This departure is not open for booking");
-    }
-    const found = (await seatsSoldAndHeld(tx, [departure.id], now)).get(departure.id) ?? { sold: 0, held: 0 };
-    if (input.adults + input.children > countsOf(departure.seatsTotal, found.sold, found.held).free) {
-      throw new DomainError("CONFLICT", "NOT_ENOUGH_SEATS", "There aren't that many seats free on this departure");
-    }
-    startDate = day;
+    await assertDepartureTakes(tx, departure, row?.id ?? null, input.adults + input.children, today, now);
+    startDate = dayOf(departure.startDate);
     departureId = departure.id;
   }
   const subtotal = subtotalFor(input, context.supplierStateCode ?? "");
@@ -103,7 +90,7 @@ export async function createBookingDirect(
   });
   const bookingId = await createBookingFromQuote(
     tx,
-    { organizationId: access.organizationId, quoteId: made.id, confirmed: false },
+    { organizationId: access.organizationId, quoteId: made.id, confirmed: false, askToConfirm: false },
     now,
   );
   if (bookingId === null) throw new Error("The accepted quote made no booking");

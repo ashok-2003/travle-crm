@@ -24,6 +24,7 @@ export {
   OVERBOOKED_KIND,
   releaseHold,
 } from "./holds.js";
+export { assertDepartureTakes } from "./assert-takes.js";
 export { makeGroupQuote, makeGroupQuoteFor } from "./group-quote.js";
 export {
   openDepartureDetails,
