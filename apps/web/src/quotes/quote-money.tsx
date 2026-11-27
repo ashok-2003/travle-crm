@@ -15,12 +15,22 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { Separator } from "@/components/ui/separator";
+import { mayBeMissing } from "@/lib/older-api";
 import { cn } from "@/lib/utils";
 import { useAgencyToday } from "@/packages/use-agency-today";
 import { formatCalendarDay } from "@/lib/format";
 import { useHolds } from "@/session/me-context";
 import { AddInstallmentDialog, RecordPaymentDialog } from "./money-dialogs";
 import { useOpenDocument, useQuoteChanges } from "./use-quotes";
+
+type Due = QuoteDetail["installments"][number];
+
+/** The api's state for a payment due; an older api sends none, and then the day is compared with the agency's today. */
+export function dueState(due: Due, today: string): "paid" | "due" | "overdue" {
+  const sent = mayBeMissing(due.state);
+  if (sent !== undefined) return sent;
+  return due.paid ? "paid" : due.dueOn < today ? "overdue" : "due";
+}
 
 export function QuoteMoney({
   quote,
@@ -115,9 +125,9 @@ export function QuoteMoney({
                 </ItemContent>
                 <ItemActions>
                   <span className="numbers">{rupees(due.amountPaise)}</span>
-                  {due.paid ? (
+                  {dueState(due, today) === "paid" ? (
                     <StatusBadge tone="good">{t("paidBadge")}</StatusBadge>
-                  ) : due.dueOn < today ? (
+                  ) : dueState(due, today) === "overdue" ? (
                     <StatusBadge tone="bad">{t("overdue")}</StatusBadge>
                   ) : (
                     <StatusBadge tone="attention">{t("toPay")}</StatusBadge>

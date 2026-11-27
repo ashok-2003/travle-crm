@@ -183,6 +183,8 @@ export const installment = z.object({
   dueOn: calendarDate,
   /** Covered by what was paid, in due order. */
   paid: z.boolean(),
+  /** Paid, due or overdue (before the agency's today, not yet covered), worked out once by the domain. */
+  state: z.enum(["paid", "due", "overdue"]),
 });
 export type Installment = z.infer<typeof installment>;
 

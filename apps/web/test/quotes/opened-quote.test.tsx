@@ -1,5 +1,6 @@
 // The opened quote read at a glance: its trip big, its price before its plan, the plan as boxes, points that are
 // ticked and crossed, payments in the colours people read, a green departure, and the "sent, so fixed" note last.
+import type { QuoteDetail } from "@travel-crm/contracts/quotes";
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -101,17 +102,27 @@ describe("an opened sent quote", () => {
     expect(badge.className).toMatch(/text-status-good-ink/);
   });
 
-  it("marks an installment past its date, still unpaid, as overdue in the bad tone", async () => {
+  it("shows the api's state: overdue in the bad tone, due as to pay", async () => {
+    // The dates say the opposite, so the badges can only come from the api's state.
     await open({
       totals: money(0, 5_250_000),
       installments: [
-        { id: "i1", label: "Advance", amountPaise: 1_000_000, dueOn: "2020-01-01", paid: false },
-        { id: "i2", label: "Balance", amountPaise: 4_250_000, dueOn: "2999-01-01", paid: false },
+        { id: "i1", label: "Advance", amountPaise: 1_000_000, dueOn: "2999-01-01", paid: false, state: "overdue" },
+        { id: "i2", label: "Balance", amountPaise: 4_250_000, dueOn: "2020-01-01", paid: false, state: "due" },
       ],
     });
     const late = await screen.findByText(words.money.overdue);
     expect(late.className).toMatch(/text-status-bad-ink/);
     expect(screen.getAllByText(words.money.toPay)).toHaveLength(1);
+  });
+
+  it("falls back to the day when an older api sends no state", async () => {
+    const older = { id: "i1", label: "Advance", amountPaise: 1_000_000, dueOn: "2020-01-01", paid: false };
+    await open({
+      totals: money(0, 5_250_000),
+      installments: [older as unknown as QuoteDetail["installments"][number]],
+    });
+    expect(await screen.findByText(words.money.overdue)).toBeTruthy();
   });
 
   it("shows the departure in green with its day, seats left of total, pickup point and a link", async () => {

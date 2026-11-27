@@ -87,6 +87,8 @@ export const bookingSummary = z.object({
   pendingClaims: z.int(),
   /** What is owed back after a cancellation, until it is marked refunded. */
   refundDuePaise: paise,
+  /** Overdue wins over part paid and nothing; paid only when the balance is 0. */
+  paymentState: z.enum(["paid", "part_paid", "nothing", "overdue"]),
 });
 export type BookingSummary = z.infer<typeof bookingSummary>;
 

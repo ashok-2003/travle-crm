@@ -14,8 +14,9 @@ import {
 } from "@travel-crm/contracts/bookings";
 import type { OrgTx } from "@travel-crm/db";
 import { getLead } from "../crm/index.js";
-import type { MemberAccess } from "../identity/index.js";
-import { coveredInstallments } from "../quotes/index.js";
+import { organizationTimeZone, type MemberAccess } from "../identity/index.js";
+import { calendarDateIn, type CalendarDate } from "../kernel/index.js";
+import { dueStatesOf, installmentsOf, paymentStateOf } from "../quotes/index.js";
 import { detailsCutoffOf, travellerProgress } from "./travellers.js";
 import { snapshotOf } from "./policy.js";
 import { dayOf, findBookingInScope, paidOnQuote, type BookingRow } from "./rows.js";
@@ -34,6 +35,20 @@ const owedOf = (booking: Pick<BookingRow, "status" | "chargePaise"> & { quote: {
 function scopeOf(access: MemberAccess) {
   const scope = access.permissions.scopeOf("bookings:view");
   return scope === "own" ? { lead: { ownerUserId: access.userId } } : {};
+}
+
+/** Whether a payment due is overdue at the agency's today, after what was paid covers the earliest. */
+function anyOverdue(
+  dues: readonly { id: string; amountPaise: bigint; dueOn: Date }[],
+  paidPaise: number,
+  today: CalendarDate,
+): boolean {
+  const states = dueStatesOf(
+    dues.map((due) => ({ id: due.id, amountPaise: Number(due.amountPaise), dueOn: dayOf(due.dueOn) })),
+    paidPaise,
+    today,
+  );
+  return [...states.values()].includes("overdue");
 }
 
 export async function listBookings(tx: OrgTx, access: MemberAccess, input: ListBookingsInput): Promise<BookingPage> {
@@ -63,11 +78,16 @@ export async function listBookings(tx: OrgTx, access: MemberAccess, input: ListB
   const page = rows.slice(0, BOOKINGS_PAGE_SIZE);
   const ids = page.map((row) => row.id);
   const quoteIds = page.map((row) => row.quoteId);
-  const [paid, travellers, completes, claims, refunds] = await Promise.all([
+  const today = calendarDateIn(new Date(), await organizationTimeZone(tx, access.organizationId));
+  const [paid, dues, travellers, completes, claims, refunds] = await Promise.all([
     tx.quotePayment.groupBy({
       by: ["quoteId"],
       where: { quoteId: { in: quoteIds }, voidedAt: null },
       _sum: { amountPaise: true },
+    }),
+    tx.quoteInstallment.findMany({
+      where: { quoteId: { in: quoteIds } },
+      select: { id: true, quoteId: true, amountPaise: true, dueOn: true },
     }),
     tx.bookingTraveller.groupBy({ by: ["bookingId"], where: { bookingId: { in: ids } }, _count: { _all: true } }),
     tx.bookingTraveller.groupBy({
@@ -88,6 +108,7 @@ export async function listBookings(tx: OrgTx, access: MemberAccess, input: ListB
   const items: BookingSummary[] = page.map((row) => {
     const paidPaise = Number(paid.find((entry) => entry.quoteId === row.quoteId)?._sum.amountPaise ?? 0n);
     const totalPaise = owedOf(row);
+    const balancePaise = Math.max(0, totalPaise - paidPaise);
     return {
       id: row.id,
       number: row.number,
@@ -101,7 +122,18 @@ export async function listBookings(tx: OrgTx, access: MemberAccess, input: ListB
       departure: departureRefOf(row.departure),
       totalPaise,
       paidPaise,
-      balancePaise: Math.max(0, totalPaise - paidPaise),
+      balancePaise,
+      paymentState: paymentStateOf({
+        paidPaise,
+        balancePaise,
+        anyOverdue:
+          row.status !== "cancelled" &&
+          anyOverdue(
+            dues.filter((due) => due.quoteId === row.quoteId),
+            paidPaise,
+            today,
+          ),
+      }),
       travellersTotal: travellers.find((entry) => entry.bookingId === row.id)?._count._all ?? 0,
       travellersComplete: completes.find((entry) => entry.bookingId === row.id)?._count._all ?? 0,
       pendingClaims: claims.find((entry) => entry.bookingId === row.id)?._count._all ?? 0,
@@ -197,6 +229,8 @@ export async function getBooking(tx: OrgTx, access: MemberAccess, bookingId: str
       })
     ).map((file) => [file.id, file.id]),
   );
+  const today = calendarDateIn(new Date(), await organizationTimeZone(tx, access.organizationId));
+  const installments = installmentsOf(dues, paidPaise, today);
   return bookingDetail.parse({
     id: booking.id,
     number: booking.number,
@@ -211,6 +245,11 @@ export async function getBooking(tx: OrgTx, access: MemberAccess, bookingId: str
     totalPaise: owed,
     paidPaise,
     balancePaise: Math.max(0, owed - paidPaise),
+    paymentState: paymentStateOf({
+      paidPaise,
+      balancePaise: Math.max(0, owed - paidPaise),
+      anyOverdue: booking.status !== "cancelled" && installments.some((due) => due.state === "overdue"),
+    }),
     travellersTotal: progress.total,
     travellersComplete: progress.complete,
     pendingClaims: claims.filter((claim) => claim.status === "pending").length,
@@ -226,15 +265,7 @@ export async function getBooking(tx: OrgTx, access: MemberAccess, bookingId: str
       emergencyName: booking.emergencyName,
       emergencyPhone: booking.emergencyPhone,
     },
-    installments: coveredInstallments(
-      dues.map((due) => ({
-        id: due.id,
-        label: due.label,
-        amountPaise: Number(due.amountPaise),
-        dueOn: dayOf(due.dueOn),
-      })),
-      paidPaise,
-    ),
+    installments,
     payments: payments.map((payment) => ({
       id: payment.id,
       amountPaise: Number(payment.amountPaise),

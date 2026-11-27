@@ -7,6 +7,7 @@ import type { OrgTx } from "@travel-crm/db";
 import { scopeFilter, type MemberAccess } from "../identity/index.js";
 import { addDays, startOfDayIn, type CalendarDate } from "../kernel/index.js";
 import { dayOf } from "./quote-rows.js";
+import { dueStatesOf } from "./due-states.js";
 import { coveredInstallments } from "./totals.js";
 
 export async function moneySummaryOf(
@@ -24,7 +25,7 @@ export async function moneySummaryOf(
       acceptedAt: true,
       totalPaise: true,
       payments: { where: { voidedAt: null }, select: { amountPaise: true, receivedOn: true } },
-      installments: { select: { amountPaise: true, dueOn: true } },
+      installments: { select: { id: true, amountPaise: true, dueOn: true } },
     },
   });
   const received = await tx.quotePayment.aggregate({
@@ -49,11 +50,11 @@ export async function moneySummaryOf(
     }
     outstandingPaise += Math.max(0, total - paid);
     const dues = coveredInstallments(
-      quote.installments.map((due) => ({ amountPaise: Number(due.amountPaise), dueOn: dayOf(due.dueOn) })),
+      quote.installments.map((due) => ({ id: due.id, amountPaise: Number(due.amountPaise), dueOn: dayOf(due.dueOn) })),
       paid,
     );
-    const late = dues.filter((due) => !due.paid && due.dueOn < period.today);
-    if (late.length > 0) {
+    const states = dueStatesOf(dues, paid, period.today as CalendarDate);
+    if (dues.some((due) => states.get(due.id) === "overdue")) {
       overdueCount += 1;
       // What is late is due before today less what was paid beyond the instalments already covered.
       const dueByToday = dues.filter((due) => due.dueOn < period.today).reduce((sum, due) => sum + due.amountPaise, 0);
