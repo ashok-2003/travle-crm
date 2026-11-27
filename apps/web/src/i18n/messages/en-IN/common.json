@@ -32,5 +32,9 @@
     "last": "Last page"
   },
   "readMore": "More",
-  "readLess": "Less"
+  "readLess": "Less",
+  "table": {
+    "appliedFilters": "Filters in use",
+    "removeFilter": "Remove the filter {filter}"
+  }
 }

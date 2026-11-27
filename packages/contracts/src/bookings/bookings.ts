@@ -57,6 +57,11 @@ export const bookingIdInput = z.strictObject({ bookingId: recordId });
 export type BookingIdInput = z.infer<typeof bookingIdInput>;
 export const leadBookingsInput = z.strictObject({ leadId: recordId });
 
+/** A booking's money at the agency's today: paid in full, part paid, nothing received, or a payment due overdue. */
+export const bookingPaymentStates = ["paid", "part_paid", "nothing", "overdue"] as const;
+export const bookingPaymentState = z.enum(bookingPaymentStates);
+export type BookingPaymentState = z.infer<typeof bookingPaymentState>;
+
 export const BOOKINGS_PAGE_SIZE = 25;
 export const listBookingsInput = z.strictObject({
   status: bookingStatus.optional(),
@@ -88,12 +93,59 @@ export const bookingSummary = z.object({
   /** What is owed back after a cancellation, until it is marked refunded. */
   refundDuePaise: paise,
   /** Overdue wins over part paid and nothing; paid only when the balance is 0. */
-  paymentState: z.enum(["paid", "part_paid", "nothing", "overdue"]),
+  paymentState: bookingPaymentState,
 });
 export type BookingSummary = z.infer<typeof bookingSummary>;
 
 export const bookingPage = z.object({ items: z.array(bookingSummary), nextCursor: recordId.nullable() });
 export type BookingPage = z.infer<typeof bookingPage>;
+
+/** The Bookings table's rows per page: 25 unless the member picks 50 or 100. */
+export const BOOKING_TABLE_PAGE_SIZES = [25, 50, 100] as const;
+/** What the table sorts by: the travel date (soonest first, no date last), when made, the customer, the total. */
+export const bookingTableSorts = ["travel", "created", "customer", "total"] as const;
+export const bookingTableSort = z.enum(bookingTableSorts);
+export type BookingTableSort = z.infer<typeof bookingTableSort>;
+export const sortDirection = z.enum(["asc", "desc"]);
+export type SortDirection = z.infer<typeof sortDirection>;
+
+/**
+ * One numbered page of the Bookings table (bookings revamp, 2026-11-27): searched by the customer's name, phone digits,
+ * the trip's title or the booking's number, filtered, sorted (every order ends on the id) and counted across its pages,
+ * all within the member's own-or-all view. The salesperson is the lead's owner; a member who sees only their own
+ * bookings has that filter ignored.
+ */
+export const bookingTablePageInput = z.strictObject({
+  page: z.int().min(1),
+  limit: z.union([z.literal(25), z.literal(50), z.literal(100)]).default(25),
+  search: text(80).optional(),
+  status: bookingStatus.optional(),
+  /** Only bookings with a payment claim waiting to be checked. */
+  claimsPending: z.boolean().optional(),
+  /** Travel dates from and to (the booking's first day), both included. */
+  travelFrom: calendarDate.optional(),
+  travelTo: calendarDate.optional(),
+  ownerUserId: recordId.optional(),
+  payment: bookingPaymentState.optional(),
+  sort: bookingTableSort.default("travel"),
+  direction: sortDirection.default("asc"),
+});
+export type BookingTablePageInput = z.infer<typeof bookingTablePageInput>;
+
+/**
+ * A booking as the table shows it: its summary, the trip's travellers, and the salesperson's name (null for nobody or a
+ * former member).
+ */
+export const bookingTableRow = bookingSummary.extend({
+  adults: z.int(),
+  children: z.int(),
+  ownerName: z.string().nullable(),
+});
+export type BookingTableRow = z.infer<typeof bookingTableRow>;
+
+/** The page's rows and how many bookings match across every page. */
+export const bookingTablePage = z.object({ items: z.array(bookingTableRow), total: z.int() });
+export type BookingTablePage = z.infer<typeof bookingTablePage>;
 
 /** A booking in brief, beside its lead. */
 export const leadBooking = z.object({

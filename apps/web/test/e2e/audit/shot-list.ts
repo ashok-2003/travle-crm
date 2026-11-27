@@ -590,6 +590,11 @@ export const SHOTS = [
     as: owner,
   },
   {
+    name: "r6-bookings-table",
+    screen: "Bookings as a table: by travel date, the search and Filters, a filter's chip, the pages",
+    as: owner,
+  },
+  {
     name: "r6-booking-requested",
     screen: "A booking waiting for the agency: Confirm with the default schedule",
     as: owner,

@@ -14,6 +14,8 @@ import {
   bookingIdInput,
   bookingPage,
   bookingSettingsView,
+  bookingTablePage,
+  bookingTablePageInput,
   cancelBookingInput,
   cancelPreview,
   confirmBookingInput,
@@ -37,11 +39,13 @@ import {
   travellerIdentity,
   travellerIdInput,
 } from "@travel-crm/contracts/bookings";
+import { leadWorker } from "@travel-crm/contracts/crm";
 import { quoteLink } from "@travel-crm/contracts/quotes";
 import { assertPdfCanBeMade, getIssuedDocument } from "@travel-crm/domain/documents";
 import {
   BOOKING_VOUCHER_RECORD_TYPE,
   bookingSettingsOf,
+  bookingTablePageOf,
   cancelBooking,
   confirmBooking,
   confirmClaim,
@@ -76,6 +80,7 @@ import { QUOTE_RECORD_TYPE } from "@travel-crm/domain/quotes";
 import { createShareLink } from "@travel-crm/domain/share-links";
 import { z } from "zod";
 import type { Context } from "../context.js";
+import { memberNames } from "../member-names.js";
 import { freshProcedure, orgProcedure } from "../procedures.js";
 import { router } from "../trpc.js";
 import { documentContext } from "./quotes.js";
@@ -189,6 +194,33 @@ export const bookingsRouter = router({
     .input(listBookingsInput)
     .output(bookingPage)
     .query(({ ctx, input }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => listBookings(tx, ctx.member, input))),
+
+  /** The Bookings table: one numbered page, its total, and each salesperson by name (R13). */
+  page: viewer
+    .input(bookingTablePageInput)
+    .output(bookingTablePage)
+    .query(async ({ ctx, input }) => {
+      const { organizationId } = ctx.member;
+      const found = await ctx.db.forOrg(organizationId, (tx) => bookingTablePageOf(tx, ctx.member, input));
+      const names = await memberNames(
+        ctx.identity,
+        organizationId,
+        found.items.map((item) => item.ownerUserId),
+      );
+      return {
+        total: found.total,
+        items: found.items.map(({ ownerUserId, ...item }) => ({
+          ...item,
+          ownerName: ownerUserId === null ? null : (names[ownerUserId] ?? null),
+        })),
+      };
+    }),
+
+  /** Who the table's salesperson filter offers: the agency's lead workers, for a member who sees every booking. */
+  salespeople: viewer.output(z.array(leadWorker)).query(async ({ ctx }) => {
+    if (ctx.member.permissions.scopeOf("bookings:view") !== "all") return [];
+    return ctx.identity.leadWorkers(ctx.member.organizationId);
+  }),
 
   /** A lead's bookings in brief, for its page. */
   forLead: viewer

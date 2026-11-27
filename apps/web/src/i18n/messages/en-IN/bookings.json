@@ -8,6 +8,9 @@
   "list": {
     "title": "Bookings",
     "intro": "A quote the customer accepted becomes a booking. Confirm it, collect the money, and give the traveller their trip page.",
+    "bookings": "Bookings",
+    "search": "Search bookings by name, phone, trip or number",
+    "searchPlaceholder": "Name, phone or trip",
     "filterLabel": "Show",
     "filters": {
       "all": "All",
@@ -17,21 +20,69 @@
       "cancelled": "Cancelled",
       "claims": "Payments to check"
     },
+    "filtersButton": "Filters",
+    "filtersChosen": "Filters, {count} chosen",
+    "filtersDialog": {
+      "title": "Filters",
+      "description": "Show only the bookings that match.",
+      "travelFrom": "Travel from",
+      "travelTo": "Travel until",
+      "salesperson": "Salesperson",
+      "anyone": "Anyone",
+      "salespeopleFailed": "The salespeople didn't load.",
+      "payment": "Payment",
+      "anyPayment": "Any",
+      "payments": {
+        "paid": "Paid in full",
+        "part_paid": "Part paid",
+        "nothing": "Nothing received",
+        "overdue": "Overdue"
+      },
+      "problems": {
+        "notADay": "Write the day as dd/mm/yyyy.",
+        "toBeforeFrom": "Pick a day on or after the first day."
+      },
+      "clear": "Clear all",
+      "apply": "Show bookings"
+    },
+    "applied": {
+      "travel": "Travel {from} to {to}",
+      "travelFrom": "Travel from {from}",
+      "travelTo": "Travel until {to}",
+      "salesperson": "Salesperson: {name}",
+      "someone": "the one chosen",
+      "payment": "Payment: {state}"
+    },
     "columns": {
       "booking": "Booking",
+      "trip": "Trip",
+      "travel": "Travel date",
+      "people": "People",
       "status": "Status",
-      "paid": "Paid",
-      "travellers": "Details"
+      "total": "Total",
+      "paid": "Paid and to pay",
+      "details": "Details",
+      "salesperson": "Salesperson"
     },
     "claims": "{count, plural, one {# payment to check} other {# payments to check}}",
+    "paidAmount": "<n>{amount}</n> paid",
     "toPay": "{amount} to pay",
-    "details": "{done} of {total}",
+    "overdue": "Overdue",
     "refundDue": "Refund {amount} due",
-    "more": "Show more bookings",
+    "details": "{done} of {total}",
+    "detailsLine": "{details} details",
+    "people": "{adults, plural, one {# adult} other {# adults}}{children, plural, =0 {} one {, # child} other {, # children}}",
+    "noDate": "No date yet",
+    "onDeparture": "Departure: {title}",
+    "tripOn": "{trip} · {day}",
+    "noSalesperson": "Nobody",
+    "pageNoun": "{count, plural, one {booking} other {bookings}}",
+    "found": "Showing {from} to {to} of {total, plural, one {# booking} other {# bookings}}",
     "loadFailed": "Bookings didn't load.",
     "loading": "Loading bookings",
     "empty": "No bookings yet. A booking appears here when a customer accepts a quote.",
-    "noneHere": "No bookings here."
+    "emptyFiltered": "No bookings match. Try another search or fewer filters.",
+    "clearFilters": "Clear filters"
   },
   "booking": {
     "title": "Booking",

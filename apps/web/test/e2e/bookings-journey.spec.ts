@@ -20,9 +20,9 @@ test("a customer accepts a quote, a booking waits on Today, and one tap confirms
   await page.goto("/today");
   await expect(page.getByText(/Confirm booking BK-\d{4}-\d{4} for Rahul Sharma/)).toBeVisible();
 
-  // The list says it waits for the agency; the booking says why.
+  // The list says it waits for the agency (a table's row on a desktop, a stacked row on a phone); the booking says why.
   await page.goto("/bookings");
-  const row = page.getByRole("row", { name: /Rahul Sharma/ });
+  const row = page.getByRole("row").or(page.getByRole("listitem")).filter({ hasText: "Rahul Sharma" });
   await expect(row).toContainText("Waiting for you");
   await page.getByRole("link", { name: "Rahul Sharma" }).click();
   await expect(page).toHaveURL(new RegExp(`/bookings/${bookingId}$`));

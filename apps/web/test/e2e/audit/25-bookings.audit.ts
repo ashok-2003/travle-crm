@@ -114,7 +114,7 @@ test("bookings, the trip page, the PDFs and a cancellation", async ({ page, brow
   await callApi(page, "bookings.cancel", { bookingId: dev.bookingId, reason: "Family emergency" });
 
   await page.goto("/bookings");
-  await expect(page.getByRole("row", { name: /Meera Iyer/ })).toBeVisible();
+  await expect(page.getByText("Meera Iyer").first()).toBeVisible();
   await shoot(page, "r6-bookings");
 
   await page.goto(`/bookings/${rahul.bookingId}`);
@@ -211,4 +211,46 @@ test("bookings, the trip page, the PDFs and a cancellation", async ({ page, brow
   await page.goto("/settings/bookings");
   await expect(page.getByRole("heading", { level: 1, name: "Bookings" })).toBeVisible();
   await shoot(page, "r6-settings");
+});
+
+// The bookings revamp (2026-11-27): the list as a table, by travel date, with a filter applied as a chip.
+test("the bookings table: the toolbar, a filter's chip and the numbered pages", async ({ page, browser, agency }) => {
+  test.setTimeout(300_000);
+  await signInByEmail(page, agency.owner);
+  await saveBusinessProfile(page);
+  const meera = await acceptedQuote(page, browser, {
+    name: "Meera Iyer",
+    phone: "+919876500002",
+    title: "Kerala backwaters",
+    totalRupees: 150_000,
+    days: 8,
+    adults: 3,
+  });
+  await callApi(page, "bookings.confirm", { bookingId: meera.bookingId });
+  await callApi(page, "quotes.recordPayment", {
+    quoteId: meera.quoteId,
+    amountPaise: 4_500_000,
+    receivedOn: dayInIndia(0),
+    method: "upi",
+    reference: "UTR448802217",
+    requestId: crypto.randomUUID(),
+  });
+  await acceptedQuote(page, browser, {
+    name: "Rahul Sharma",
+    phone: "+919876543210",
+    title: "Spiti in winter",
+    days: 40,
+  });
+  const dev = await acceptedQuote(page, browser, {
+    name: "Dev Patel",
+    phone: "+919876500005",
+    title: "Rajasthan forts",
+    days: 45,
+  });
+  await callApi(page, "bookings.confirm", { bookingId: dev.bookingId });
+
+  await page.goto(`/bookings?from=${dayInIndia(0)}`);
+  await expect(page.getByText("Meera Iyer").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Remove the filter Travel from/ })).toBeVisible();
+  await shoot(page, "r6-bookings-table");
 });
