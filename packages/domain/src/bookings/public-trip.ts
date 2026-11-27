@@ -69,6 +69,8 @@ export interface PublicTrip {
     medicalNotes: string;
     roomRequest: string;
     roomNote: string;
+    /** Fields we copied from the lead and nobody has saved yet. */
+    prefilled: ("name" | "phone")[];
     complete: boolean;
     hasIdentity: boolean;
   }[];
@@ -204,6 +206,9 @@ export async function publicTripOf(tx: OrgTx, quoteId: string, now: Date): Promi
       medicalNotes: row.medicalNotes,
       roomRequest: row.roomRequest,
       roomNote: row.roomNote,
+      prefilled: row.prefilledFields.filter(
+        (field): field is "name" | "phone" => field === "name" || field === "phone",
+      ),
       complete: row.completeAt !== null,
       hasIdentity: identities.some((identity) => identity.travellerId === row.id),
     })),
