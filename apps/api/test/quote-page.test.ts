@@ -147,8 +147,10 @@ describe("the customer's quote page", () => {
     const { html } = await page(path);
     expect(html).not.toContain('type="checkbox"');
     expect(html.match(/<button type="submit"[^>]*>Accept/g)).toHaveLength(1);
-    expect(html).toMatch(/<a href="#terms">terms and cancellation policy<\/a>/);
-    expect(html.replace(/<[^>]+>/g, "")).toContain(SMALL_PRINT);
+    const [beforePolicy = "", afterPolicy = ""] = SMALL_PRINT.split("terms and cancellation policy");
+    expect(html).toContain(
+      `<p class="fine">${beforePolicy}<a href="#terms">terms and cancellation policy</a>${afterPolicy}</p>`,
+    );
     expect(html).toContain('id="terms"');
   });
 
