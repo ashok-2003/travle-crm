@@ -84,7 +84,16 @@ test("an Owner makes a group package, prices its seasons, sees its departures an
   // The departures made when the package was saved: the calendar names both seasons and shows a departure with its seats.
   const departuresCard = page.getByRole("region", { name: "Departures", exact: true });
   await expect(departuresCard.getByRole("list", { name: "Seasons" })).toContainText("Dec to Jan peak");
-  await expect(departuresCard.getByRole("button", { name: /20 (?:of 20 )?left/ }).first()).toBeVisible();
+  // A phone shows one month: near a month's end its first departures may all fall in the next one.
+  const seatsLeft = departuresCard.getByRole("button", { name: /20 (?:of 20 )?left/ }).first();
+  let movedOn = false;
+  await expect(async () => {
+    if (phone && !movedOn && (await seatsLeft.count()) === 0) {
+      await departuresCard.getByRole("button", { name: "Next month" }).click();
+      movedOn = true;
+    }
+    await expect(seatsLeft).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 20_000 });
 
   // A brochure goes straight to storage.
   const files = page.getByRole("region", { name: "Brochures" });
