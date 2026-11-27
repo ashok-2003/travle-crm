@@ -4,7 +4,8 @@
 import { saveBusinessProfile } from "../support/documents";
 import { expect, signInToConsole, test } from "../support/console";
 import { signInByEmail } from "../support/fixtures";
-import { addLeadThroughApi, callApi, leadInput } from "../support/leads";
+import { acceptedQuote, sentQuote } from "../support/bookings";
+import { addLeadThroughApi, callApi, dayInIndia, leadInput } from "../support/leads";
 import {
   connectNumber,
   customerMessage,
@@ -181,4 +182,49 @@ test("Settings, AI, and a chat's reply box with the AI's draft", async ({ page, 
     await expect(owner.getByRole("heading", { name: "AI's guess" })).toBeVisible({ timeout: 4_000 });
   }).toPass({ timeout: 90_000 });
   await shoot(owner, "lead-ai-guess");
+});
+
+// The bookings revamp (2026-11-27): the Quotes list as a table, last changed first: a draft, a sent quote and an accepted
+// one with money still to come, the status chips beside the search and Filters.
+test("the quotes table: last changed first, the toolbar and the numbered pages", async ({ page, browser, agency }) => {
+  test.setTimeout(300_000);
+  await signInByEmail(page, agency.owner);
+  await saveBusinessProfile(page);
+  const accepted = await acceptedQuote(page, browser, {
+    name: "Meera Iyer",
+    phone: "+919876500002",
+    title: "Kerala backwaters",
+    totalRupees: 150_000,
+    days: 8,
+    adults: 3,
+  });
+  await callApi(page, "quotes.recordPayment", {
+    quoteId: accepted.quoteId,
+    amountPaise: 4_500_000,
+    receivedOn: dayInIndia(0),
+    method: "upi",
+    reference: "UTR448802217",
+    requestId: crypto.randomUUID(),
+  });
+  await sentQuote(page, { name: "Dev Patel", phone: "+919876500005", title: "Rajasthan forts", days: 45 });
+  const leadId = await addLeadThroughApi(page, leadInput({ person: { name: "Rahul Sharma", phone: "+919876543210" } }));
+  await callApi(page, "quotes.create", {
+    leadId,
+    title: "Spiti in winter",
+    startDate: null,
+    adults: 2,
+    children: 0,
+    days: [],
+    items: [{ description: "Package per adult", detail: "", quantity: 2, unitPricePaise: 4_500_000 }],
+    inclusions: "",
+    exclusions: "",
+    notes: "",
+    taxRateBasisPoints: 0,
+    placeOfSupply: null,
+  });
+
+  await page.goto("/quotes");
+  await expect(page.getByText("Rahul Sharma").first()).toBeVisible();
+  await expect(page.getByText("Meera Iyer").first()).toBeVisible();
+  await shoot(page, "quotes-table");
 });

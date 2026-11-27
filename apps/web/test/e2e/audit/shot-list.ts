@@ -561,6 +561,11 @@ export const SHOTS = [
     as: owner,
   },
   { name: "quote-invoice", screen: "A paid quote with its tax invoice issued", as: owner },
+  {
+    name: "quotes-table",
+    screen: "Quotes as a table: last changed first, a draft, a sent and an accepted quote with money to come",
+    as: owner,
+  },
   { name: "finance", screen: "Finance: profit, bookings and costs", as: owner },
   { name: "reports", screen: "Reports: the key figures, the funnel and the team", as: owner },
   { name: "home-hot-leads", screen: "Home: the hot leads to call now", as: owner },

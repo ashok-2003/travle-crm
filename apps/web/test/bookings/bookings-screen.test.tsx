@@ -19,6 +19,7 @@ import { inputsTo, lastInputTo, owner, renderScreen } from "../leads/screen";
 vi.mock("next/navigation", () => import("../leads/navigation"));
 
 const words = messages.bookings.list;
+const tripWords = messages.common.tripFilters;
 const { pagination } = messages.common;
 // Friday 27 November 2026 in India: December's days show without their year.
 const NOW = new Date("2026-11-27T05:30:00Z");
@@ -160,8 +161,8 @@ describe("BookingsScreen", () => {
     await table();
     await userEvent.click(screen.getByRole("button", { name: words.filtersButton }));
     const dialog = await screen.findByRole("dialog", { name: words.filtersDialog.title });
-    await userEvent.type(within(dialog).getByLabelText(words.filtersDialog.travelFrom), "01/12/2026");
-    await userEvent.type(within(dialog).getByLabelText(words.filtersDialog.travelTo), "31/12/2026");
+    await userEvent.type(within(dialog).getByLabelText(tripWords.travelFrom), "01/12/2026");
+    await userEvent.type(within(dialog).getByLabelText(tripWords.travelTo), "31/12/2026");
     await userEvent.click(within(dialog).getByRole("combobox", { name: words.filtersDialog.payment }));
     await userEvent.click(await screen.findByRole("option", { name: words.filtersDialog.payments.overdue }));
     await userEvent.click(within(dialog).getByRole("button", { name: words.filtersDialog.apply }));
@@ -217,10 +218,10 @@ describe("BookingsScreen", () => {
     await table();
     await userEvent.click(screen.getByRole("button", { name: words.filtersButton }));
     const dialog = await screen.findByRole("dialog", { name: words.filtersDialog.title });
-    await userEvent.type(within(dialog).getByLabelText(words.filtersDialog.travelFrom), "10/12/2026");
-    await userEvent.type(within(dialog).getByLabelText(words.filtersDialog.travelTo), "01/12/2026");
+    await userEvent.type(within(dialog).getByLabelText(tripWords.travelFrom), "10/12/2026");
+    await userEvent.type(within(dialog).getByLabelText(tripWords.travelTo), "01/12/2026");
     await userEvent.click(within(dialog).getByRole("button", { name: words.filtersDialog.apply }));
-    expect(await within(dialog).findByText(words.filtersDialog.problems.toBeforeFrom)).toBeVisible();
+    expect(await within(dialog).findByText(tripWords.problems.toBeforeFrom)).toBeVisible();
     expect(address.href).toBe("/bookings");
   });
 
@@ -295,7 +296,7 @@ describe("BookingsScreen", () => {
     await table();
     await userEvent.click(screen.getByRole("button", { name: words.filtersButton }));
     const dialog = await screen.findByRole("dialog", { name: words.filtersDialog.title });
-    await userEvent.click(within(dialog).getByRole("combobox", { name: words.filtersDialog.salesperson }));
+    await userEvent.click(within(dialog).getByRole("combobox", { name: tripWords.salesperson }));
     await userEvent.click(await screen.findByRole("option", { name: "Ravi Kumar" }));
     await userEvent.click(within(dialog).getByRole("button", { name: words.filtersDialog.apply }));
     expect(address.href).toBe("/bookings?salesperson=0199a000-0000-7000-8000-0000000000a2");
@@ -310,7 +311,7 @@ describe("BookingsScreen", () => {
     expect(lastInputTo("bookings.page")).not.toHaveProperty("ownerUserId");
     await userEvent.click(screen.getByRole("button", { name: words.filtersButton }));
     const dialog = await screen.findByRole("dialog", { name: words.filtersDialog.title });
-    expect(within(dialog).queryByRole("combobox", { name: words.filtersDialog.salesperson })).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("combobox", { name: tripWords.salesperson })).not.toBeInTheDocument();
     expect(api.calls).not.toContain("bookings.salespeople");
   });
 });

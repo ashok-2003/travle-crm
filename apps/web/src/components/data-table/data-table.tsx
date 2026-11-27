@@ -26,6 +26,8 @@ export interface DataColumn<Row, Sort extends string> {
   header: string;
   /** What the api orders by when this header is pressed; a column without one doesn't sort. */
   sort?: Sort;
+  /** Which way its first press sorts: "asc" (soonest or smallest first) unless it says "desc" (newest first). */
+  sortFirst?: "asc" | "desc";
   /** Its width in px; a text column has none and shares what the fixed ones leave, 160 at least. */
   width?: number;
   /** Right-aligned, as amounts are. */
@@ -159,6 +161,7 @@ export function DataTable<Row, Sort extends string>({
                         header={column.header}
                         end={column.end === true}
                         by={column.sort}
+                        first={column.sortFirst ?? "asc"}
                         sort={sort}
                         onSort={onSort}
                       />

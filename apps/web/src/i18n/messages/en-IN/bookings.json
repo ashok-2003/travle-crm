@@ -25,11 +25,6 @@
     "filtersDialog": {
       "title": "Filters",
       "description": "Show only the bookings that match.",
-      "travelFrom": "Travel from",
-      "travelTo": "Travel until",
-      "salesperson": "Salesperson",
-      "anyone": "Anyone",
-      "salespeopleFailed": "The salespeople didn't load.",
       "payment": "Payment",
       "anyPayment": "Any",
       "payments": {
@@ -38,19 +33,10 @@
         "nothing": "Nothing received",
         "overdue": "Overdue"
       },
-      "problems": {
-        "notADay": "Write the day as dd/mm/yyyy.",
-        "toBeforeFrom": "Pick a day on or after the first day."
-      },
       "clear": "Clear all",
       "apply": "Show bookings"
     },
     "applied": {
-      "travel": "Travel {from} to {to}",
-      "travelFrom": "Travel from {from}",
-      "travelTo": "Travel until {to}",
-      "salesperson": "Salesperson: {name}",
-      "someone": "the one chosen",
       "payment": "Payment: {state}"
     },
     "columns": {

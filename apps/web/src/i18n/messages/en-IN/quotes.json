@@ -10,7 +10,8 @@
   },
   "list": {
     "title": "Quotes",
-    "intro": "Every quote with what it is worth and what is still to be paid.",
+    "intro": "Every quote with its trip, its status and what it is worth, the last changed first.",
+    "quotes": "Quotes",
     "filterLabel": "Show",
     "filters": {
       "all": "All",
@@ -19,20 +20,37 @@
       "accepted": "Accepted",
       "due": "Money to come"
     },
-    "columns": {
-      "quote": "Quote",
-      "status": "Status",
-      "total": "Total",
-      "balance": "Still to pay"
-    },
-    "loadFailed": "Quotes didn't load.",
-    "retry": "Try again",
-    "loading": "Loading quotes",
-    "empty": "No quotes yet. Choose New quote.",
-    "noneHere": "No quotes here.",
     "search": "Search quotes",
     "searchPlaceholder": "Customer, phone or trip",
-    "noMatch": "No quote matches that search.",
+    "filtersButton": "Filters",
+    "filtersChosen": "Filters, {count} chosen",
+    "filtersDialog": {
+      "title": "Filters",
+      "description": "Show only the quotes that match.",
+      "clear": "Clear all",
+      "apply": "Show quotes"
+    },
+    "columns": {
+      "customer": "Customer",
+      "trip": "Trip",
+      "travel": "Travel date",
+      "status": "Status",
+      "total": "Total",
+      "changed": "Last change",
+      "salesperson": "Salesperson"
+    },
+    "toPay": "<n>{amount}</n> to pay",
+    "noDate": "No date yet",
+    "tripOn": "{trip} · {day}",
+    "changedOn": "Changed {day}",
+    "noSalesperson": "Nobody",
+    "pageNoun": "{count, plural, one {quote} other {quotes}}",
+    "found": "Showing {from} to {to} of {total, plural, one {# quote} other {# quotes}}",
+    "loadFailed": "Quotes didn't load.",
+    "loading": "Loading quotes",
+    "empty": "No quotes yet. Choose New quote.",
+    "emptyFiltered": "No quotes match. Try another search or fewer filters.",
+    "clearFilters": "Clear filters",
     "new": "New quote",
     "newQuote": {
       "title": "New quote",

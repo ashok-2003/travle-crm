@@ -7,14 +7,12 @@ import {
   bookingPaymentState,
   bookingTablePageInput,
   bookingTableSort,
-  sortDirection,
   type BookingPaymentState,
   type BookingTablePageInput,
   type BookingTableSort,
-  type SortDirection,
 } from "@travel-crm/contracts/bookings";
 import { recordId } from "@travel-crm/contracts/identity";
-import { calendarDate } from "@travel-crm/contracts/kernel";
+import { calendarDate, sortDirection, type SortDirection } from "@travel-crm/contracts/kernel";
 import { z } from "zod";
 import { readTableAddress, tableAddressHref, type AddressFields } from "@/components/data-table/table-address";
 import { routes } from "@/lib/routes";

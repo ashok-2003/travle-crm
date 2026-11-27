@@ -3,4 +3,5 @@ export * from "./gst.js";
 export * from "./money.js";
 export * from "./period.js";
 export * from "./phone.js";
+export * from "./table.js";
 export * from "./time.js";

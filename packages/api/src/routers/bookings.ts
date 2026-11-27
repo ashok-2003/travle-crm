@@ -80,7 +80,7 @@ import { QUOTE_RECORD_TYPE } from "@travel-crm/domain/quotes";
 import { createShareLink } from "@travel-crm/domain/share-links";
 import { z } from "zod";
 import type { Context } from "../context.js";
-import { memberNames } from "../member-names.js";
+import { salespeopleFor, withOwnerNames } from "../table-people.js";
 import { freshProcedure, orgProcedure } from "../procedures.js";
 import { router } from "../trpc.js";
 import { documentContext } from "./quotes.js";
@@ -202,25 +202,13 @@ export const bookingsRouter = router({
     .query(async ({ ctx, input }) => {
       const { organizationId } = ctx.member;
       const found = await ctx.db.forOrg(organizationId, (tx) => bookingTablePageOf(tx, ctx.member, input));
-      const names = await memberNames(
-        ctx.identity,
-        organizationId,
-        found.items.map((item) => item.ownerUserId),
-      );
-      return {
-        total: found.total,
-        items: found.items.map(({ ownerUserId, ...item }) => ({
-          ...item,
-          ownerName: ownerUserId === null ? null : (names[ownerUserId] ?? null),
-        })),
-      };
+      return { total: found.total, items: await withOwnerNames(ctx.identity, organizationId, found.items) };
     }),
 
   /** Who the table's salesperson filter offers: the agency's lead workers, for a member who sees every booking. */
-  salespeople: viewer.output(z.array(leadWorker)).query(async ({ ctx }) => {
-    if (ctx.member.permissions.scopeOf("bookings:view") !== "all") return [];
-    return ctx.identity.leadWorkers(ctx.member.organizationId);
-  }),
+  salespeople: viewer
+    .output(z.array(leadWorker))
+    .query(({ ctx }) => salespeopleFor(ctx.identity, ctx.member, "bookings:view")),
 
   /** A lead's bookings in brief, for its page. */
   forLead: viewer
