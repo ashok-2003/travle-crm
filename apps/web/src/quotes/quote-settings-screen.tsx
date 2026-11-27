@@ -153,7 +153,7 @@ function SettingsForm({ saved }: { saved: QuoteSettings }) {
               label={t("markup")}
               hint={t("markupHint")}
               inputMode="decimal"
-              className="numbers"
+              inputClassName="numbers"
               disabled={save.isPending}
             />
             <TextField
@@ -162,7 +162,7 @@ function SettingsForm({ saved }: { saved: QuoteSettings }) {
               label={t("minMargin")}
               hint={t("minMarginHint")}
               inputMode="decimal"
-              className="numbers"
+              inputClassName="numbers"
               disabled={save.isPending}
             />
             <MoneyField

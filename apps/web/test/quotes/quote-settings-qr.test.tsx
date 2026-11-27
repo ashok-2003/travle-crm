@@ -30,6 +30,21 @@ const verified = {
   upiVerifiedByName: "Ashok Kumar",
 };
 
+describe("the percent fields in quote settings", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("keep the numbers font on the input, not on the label or hint", async () => {
+    stubApi({ "quotes.settings": { data: settings } });
+    renderWithApi(<QuoteSettingsScreen />, newQueryClient());
+    const input = await screen.findByLabelText(words.markup);
+    expect(input).toHaveClass("numbers");
+    expect(screen.getByText(words.markup).closest(".numbers")).toBeNull();
+    expect(screen.getByText(words.markupHint).closest(".numbers")).toBeNull();
+  });
+});
+
 describe("the UPI QR preview in quote settings", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
