@@ -20,7 +20,7 @@ export function normalised<T>(value: T): T {
 }
 
 /** The logo as React-PDF is given it: a JPEG with only the segments that draw it (jpeg.ts), a PNG as it is. */
-function drawnLogo(logo: PdfInput["branding"]["logo"]): PdfInput["branding"]["logo"] {
+export function drawnLogo(logo: PdfInput["branding"]["logo"]): PdfInput["branding"]["logo"] {
   if (logo === undefined) return undefined;
   if (imageOf(logo.data)?.contentType !== logo.contentType) {
     throw new RangeError("Logos are PNG or JPEG images, and their bytes must be the type they say");
