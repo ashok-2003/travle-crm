@@ -5,6 +5,7 @@ import userEvent from "@testing-library/user-event";
 import { encode } from "uqr";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { upiPayLink } from "@travel-crm/contracts/quotes";
+import { cardTints } from "@/components/card-tints";
 import { messages } from "@/i18n/messages";
 import { QuoteSettingsScreen } from "@/quotes/quote-settings-screen";
 import { stubApi } from "../support/api-stub";
@@ -61,6 +62,19 @@ describe("the UPI QR preview in quote settings", () => {
       .filter(Boolean).length;
     expect(code.querySelector("path")?.getAttribute("d")?.split("z").length).toBe(darkModules + 1);
     expect(screen.getByText(words.upiQrTest)).toBeVisible();
+  });
+
+  it("sits on the attention tint until verified and on the good tint once verified", async () => {
+    const api = stubApi({ "quotes.settings": { data: settings }, "quotes.verifyUpi": { data: verified } });
+    renderWithApi(<QuoteSettingsScreen />, newQueryClient());
+    const unverified = (await screen.findByText(words.upiUnverified)).closest("[data-slot=card]");
+    expect(unverified).toHaveClass(cardTints.attention);
+    api.answer("quotes.settings", { data: verified });
+    await userEvent.click(screen.getByRole("button", { name: words.upiVerify }));
+    const dialog = await screen.findByRole("alertdialog");
+    await userEvent.click(within(dialog).getByRole("button", { name: words.upiVerifyAction }));
+    const done = (await screen.findByText(/Verified by Ashok Kumar/)).closest("[data-slot=card]");
+    expect(done).toHaveClass(cardTints.good);
   });
 
   it("unverified: says to verify it, and confirming records the verification and then says who and when", async () => {
