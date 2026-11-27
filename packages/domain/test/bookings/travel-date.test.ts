@@ -86,4 +86,14 @@ describe("a booking's travel date", () => {
       world.inOrg((tx) => setTravelDate(tx, world.seller, { bookingId, startDate: "2026-12-30" }, now)),
     ).rejects.toMatchObject({ reason: "BOOKING_CANCELLED" });
   });
+
+  it("refuses a completed booking, whose trip is over", async () => {
+    const { bookingId } = await aBooking(world);
+    await world.inOrg((tx) => tx.booking.update({ where: { id: bookingId }, data: { status: "completed" } }));
+    await expect(
+      world.inOrg((tx) => setTravelDate(tx, world.seller, { bookingId, startDate: "2027-03-01" }, now)),
+    ).rejects.toMatchObject({ reason: "BOOKING_NOT_OPEN" });
+    const row = await world.inOrg((tx) => tx.booking.findUniqueOrThrow({ where: { id: bookingId } }));
+    expect(dayOf(row.startDate)).toBe("2026-12-20");
+  });
 });

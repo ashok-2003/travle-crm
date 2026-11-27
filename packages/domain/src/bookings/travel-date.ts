@@ -18,6 +18,10 @@ export async function setTravelDate(
 ): Promise<void> {
   const booking = await findBookingForChange(tx, access, input.bookingId);
   assertOpen(booking);
+  // A completed booking stays completed (nothing reopens it), so a new date would leave a finished booking with a future trip.
+  if (booking.status === "completed") {
+    throw new DomainError("CONFLICT", "BOOKING_NOT_OPEN", "A completed booking's travel date can't change");
+  }
   // A booking on a departure follows it: change the departure instead.
   if (booking.departureId !== null) {
     throw new DomainError("CONFLICT", "BOOKING_ON_DEPARTURE", "This booking follows its departure's date");
@@ -32,6 +36,7 @@ export async function setTravelDate(
     where: { id: booking.id },
     data: { startDate: asDate(input.startDate), endDate: endDate === null ? null : asDate(endDate) },
   });
+  // A requested booking has no reminders yet: confirming makes them from this date.
   if (booking.status === "confirmed") await rebuildReminders(tx, booking.id, now);
   await recordAudit(tx, access, {
     action: "booking.travel-date-changed",
