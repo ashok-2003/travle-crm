@@ -89,6 +89,9 @@ describe("the bookings table's page", () => {
     expect(await names(seller, { search: "meera" })).toEqual(["Meera Iyer"]);
     expect(await names(seller, { search: "98111 22233" })).toEqual(["Dev Patel"]);
     expect(await names(seller, { search: "098111-22233" })).toEqual(["Dev Patel"]);
+    // Fewer than four digits look in no phone (as Leads): "98" is in every Indian mobile.
+    expect(await names(seller, { search: "98" })).toEqual([]);
+    expect(await names(seller, { search: "981" })).toEqual([]);
     expect(await names(seller, { search: "KERALA" })).toEqual(["Meera Iyer"]);
     expect(await names(seller, { search: dev.number.toLowerCase() })).toEqual(["Dev Patel"]);
     // A number's last digits find the number, not every phone with a 2 in it.

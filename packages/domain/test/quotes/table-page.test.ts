@@ -82,6 +82,9 @@ describe("the quotes table's page", () => {
     expect(await names(seller, { search: "रवि" })).toEqual(["रवि शर्मा"]);
     expect(await names(seller, { search: "+91 98765 43210" })).toEqual(["Asha Verma"]);
     expect(await names(seller, { search: "098765" })).toEqual(["Asha Verma"]);
+    // Fewer than four digits look in no phone (as Leads): "98" is in every Indian mobile.
+    expect(await names(seller, { search: "98" })).toEqual([]);
+    expect(await names(seller, { search: "987" })).toEqual([]);
     expect(await names(seller, { search: "spiti" })).toEqual(["रवि शर्मा"]);
     expect(await names(seller, { search: "%" })).toEqual(["Kiran Joshi"]);
     expect(await names(seller, { search: "o_a" })).toEqual([]);
