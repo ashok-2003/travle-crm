@@ -7,7 +7,7 @@ import { money } from "@travel-crm/domain/kernel";
 import { SearchIcon } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
@@ -15,6 +15,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { formatRupees } from "@/lib/format";
 
 const ALL = "all";
+const number = (chunks: ReactNode) => <span className="numbers">{chunks}</span>;
 
 export function PackageFilter({ list }: { list: PublicPackageList }) {
   const t = useTranslations("packagePages");
@@ -97,10 +98,10 @@ export function PackageFilter({ list }: { list: PublicPackageList }) {
                       .join(" · ")}
                   </p>
                   <p className="line-clamp-3 [overflow-wrap:anywhere]">{one.summary}</p>
-                  <p className="numbers font-semibold">
+                  <p className="font-semibold">
                     {one.fromPricePaise === null
                       ? t("page.onEnquiry")
-                      : t("page.fromPrice", { price: formatRupees(money(one.fromPricePaise)) })}
+                      : t.rich("page.fromPrice", { price: formatRupees(money(one.fromPricePaise)), number })}
                   </p>
                   <div className="mt-auto">
                     <Button variant="outline" asChild>

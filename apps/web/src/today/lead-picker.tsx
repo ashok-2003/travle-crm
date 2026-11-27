@@ -6,7 +6,7 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import type { FieldLinks } from "@/components/form-field";
-import { SearchCombobox, useComboboxSearch } from "@/components/search-combobox";
+import { SearchCombobox, useComboboxSearch, type ComboboxSearch } from "@/components/search-combobox";
 import { useTRPC } from "@/data/trpc";
 import { useTripLine } from "@/leads/trip-line";
 import { useMe, viewScope } from "@/session/me-context";
@@ -19,28 +19,49 @@ export interface PickedLead {
 
 const RESULTS = 10;
 /** leads.list's search takes at least two characters. */
-const SHORTEST_SEARCH = 2;
+export const SHORTEST_LEAD_SEARCH = 2;
+
+/**
+ * The leads the member sees that match a search (leads.list). `whenIdle` lists the newest ones before anything
+ * is typed, as the inline picker does; without it nothing is asked until the search is open and long enough.
+ */
+export function useFoundLeads(
+  search: ComboboxSearch,
+  { limit, whenIdle = false }: { limit: number; whenIdle?: boolean },
+) {
+  const trpc = useTRPC();
+  const view = viewScope(useMe(), "leads:view") === "all" ? "everyone" : "mine";
+  return useQuery(
+    trpc.leads.list.queryOptions(
+      { view, limit, ...(search.searching && { search: search.query }) },
+      {
+        enabled: whenIdle || (search.open && search.searching),
+        placeholderData: keepPreviousData,
+        select: (page) => page.items,
+      },
+    ),
+  );
+}
 
 export function LeadPicker({
   links,
   value,
   onChange,
+  words,
+  disabled,
 }: {
   links: FieldLinks;
   value: PickedLead | null;
   onChange: (lead: PickedLead | null) => void;
+  /** Another screen's words for the empty button and for choosing no lead again (none: no way back). */
+  words?: { none: string; unlink?: string };
+  disabled?: boolean | undefined;
 }) {
   const t = useTranslations("today.addTask");
-  const trpc = useTRPC();
   const tripLine = useTripLine();
-  const view = viewScope(useMe(), "leads:view") === "all" ? "everyone" : "mine";
-  const search = useComboboxSearch(SHORTEST_SEARCH);
-  const found = useQuery(
-    trpc.leads.list.queryOptions(
-      { view, search: search.query, limit: RESULTS },
-      { enabled: search.open && search.searching, placeholderData: keepPreviousData, select: (page) => page.items },
-    ),
-  );
+  const search = useComboboxSearch(SHORTEST_LEAD_SEARCH);
+  const found = useFoundLeads(search, { limit: RESULTS });
+  const clearLabel = words === undefined ? t("unlink") : words.unlink;
   return (
     <SearchCombobox
       links={links}
@@ -48,7 +69,7 @@ export function LeadPicker({
       results={found}
       chosen={value}
       words={{
-        none: t("noLead"),
+        none: words?.none ?? t("noLead"),
         search: t("search"),
         hint: t("searchHint"),
         searching: t("searching"),
@@ -64,7 +85,8 @@ export function LeadPicker({
       onChoose={(lead) => {
         onChange(lead === null ? null : { id: lead.id, name: lead.person.name });
       }}
-      clearLabel={t("unlink")}
+      {...(clearLabel !== undefined && { clearLabel })}
+      disabled={disabled}
     />
   );
 }

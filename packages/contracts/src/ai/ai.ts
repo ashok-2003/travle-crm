@@ -14,7 +14,7 @@ export const saveAiSettingsInput = z.strictObject({
   scoring: z.boolean(),
   /** New WhatsApp leads are filled in from their first messages, as suggestions (release ai2a); left as it was when omitted. */
   fillLeads: z.boolean().optional(),
-  /** How the quote write-up sounds (release ai2b); left as it was when omitted. */
+  /** How the AI's words for a customer sound (the days it drafts, its seat messages); left as it was when omitted. */
   writeStyle: writeStyle.optional(),
 });
 export type SaveAiSettingsInput = z.infer<typeof saveAiSettingsInput>;

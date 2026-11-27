@@ -61,11 +61,11 @@ function LeadColumns({ lead, noteForm }: { lead: LeadDetail; noteForm: RefObject
       <LeadBookings leadId={lead.id} />
       <FollowUpsCard lead={lead} />
       <TripCard lead={lead} />
+      {canSeeQuotes && <LeadQuotesCard lead={lead} />}
     </>
   );
   const last = (
     <>
-      {canSeeQuotes && <LeadQuotesCard lead={lead} />}
       <LeadBookingsCard lead={lead} />
       <LeadDeparturesCard leadId={lead.id} />
       <OwnerCard lead={lead}>

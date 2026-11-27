@@ -1,7 +1,8 @@
 // Settings, AI is a small page of switches with a way to the AI agent page: none of the earlier agents' sections
 // (knowledge stays, because package drafts are written from the documents it holds).
 import type { AiSettings } from "@travel-crm/contracts/ai";
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it } from "vitest";
 import { AiSettingsScreen } from "@/ai/ai-settings-screen";
 import { messages } from "@/i18n/messages";
@@ -35,6 +36,21 @@ describe("Settings, AI", () => {
     expect(screen.getByRole("switch", { name: words.scoring })).toBeVisible();
     expect(screen.getByRole("switch", { name: words.fillLeads })).toBeVisible();
     expect(screen.getByRole("link", { name: words.openAgent })).toHaveAttribute("href", routes.aiAgent);
+  });
+
+  it("lets the agency choose the tone of the AI's drafts, and saves it", async () => {
+    const stub = stubApi({
+      "ai.settings": { data: saved },
+      "ai.knowledge": { data: [] },
+      "ai.saveSettings": { data: saved },
+    });
+    renderWithApi(<AiSettingsScreen />, client());
+    await userEvent.click(await screen.findByRole("radio", { name: words.writeStyles.short }));
+    await userEvent.click(screen.getByRole("button", { name: words.save }));
+    await waitFor(() => {
+      expect(stub.calls).toContain("ai.saveSettings");
+    });
+    expect(screen.queryByText(/write for the customer/i)).toBeNull();
   });
 
   it("has no instructions box", async () => {

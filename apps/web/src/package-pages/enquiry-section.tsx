@@ -7,13 +7,15 @@
 import type { PublicPackage } from "@travel-crm/contracts/package-pages";
 import { money } from "@travel-crm/domain/kernel";
 import { useTranslations } from "next-intl";
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { StatusBadge, type StatusTone } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { formatCalendarDay, formatRupees } from "@/lib/format";
 import { EnquiryForm } from "./enquiry-form";
+
+const number = (chunks: ReactNode) => <span className="numbers">{chunks}</span>;
 
 const toneOf: Record<PublicPackage["departures"][number]["word"], StatusTone> = {
   open: "good",
@@ -40,7 +42,7 @@ export function EnquirySection({ code, page }: { code: string; page: PublicPacka
             {page.departures.map((departure) => {
               const day = formatCalendarDay(departure.startDate);
               return (
-                <Item key={departure.id} role="listitem">
+                <Item key={departure.id} role="listitem" className="flex-col items-start sm:flex-row sm:items-center">
                   <ItemContent>
                     <ItemTitle>
                       {t("departureDates", {
@@ -48,13 +50,13 @@ export function EnquirySection({ code, page }: { code: string; page: PublicPacka
                         to: formatCalendarDay(departure.endDate),
                       })}
                     </ItemTitle>
-                    <ItemDescription className="numbers">
+                    <ItemDescription>
                       {departure.pricePaise === null
                         ? ""
-                        : t("departurePrice", { price: formatRupees(money(departure.pricePaise)) })}
+                        : t.rich("departurePrice", { price: formatRupees(money(departure.pricePaise)), number })}
                     </ItemDescription>
                   </ItemContent>
-                  <ItemActions className="flex-wrap">
+                  <ItemActions className="flex-wrap sm:ml-auto">
                     <StatusBadge tone={toneOf[departure.word]}>{t(`words.${departure.word}`)}</StatusBadge>
                     <Button
                       variant="outline"

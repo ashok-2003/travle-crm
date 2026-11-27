@@ -134,6 +134,10 @@ model QuoteSettings {
   /// The least margin a quote should earn, as a share of its subtotal and/or per traveller; null for no minimum.
   minMarginBasisPoints      Int?         @map("min_margin_basis_points")
   minMarginPerPersonPaise   BigInt?      @map("min_margin_per_person_paise")
+  /// When, by whom (a user id, no key: sign-in tables) and for which UPI id the agency scanned the QR and paid ₹1; all or none. Changing the UPI id clears them.
+  upiVerifiedAt             DateTime?    @map("upi_verified_at") @db.Timestamptz(6)
+  upiVerifiedBy             String?      @map("upi_verified_by") @db.Uuid
+  upiVerifiedUpiId          String?      @map("upi_verified_upi_id")
   updatedBy                 String?      @map("updated_by") @db.Uuid
   updatedAt                 DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
   organization              Organization @relation(fields: [organizationId], references: [id], onDelete: Restrict, onUpdate: Restrict)

@@ -71,7 +71,8 @@
     }
   },
   "templates": {
-    "sample": "Sample"
+    "sample": "Sample",
+    "quotation": "Quotation"
   },
   "status": {
     "ready": "Ready",

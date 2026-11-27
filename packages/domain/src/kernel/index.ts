@@ -2,7 +2,7 @@
 export { platformActor, publicActor, systemActor, type Actor, type ActorSource } from "./actor.js";
 export { DomainError, type DomainErrorCode } from "./errors.js";
 export { formatIndianNumber, formatMoney, formatRupees } from "./indian-format.js";
-export { formatShortDay } from "./short-day.js";
+export { formatDayWithYear, formatShortDay } from "./short-day.js";
 export {
   add,
   compare,

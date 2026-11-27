@@ -1,27 +1,47 @@
 "use client";
 
 // A quote that was sent, read as text laid out like the customer's link (no inputs to look editable, nothing to add or
-// delete): its trip, the plan day by day, the priced lines with their quantities, the GST and total, and its words.
+// delete): its priced lines with the GST and total first, then the plan as day boxes, the inclusions ticked in green,
+// the exclusions crossed and the notes as points. The trip's name, date and people are the page header's.
 import { gstStates } from "@travel-crm/contracts/kernel";
-import type { QuoteDetail } from "@travel-crm/contracts/quotes";
+import { pointsOf, type QuoteDetail } from "@travel-crm/contracts/quotes";
 import { useTranslations } from "next-intl";
+import type { ReactNode } from "react";
+import { cardTints } from "@/components/card-tints";
 import { rupees } from "@/components/forms/money-field";
+import { DayBoxes } from "@/components/trip-plan/day-boxes";
+import { PointList } from "@/components/trip-plan/point-list";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableFooter, TableRow } from "@/components/ui/table";
-import { formatCalendarDay } from "@/lib/format";
 
-function Words({ title, text }: { title: string; text: string }) {
-  if (text.trim() === "") return null;
+function Points({
+  title,
+  text,
+  tone,
+  tint,
+}: {
+  title: string;
+  text: string;
+  tone: "included" | "excluded" | "plain";
+  tint?: boolean | undefined;
+}) {
+  if (pointsOf(text).length === 0) return null;
   return (
-    <Card>
+    <Words title={title} tint={tint}>
+      <PointList text={text} tone={tone} />
+    </Words>
+  );
+}
+
+function Words({ title, tint = false, children }: { title: string; tint?: boolean | undefined; children: ReactNode }) {
+  return (
+    <Card className={tint ? cardTints.good : undefined}>
       <CardHeader>
         <CardTitle>
           <h2>{title}</h2>
         </CardTitle>
       </CardHeader>
-      <CardContent>
-        <p className="whitespace-pre-line">{text}</p>
-      </CardContent>
+      <CardContent>{children}</CardContent>
     </Card>
   );
 }
@@ -35,54 +55,10 @@ export function FrozenQuote({ quote }: { quote: QuoteDetail }) {
       : quote.placeOfSupply === "OUTSIDE_INDIA"
         ? t("placeOutside")
         : (gstStates.find((state) => state.code === quote.placeOfSupply)?.name ?? quote.placeOfSupply);
-  const travellers = [
-    tFrozen("adults", { count: quote.adults }),
-    quote.children > 0 ? tFrozen("children", { count: quote.children }) : null,
-  ]
-    .filter((part): part is string => part !== null)
-    .join(", ");
   return (
-    <div className="flex flex-col gap-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>
-            <h2>{t("trip")}</h2>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-1">
-          <p className="font-medium">{quote.title}</p>
-          <p className="text-muted-foreground">
-            {[
-              quote.startDate === null ? null : tFrozen("from", { day: formatCalendarDay(quote.startDate) }),
-              travellers,
-            ]
-              .filter((part): part is string => part !== null)
-              .join(" · ")}
-          </p>
-        </CardContent>
-      </Card>
-      {quote.days.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              <h2>{t("days")}</h2>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ul className="flex flex-col gap-3">
-              {quote.days.map((day, index) => (
-                <li key={`${String(index)}-${day.title}`}>
-                  <p className="font-medium">{tFrozen("day", { day: index + 1, title: day.title })}</p>
-                  {day.description !== "" && (
-                    <p className="whitespace-pre-line text-muted-foreground">{day.description}</p>
-                  )}
-                </li>
-              ))}
-            </ul>
-          </CardContent>
-        </Card>
-      )}
-      <Card>
+    // Below the two columns this div is not a box, so Price and Payments (the screen's other column) can lead the plan.
+    <div className="flex flex-col gap-6 max-xl:contents">
+      <Card className="max-xl:-order-2">
         <CardHeader>
           <CardTitle>
             <h2>{t("price")}</h2>
@@ -126,9 +102,14 @@ export function FrozenQuote({ quote }: { quote: QuoteDetail }) {
           <p className="text-caption text-muted-foreground">{tFrozen("place", { place })}</p>
         </CardContent>
       </Card>
-      <Words title={t("inclusions")} text={quote.inclusions} />
-      <Words title={t("exclusions")} text={quote.exclusions} />
-      <Words title={t("notes")} text={quote.notes} />
+      {quote.days.length > 0 && (
+        <Words title={t("days")}>
+          <DayBoxes days={quote.days} />
+        </Words>
+      )}
+      <Points title={t("inclusions")} text={quote.inclusions} tone="included" tint />
+      <Points title={t("exclusions")} text={quote.exclusions} tone="excluded" />
+      <Points title={t("notes")} text={quote.notes} tone="plain" />
     </div>
   );
 }

@@ -23,7 +23,9 @@ export const quoteColumns = {
   title: true,
   startDate: true,
   departureId: true,
-  departure: { select: { id: true, title: true, startDate: true } },
+  departure: {
+    select: { id: true, title: true, startDate: true, seatsTotal: true, template: { select: { pickupPoints: true } } },
+  },
   adults: true,
   children: true,
   days: true,
@@ -135,6 +137,7 @@ export function toSummary(row: QuoteRow): QuoteSummary {
     title: row.title,
     startDate: row.startDate === null ? null : dayOf(row.startDate),
     status: row.status,
+    paymentWait: null,
     totals: totalsOf(row),
     updatedAt: row.updatedAt.toISOString(),
   });
@@ -144,6 +147,8 @@ export function toSummary(row: QuoteRow): QuoteSummary {
 export interface DetailView {
   settings: MarginSettings;
   seesMargin: boolean;
+  /** The free seats on the quote's departure, when it has one. */
+  departureFree?: number | undefined;
 }
 
 export function toDetail(row: QuoteRow, view: DetailView): QuoteDetail {
@@ -170,7 +175,14 @@ export function toDetail(row: QuoteRow, view: DetailView): QuoteDetail {
     departure:
       row.departure === null
         ? null
-        : { id: row.departure.id, title: row.departure.title, startDate: dayOf(row.departure.startDate) },
+        : {
+            id: row.departure.id,
+            title: row.departure.title,
+            startDate: dayOf(row.departure.startDate),
+            seatsTotal: row.departure.seatsTotal,
+            free: view.departureFree ?? row.departure.seatsTotal,
+            pickupPoints: row.departure.template?.pickupPoints ?? "",
+          },
     installments: coveredInstallments(
       row.installments.map((due) => ({
         id: due.id,

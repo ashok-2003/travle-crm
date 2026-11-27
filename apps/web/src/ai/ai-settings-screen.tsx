@@ -1,6 +1,6 @@
 "use client";
 
-// /settings/ai: the agency's own switches for the AI, for scoring leads and for filling them, how quote write-ups sound,
+// /settings/ai: the agency's own switches for the AI, for scoring leads and for filling them, how the AI's drafts sound,
 // the documents package drafts are written from, and a way to the AI agent page, where the agent that answers WhatsApp
 // is set up. Off until an Owner or Admin turns it on.
 import { writeStyles, type AiSettings, type WriteStyle } from "@travel-crm/contracts/ai";

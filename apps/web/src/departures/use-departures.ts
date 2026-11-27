@@ -19,9 +19,9 @@ export function useDepartureList(filter: DepartureFilter, enabled = true, templa
   });
 }
 
-export function useDeparture(departureId: string) {
+export function useDeparture(departureId: string, enabled = true) {
   const trpc = useTRPC();
-  return useQuery(trpc.departures.get.queryOptions({ departureId }));
+  return useQuery({ ...trpc.departures.get.queryOptions({ departureId }), enabled });
 }
 
 /** What a trip's departure is priced at on its first day (its own prices, else its season's); nothing for a departure of no trip. */

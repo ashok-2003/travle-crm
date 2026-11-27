@@ -146,9 +146,9 @@ describe("the traced AI model", () => {
     const inner = createMemoryAiModel();
     inner.answer("one");
     inner.answer("two");
-    const prompt = { name: "write-up/system", version: 7 };
-    await withTracing(inner, tracing).complete({ feature: "write_up", messages: [], prompt });
-    await withTracing(inner, tracing).complete({ feature: "write_up", messages: [] });
+    const prompt = { name: "whatsapp-agent/real-agent", version: 7 };
+    await withTracing(inner, tracing).complete({ feature: "sales_agent", messages: [], prompt });
+    await withTracing(inner, tracing).complete({ feature: "sales_agent", messages: [] });
     expect(tracing.generations.map((call) => call.prompt)).toEqual([prompt, null]);
   });
 

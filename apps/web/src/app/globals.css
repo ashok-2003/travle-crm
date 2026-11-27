@@ -120,6 +120,8 @@
   --text-label--line-height: 1.125rem;
   --text-caption: 0.75rem;
   --text-caption--line-height: 1rem;
+  --text-micro: 0.6875rem;
+  --text-micro--line-height: 0.875rem;
   --text-number: 0.875rem;
   --text-number--line-height: 1.25rem;
   --text-number-lg: 1.5rem;

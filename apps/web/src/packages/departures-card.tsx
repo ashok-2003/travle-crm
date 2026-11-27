@@ -1,9 +1,9 @@
 "use client";
 
-// A group trip's Departures card: its calendar (a month grid on a wide screen, the month's list on a phone), each season
-// in its own colour with a legend, a panel for the tapped day (beside the grid, or a sheet on a phone), and under it the
-// weekly rule, the seats and the advance in words (repeats-line.tsx). The days come from departures.calendar, a month at
-// a time, so the arrows read the next month.
+// A group trip's Departures card: its calendar (a month grid, two months from 1280px), each
+// season in its own colour with a legend, a panel for the tapped day (under the months, or a sheet on a phone), and under
+// it the weekly rule, the seats and the advance in words (repeats-line.tsx). The days come from departures.calendar, a
+// month at a time, so a 1280px screen reads two and the arrows read the one that comes into view.
 import type { CalendarDeparture } from "@travel-crm/contracts/departures";
 import { seasonColumns, type PackageDetail } from "@travel-crm/contracts/quotes";
 import { useTranslations } from "next-intl";
@@ -14,12 +14,11 @@ import { BOTTOM_SHEET_CLASSES } from "@/components/responsive-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { dayWithWeekday } from "./departure-calendar-days";
+import { useMediaQuery } from "@/lib/use-media-query";
 import { useWideScreen } from "@/lib/use-wide-screen";
 import { cn } from "@/lib/utils";
-import { addDays, monthOf, type Day, type Month } from "./departure-calendar-days";
+import { dayWithWeekday, monthOf, shiftMonth, type Day, type Month } from "./departure-calendar-days";
 import { DayPanel } from "./day-panel";
-import { DeparturesAgenda } from "./departures-agenda";
 import { DeparturesMonth } from "./departures-month";
 import { sectionAnchors } from "./package-section";
 import { RepeatsLine } from "./repeats-line";
@@ -32,41 +31,57 @@ export function DeparturesCard({ detail }: { detail: PackageDetail }) {
   const t = useTranslations("packages.departuresCalendar");
   const headingId = useId();
   const wide = useWideScreen();
+  // Two months only where a day stays wide enough for "₹12,300" (about 1280px): below that, one month.
+  const twoMonths = useMediaQuery("(min-width: 1280px)");
   const today = useAgencyToday();
   const [month, setMonth] = useState<Month>(monthOf(today));
   const [selected, setSelected] = useState<Day | null>(null);
-  const [picking, setPicking] = useState(false);
   const calendar = useDepartureCalendar(detail.id, month);
+  const next = useDepartureCalendar(detail.id, shiftMonth(month, 1), twoMonths);
   const columns = useMemo(() => seasonColumns(detail.seasons), [detail.seasons]);
   const byDay = useMemo(
-    () => new Map<Day, CalendarDeparture>((calendar.data ?? []).map((departure) => [departure.startDate, departure])),
-    [calendar.data],
+    () =>
+      new Map<Day, CalendarDeparture>(
+        [...(calendar.data ?? []), ...(twoMonths ? (next.data ?? []) : [])].map((departure) => [
+          departure.startDate,
+          departure,
+        ]),
+      ),
+    [calendar.data, next.data, twoMonths],
   );
   if (detail.kind !== "group") return null;
 
-  const goTo = (next: Month) => {
-    setMonth(next);
+  const goTo = (to: Month) => {
+    setMonth(to);
     setSelected(null);
   };
-  // A day in another month is read from that month: the panel waits for it.
-  const pickDay = (day: Day) => {
-    setMonth(monthOf(day));
-    setSelected(day);
-  };
+  // A month that did not load, whichever of the shown ones: the days that did load stay out of reach until it does.
+  const failed =
+    [calendar, ...(twoMonths ? [next] : [])].find((read) => read.isError && read.data === undefined) ?? null;
+  const loading =
+    calendar.data === undefined ||
+    calendar.isPlaceholderData ||
+    (twoMonths && (next.data === undefined || next.isPlaceholderData));
   const panel =
-    selected === null ? null : calendar.data === undefined || calendar.isPlaceholderData ? (
+    selected === null ? null : loading ? (
       <LoadingRows shape="twoLines" label={t("loading")} />
     ) : (
-      <DayPanel
-        key={selected}
-        detail={detail}
-        day={selected}
-        departure={byDay.get(selected) ?? null}
-        today={today}
-        pickDay={picking}
-        onDayChange={pickDay}
-      />
+      <DayPanel key={selected} detail={detail} day={selected} departure={byDay.get(selected) ?? null} today={today} />
     );
+  const months = (
+    <div aria-label={t("calendarLabel")}>
+      <DeparturesMonth
+        columns={columns}
+        byDay={byDay}
+        month={month}
+        onMonthChange={goTo}
+        selected={selected}
+        onSelect={setSelected}
+        compact={!wide}
+        twoMonths={twoMonths}
+      />
+    </div>
+  );
 
   return (
     <Card id={sectionAnchors.departures} role="region" aria-labelledby={headingId} className="scroll-mt-6">
@@ -86,43 +101,21 @@ export function DeparturesCard({ detail }: { detail: PackageDetail }) {
             ))}
           </ul>
         )}
-        {calendar.isError && calendar.data === undefined ? (
-          <LoadFailedAlert message={t("loadFailed")} error={calendar.error} onRetry={() => void calendar.refetch()} />
+        {failed !== null ? (
+          <LoadFailedAlert message={t("loadFailed")} error={failed.error} onRetry={() => void failed.refetch()} />
         ) : wide ? (
-          <div className="flex flex-col gap-6 xl:flex-row">
-            <div className="min-w-0 flex-1" aria-label={t("calendarLabel")}>
-              <DeparturesMonth
-                columns={columns}
-                byDay={byDay}
-                month={month}
-                onMonthChange={goTo}
-                selected={selected}
-                onSelect={setSelected}
-              />
-            </div>
+          <>
+            {months}
             {panel !== null && (
               <>
-                <Separator className="xl:hidden" />
-                <Separator orientation="vertical" className="hidden h-auto xl:block" />
-                <aside className="xl:w-80 xl:shrink-0">{panel}</aside>
+                <Separator />
+                <aside aria-label={t("panelLabel")}>{panel}</aside>
               </>
             )}
-          </div>
+          </>
         ) : (
           <>
-            <DeparturesAgenda
-              departures={calendar.data ?? []}
-              month={month}
-              onMonthChange={goTo}
-              onSelect={(day) => {
-                setPicking(false);
-                setSelected(day);
-              }}
-              onAdd={() => {
-                setPicking(true);
-                setSelected(addDays(today, 1));
-              }}
-            />
+            {months}
             <Sheet
               open={selected !== null}
               onOpenChange={(open) => {

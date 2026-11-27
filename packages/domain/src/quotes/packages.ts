@@ -15,6 +15,7 @@ import { organizationTimeZone, type MemberAccess } from "../identity/index.js";
 import { calendarDateIn, DomainError, type CalendarDate } from "../kernel/index.js";
 import { agencyPaymentDetailsOf, paymentDetailsReady } from "../profile/index.js";
 import { groupFromPrices } from "./group-from-price.js";
+import { nextDepartures } from "./next-departures.js";
 import { nameTaken } from "./package-row.js";
 import { gapsOfRows } from "./package-sell-gaps.js";
 import { copyOf, daysOf, findQuoteInScope, itemsOf } from "./quote-rows.js";
@@ -56,11 +57,9 @@ export async function listPackages(tx: OrgTx, organizationId: string, today: Cal
   const gaps = new Map(
     (await gapsOfRows(tx, switchedOn, today, paymentReady)).map(({ row, gaps: found }) => [row.id, found]),
   );
-  const fromPrices = await groupFromPrices(
-    tx,
-    rows.filter((row) => row.kind === "group").map((row) => row.id),
-    today,
-  );
+  const groupIds = rows.filter((row) => row.kind === "group").map((row) => row.id);
+  const fromPrices = await groupFromPrices(tx, groupIds, today);
+  const next = await nextDepartures(tx, groupIds, today);
   return quotePackageList.parse(
     rows.map((row) => ({
       id: row.id,
@@ -84,6 +83,7 @@ export async function listPackages(tx: OrgTx, organizationId: string, today: Cal
       aiSells: row.aiSellable && gaps.get(row.id)?.length === 0,
       aiGap: gaps.get(row.id)?.[0] ?? null,
       departuresAhead: row._count.departures,
+      nextDeparture: next.get(row.id) ?? null,
     })),
   );
 }

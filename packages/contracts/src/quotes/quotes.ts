@@ -83,6 +83,8 @@ export const listQuotesInput = z.strictObject({
   status: quoteStatus.optional(),
   /** Only quotes with money still to come. */
   balanceDue: z.boolean().optional(),
+  /** A customer's name, a phone's digits or a trip's title. */
+  search: z.string().max(80).optional(),
 });
 export type ListQuotesInput = z.infer<typeof listQuotesInput>;
 
@@ -140,6 +142,12 @@ export const quoteSettings = z.object({
   defaultMarkupBasisPoints: z.int(),
   minMarginBasisPoints: z.int().nullable(),
   minMarginPerPersonPaise: z.int().nullable(),
+  /** When the agency verified its UPI QR (scanned it, paid ₹1, saw it arrive) for the UPI id it has now; null if not, or if the id changed since. */
+  upiVerifiedAt: z.iso.datetime().nullable(),
+  /** Who verified it (a user id); null with the time. */
+  upiVerifiedBy: recordId.nullable(),
+  /** Their name, added by the api; null for a former member. */
+  upiVerifiedByName: z.string().nullable(),
 });
 export type QuoteSettings = z.infer<typeof quoteSettings>;
 
@@ -189,6 +197,10 @@ export const payment = z.object({
 });
 export type Payment = z.infer<typeof payment>;
 
+/** A quote behind an AI booking nobody has paid yet: "waiting" while the seats are held, "hold_expired" once they lapse. */
+export const quotePaymentWait = z.enum(["waiting", "hold_expired"]);
+export type QuotePaymentWait = z.infer<typeof quotePaymentWait>;
+
 export const quoteSummary = z.object({
   id: recordId,
   leadId: recordId,
@@ -196,6 +208,7 @@ export const quoteSummary = z.object({
   title: z.string(),
   startDate: calendarDate.nullable(),
   status: quoteStatus,
+  paymentWait: quotePaymentWait.nullable(),
   totals: quoteTotals,
   updatedAt: z.iso.datetime(),
 });
@@ -214,8 +227,21 @@ export const quoteDetail = z.object({
   invoiceDocumentId: recordId.nullable(),
   /** The draft that took this quote's place, when it was replaced. */
   replacedById: recordId.nullable(),
-  /** The group departure the quote books seats on; its dates are the quote's (release 7a). */
-  departure: z.object({ id: recordId, title: z.string(), startDate: calendarDate }).nullable(),
+  /**
+   * The group departure the quote books seats on; its dates are the quote's (release 7a). Its seats and its trip's pickup
+   * points (quotes revamp) come with it, so whoever sees the quote reads them without the package or the departure.
+   */
+  departure: z
+    .object({
+      id: recordId,
+      title: z.string(),
+      startDate: calendarDate,
+      seatsTotal: z.int(),
+      free: z.int(),
+      /** The departure's package's pickup points, one a line; "" for none. */
+      pickupPoints: z.string(),
+    })
+    .nullable(),
   installments: z.array(installment),
   payments: z.array(payment),
   margin: quoteMargin,

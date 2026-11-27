@@ -32,6 +32,7 @@ const trip = (id: string, name: string): QuotePackage => ({
   aiSells: false,
   aiGap: null,
   departuresAhead: 0,
+  nextDeparture: null,
 });
 
 /** Opens the dialog over the agency's trips (this one among them), copyNote answering `copied`. */

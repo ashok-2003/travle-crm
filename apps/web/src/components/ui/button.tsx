@@ -19,7 +19,9 @@ const buttonVariants = cva(
         send: "bg-send-fill text-send-ink hover:bg-send-pressed",
         quiet: "text-foreground hover:bg-accent hover:text-accent-foreground",
         destructive:
-          "bg-status-bad-fill text-foreground hover:bg-[color-mix(in_oklab,var(--brand-status-bad-fill),var(--brand-status-bad-dot)_16%)] aria-expanded:bg-[color-mix(in_oklab,var(--brand-status-bad-fill),var(--brand-status-bad-dot)_16%)] dark:bg-destructive/20 dark:hover:bg-destructive/30",
+          "bg-[color-mix(in_oklab,var(--brand-status-bad-fill),var(--brand-status-bad-dot)_22%)] text-foreground hover:bg-[color-mix(in_oklab,var(--brand-status-bad-fill),var(--brand-status-bad-dot)_32%)] aria-expanded:bg-[color-mix(in_oklab,var(--brand-status-bad-fill),var(--brand-status-bad-dot)_32%)] dark:bg-destructive/30 dark:hover:bg-destructive/40",
+        success:
+          "bg-[color-mix(in_oklab,var(--brand-status-good-fill),var(--brand-status-good-dot)_22%)] text-foreground hover:bg-[color-mix(in_oklab,var(--brand-status-good-fill),var(--brand-status-good-dot)_32%)] aria-expanded:bg-[color-mix(in_oklab,var(--brand-status-good-fill),var(--brand-status-good-dot)_32%)] dark:bg-[color-mix(in_oklab,transparent,var(--brand-status-good-dot)_30%)] dark:hover:bg-[color-mix(in_oklab,transparent,var(--brand-status-good-dot)_40%)]",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {

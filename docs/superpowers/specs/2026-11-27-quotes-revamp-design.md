@@ -1,0 +1,109 @@
+# Quotes revamp: a quote that reads at a glance, for the team and the customer
+
+Owner-led, 2026-11-26/27 (web revamp). Decisions are the owner's unless marked "(my call)"; the owner approved the defaults
+("yes your decisions are good").
+
+## Why
+
+Most quotes are made by the AI from a package (a customer taps Book in WhatsApp: the AI makes the quote, holds the seats
+and asks for the advance). They never get a link sent, so they sit as "Draft", which misleads. The quote page shows thirteen
+buttons in a row, the trip's name is small, the date and people are grey, prices sit below the plan, and money owed has no
+colour. The customer's link page and the PDF are older than the app's design and carry details nobody needs.
+
+## Decided
+
+### Staff side (PR 1)
+
+1. **Quotes list:** the registry Table with a search (customer's name, phone, trip; searched text never in the URL, as the
+   Leads list keeps it) and the status chips; a **New quote** button that asks for the lead (search an existing lead, with
+   a link to make a new lead), then opens the lead's existing New quote (blank or from a package).
+2. **Statuses:** a quote behind an AI booking that is not paid reads **"Waiting for payment"** (amber), and once its seat
+   hold has lapsed, **"Hold expired"** (amber), instead of "Draft". Sent, Accepted, Declined, Replaced and Draft as today.
+3. **Lead page:** the Quotes card sits above the WhatsApp card; **New quote** is the primary (blue) button.
+4. **Sidebar:** Quotes above Packages (already so on desktop; the phone's More menu follows the same order).
+5. **A quote's actions, one row:**
+   - **WhatsApp** (an icon button with the WhatsApp mark, named "Send on WhatsApp");
+   - **Live link** in blue, opening the customer's page in a new tab, with Copy beside it;
+   - **PDF**: a square icon button with the download mark, named "Download the PDF";
+   - **Edit** replaces "Make a new version" and "Add another option": on a draft it edits in place; on a sent quote it
+     makes the new version (a draft that replaces it when sent; the customer's old link then says replaced) and opens it.
+     The new version waits as a draft until a person sends it.
+   - **Mark accepted** green, **Mark declined** red, **Delete** a strong red trash button (confirmation as today);
+   - a **"⋯" menu**: Duplicate as another option, Save as package.
+   - **"Write for the customer" is removed** (the button and the feature's code; the owner: no significance now).
+   - A green button style is new to the app: only Mark accepted uses it (owner).
+6. **The opened quote (sent, accepted, or the AI's):**
+   - the **trip's name big**, then its date and people in ink (not muted): "Fri 4 Dec 2026 · 1 adult";
+   - **Price above the day-by-day plan**;
+   - **Day by day**: each day a box in the light blue tint ("Day 1 · Delhi to Manali", its words under it), with a down
+     arrow between days (owner's sketch);
+   - **Inclusions** in green, one point a line with a tick; **Exclusions** under it, one point a line with a cross;
+     **Notes** as points;
+   - **Payments in the colours people already read:** nothing received: red ("Nothing received yet", Paid ₹0 red); part
+     paid: Still to pay amber; paid in full: green ("Paid in full"); a payment due date passed: red;
+   - **Departure** (a group trip's quote): the light green tint, its day with the weekday, seats left of total, the pickup
+     point and time, and a link to the departure;
+   - the **"This quote was sent, so its prices are fixed"** note moves to the bottom, small.
+   - Colour only where it carries meaning; everything else stays plain.
+   - A draft's form keeps its inputs but in the same order (trip, price, day by day, inclusions, exclusions, notes).
+
+### Packages, built together (owner, 2026-11-27: "build together")
+
+6b. **A trip's Trip details read like a quote.** The trip page's read view of Trip details keeps Name, Destination, Nights
+    and Where it starts as rows at the top, then shows the day by day as the same blue day boxes with arrows (not one grey
+    line), inclusions as green ticks, exclusions as crosses, pickup points, notes and cancellation notes as points. The
+    day boxes and the point lists are one pair of shared parts, used by the opened quote and by the trip page. Packages and
+    the staff side of Quotes ship in one PR.
+
+### Customer side (PR 2)
+
+7. **The customer's link page** (/p/<token>, plain HTML from the api, no script — kept so):
+   - the agency's name at the top; "To: <customer's name>"; the trip's name big; the date and people;
+   - **Accept** right after: the customer's name and one Accept button, no tick boxes (several options: choose one first,
+     as today); once accepted, the same place shows what to pay now with "Pay by UPI" and the UPI id, and the payment
+     claim as today;
+   - then the price breakdown (each line × quantity and its amount, then the total including GST; no paise, no
+     CGST/SGST table — owner: "price breakdown"), the day boxes, inclusions (green ticks),
+     exclusions (crosses), notes, and the terms in full;
+   - at the bottom, small but readable: "By accepting this quote I agree to the terms and cancellation policy, and to get
+     trip updates on WhatsApp." Accepting records the trip-updates permission the old tick box recorded. It covers trip
+     updates about this booking only, never offers.
+8. **The quotation PDF** follows the same layout: the agency and the quote's number and date, "To", the trip's name
+   (wrapping, never cut off), "4 Dec 2026 · 1 adult" (never "2026-12-04, 1 adults, 0 children"), the price lines and
+   "Total ₹8,999 (incl. 5% GST)" without paise or the CGST/SGST table (the tax invoice keeps it), what is due, the day
+   boxes, inclusions, exclusions, notes, terms.
+
+9. **The public package page** (/a/<agency>/<trip>; owner: "make it better", the design is my call): the agency at the
+   top, the trip's name big with its nights and "From ₹X", its next departures in words (never a seat count: the page
+   shows only what the agency published), an "Ask about this trip" button near the top that goes to the enquiry form,
+   then the photos, highlights, the same blue day boxes, inclusions as green ticks, exclusions as crosses, notes, and the
+   enquiry form and "WhatsApp us" at the end.
+
+10. **A UPI QR wherever the customer pays** (owner, 2026-11-27): the customer's page (Pay now) and the PDF (a Pay box) show a
+    QR of the same `upi://pay` link the "Pay by UPI" button uses: the agency's UPI id, its name, the amount due now and the
+    quote's number as the note, with the UPI id and name in text beside it. Settings → Payment details shows the agency's QR
+    with "Scan it once and pay ₹1 to check it", and a **"Mark as verified"** button (owner, 2026-11-27): confirming
+    ("I scanned this QR, paid ₹1, and it reached our account") records who and when, shown on the screen ("Verified by
+    Ashok Kumar on 27 Nov, 3:40 pm") and in the agency's audit log. Changing the UPI id clears the verification (audited).
+    Customers see the QR (page, PDF) only once it is verified; the UPI id in text and the "Pay by UPI" button work as today
+    either way, so live agencies are not interrupted. Only a member who may change payment details verifies, from a
+    session the api reads afresh. An additive migration holds when, by whom and which UPI id was verified. The uploaded
+    QR picture stays only for an agency with no UPI id. Later, in
+    its own PR: the AI's WhatsApp payment message, an Inbox "Send payment QR" action, the traveller's trip page and balance
+    reminders.
+
+Everything above ships in one PR with the Packages revamp (owner: "we will push all these together").
+
+## Not in this change
+
+The WhatsApp chat's side panel showing the quote or booking (owner: later, with more there); a payment gateway (payment
+checks stay a person's: money goes straight to the agency's UPI).
+
+## Approaches considered
+
+- Statuses: (chosen) derive "Waiting for payment"/"Hold expired" from the quote's AI booking and hold, keeping the quote's
+  stored status; rejected: a new stored status (a migration and every status switch to change, for a label).
+- Edit on a sent quote: (chosen) reuse "make a new version" behind Edit; rejected: editing a sent quote in place (the
+  customer's link would change under them).
+- Customer page: (chosen) restyle the api's plain HTML; rejected: moving it into the Next app (a heavier page on a slow
+  phone, a new public route, no gain for the customer).

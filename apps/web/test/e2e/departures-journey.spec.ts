@@ -59,14 +59,16 @@ test("an Owner adds a batch with seats, holds some for a lead, and the quote mad
   // "Make quote" starts a draft on the departure, with its dates and the seats held.
   await holds.getByRole("button", { name: "Make a quote for Priya Nair" }).click();
   await expect(page).toHaveURL(/\/quotes\//);
-  await expect(page.getByRole("region", { name: "Departure" })).toContainText("On Kedarnath yatra, 3 Nov");
+  // The departure's card: its name, its first day with the weekday, and the seats left of the total (3 of 20 held).
+  const onDeparture = page.getByRole("region", { name: "Departure" });
+  await expect(onDeparture.getByRole("link", { name: "Kedarnath yatra, 3 Nov" })).toBeVisible();
+  await expect(onDeparture).toContainText(/(Mon|Tue|Wed|Thu|Fri|Sat|Sun) \d{1,2} [A-Z][a-z]{2}/);
+  await expect(onDeparture).toContainText("17 of 20 seats left");
   const quoteId = new URL(page.url()).pathname.split("/").pop() ?? "";
   const shared = await callApi<{ path: string }>(page, "quotes.share", { quoteId });
   const customer = await browser.newPage();
   await customer.goto(`${new URL(page.url()).origin}${shared.path}`);
   await customer.getByLabel("Your name").fill("Priya Nair");
-  await customer.getByLabel(/I agree to the terms/).check();
-  await customer.getByLabel("Send me trip updates on WhatsApp").check();
   await customer.getByRole("button", { name: "Accept quote" }).click();
   await expect(customer.getByText("Thank you, your acceptance is recorded")).toBeVisible();
   await customer.close();

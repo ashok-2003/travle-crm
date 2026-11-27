@@ -23,7 +23,7 @@ import { modelRefusal, refuse } from "../refusals.js";
 import { aiEnabled } from "../settings.js";
 import { hashOf } from "../suggest.js";
 import { MONTHLY_AI_LIMIT, recordTokens, releaseAiCall, reserveAiCall, usedThisMonth } from "../usage.js";
-import { withoutTypedAmounts } from "../write-up/tokens.js";
+import { withoutTypedAmounts } from "../typed-amounts.js";
 import { assertOfferable, offerableLeads, type Candidate } from "./interested.js";
 import { managedPrompt } from "../managed-prompt.js";
 import { reachOutPrompt, REACH_OUT_PROMPT_NAME, type ReachOutFacts } from "./prompt.js";
@@ -167,7 +167,7 @@ export async function writeSeatMessage(
   }
   const typed = withoutTypedAmounts(result.text.trim().replace(/^["“](.*)["”]$/s, "$1"));
   const counted = withoutSeatCounts(typed.text, prepared.allowedCount);
-  // Staff are told when the model's own amount or seat count was taken out, as they are for a write-up.
+  // Staff are told when the model's own amount or seat count was taken out, as they are for any other AI words.
   const removedAmounts = typed.removed || counted !== typed.text;
   const text = withPrice(counted, prepared.pricePaise, prepared.pricesIncludeGst).slice(0, MAX_CHARS);
   if (text === "") {

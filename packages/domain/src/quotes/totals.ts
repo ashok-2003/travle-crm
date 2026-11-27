@@ -69,3 +69,20 @@ export function coveredInstallments<Due extends { amountPaise: number; dueOn: st
       return { ...due, paid };
     });
 }
+
+/** What to pay now: the next instalment not yet covered, as much of it as is left; else the balance. */
+export function payDueNow(
+  installments: readonly { amountPaise: number }[],
+  paidPaise: number,
+  balancePaise: number,
+): number {
+  let left = paidPaise;
+  for (const due of installments) {
+    if (left >= due.amountPaise) {
+      left -= due.amountPaise;
+      continue;
+    }
+    return Math.min(balancePaise, due.amountPaise - left);
+  }
+  return balancePaise;
+}

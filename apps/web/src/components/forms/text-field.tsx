@@ -19,6 +19,7 @@ export function TextField<Values extends FieldValues>({
   label,
   hint,
   className,
+  inputClassName,
   ...inputProps
 }: InputProps & {
   control: Control<Values>;
@@ -26,6 +27,8 @@ export function TextField<Values extends FieldValues>({
   label: string;
   hint?: string;
   className?: string;
+  /** A class for the input alone (the numbers font), where `className` goes to the label's wrapper. */
+  inputClassName?: string;
 }) {
   const FieldInput = inputProps.type === "password" ? PasswordInput : Input;
   return (
@@ -39,6 +42,7 @@ export function TextField<Values extends FieldValues>({
               {...links}
               {...inputProps}
               {...field}
+              className={inputClassName}
               value={typeof field.value === "string" ? field.value : ""}
             />
           )}

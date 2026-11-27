@@ -8,16 +8,16 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
 import { SectionCard } from "@/bookings/section-card";
+import { cardTints } from "@/components/card-tints";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { ResponsiveDialog } from "@/components/responsive-dialog";
-import { TextLink } from "@/components/text-link";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Field, FieldLabel } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { formatCalendarDay } from "@/lib/format";
-import { departureRoute } from "@/lib/routes";
 import { useHolds } from "@/session/me-context";
+import { QuoteDepartureFacts } from "./quote-departure-facts";
 import { useDepartureChanges, useDepartureList } from "./use-departures";
 
 export function QuoteDepartureCard({ quote }: { quote: QuoteDetail }) {
@@ -32,15 +32,9 @@ export function QuoteDepartureCard({ quote }: { quote: QuoteDetail }) {
   if (!seesDepartures || (quote.departure === null && !mayChange)) return null;
   const options = (list.data ?? []).filter((departure) => departure.status === "open");
   return (
-    <SectionCard title={t("title")}>
-      {quote.departure === null ? null : (
-        <p>
-          <TextLink inline href={departureRoute(quote.departure.id)}>
-            {t("on", { title: quote.departure.title, day: formatCalendarDay(quote.departure.startDate) })}
-          </TextLink>
-        </p>
-      )}
-      {quote.departure !== null && <p className="text-muted-foreground">{t("onDescription")}</p>}
+    <SectionCard title={t("title")} className={quote.departure === null ? undefined : cardTints.good}>
+      {quote.departure !== null && <QuoteDepartureFacts departure={quote.departure} />}
+      {quote.departure !== null && mayChange && <p className="text-muted-foreground">{t("onDescription")}</p>}
       <RefusalAlert error={changes.setQuoteDeparture.error} />
       {mayChange && (
         <div className="flex flex-wrap gap-2">

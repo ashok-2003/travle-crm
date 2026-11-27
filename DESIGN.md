@@ -47,6 +47,7 @@ typography:
   body: { family: "Figtree", size: 15px, weight: 400, lineHeight: 22px, tracking: "0" }
   label: { family: "Figtree", size: 13px, weight: 500, lineHeight: 18px, tracking: "0" }
   caption: { family: "Figtree", size: 12px, weight: 400, lineHeight: 16px, tracking: "0.01em" }
+  micro: { family: "Figtree", size: 11px, weight: 400, lineHeight: 14px, tracking: "0" }
   number:
     { family: "IBM Plex Mono", size: 14px, weight: 400, lineHeight: 20px, tracking: "0", features: "tabular-nums" }
   number-lg:
@@ -138,6 +139,7 @@ Status vocabulary (extend, do not reinvent):
 | Body               | Figtree                       | 15 / 22                     | 400    |
 | Label              | Figtree                       | 13 / 18                     | 500    |
 | Caption            | Figtree                       | 12 / 16                     | 400    |
+| Micro              | Figtree                       | 11 / 14                     | 400    |
 | Number             | IBM Plex Mono, `tabular-nums` | 14 / 20                     | 400    |
 | Number large (KPI) | IBM Plex Mono, `tabular-nums` | 24 / 30                     | 500    |
 
@@ -145,7 +147,7 @@ Rules:
 
 - **Garamond for page titles only.** One per screen (`h1`). Never in cards, buttons, tables or dialogs. Dialog titles use Figtree 600.
 - **Every number is mono with tabular-nums**: money, counts, percentages, ids (e.g. `Q-1042`), phone numbers, and dates in tables. Dates inside running prose may stay Figtree.
-- Minimum text size is 12px; body on mobile is never below 15px (inputs are 16px to stop iOS zoom).
+- Minimum text size is 12px, except micro (11px), only for a calendar day's details on a phone; body on mobile is never below 15px (inputs are 16px to stop iOS zoom).
 - shadcn/ui components keep their own text sizes (`text-sm`, 14px, in buttons, items, cards, the sidebar); the 15px body is for running text outside them. (Proposed, for the owner to confirm.)
 - Body line length 65-75ch. `text-wrap: balance` on titles, `pretty` on prose.
 - No uppercase tracked eyebrows, no gradient text, no letter-spacing tighter than -0.02em.
@@ -172,7 +174,7 @@ Shadows only on floating overlays that sit above the page: dropdown menus, popov
 
 Build on shadcn/ui; restyle with the tokens. Define colours as CSS variables on `:root`, not literals in components.
 
-**Buttons.** Pill. Heights 44px (default, mobile and desktop), 36px dense only in desktop table toolbars where an adjacent 44px hit area is provided. Primary: blue fill, white text (5.17:1), hover `#1d4ed8`. Secondary: canvas fill, hairline-strong border (`#8a8a82`), ink text. Ghost: no border, blue text. Destructive (owner, 2026-11-21): a soft red fill, the status-bad tint (`#fdecea`), with ink words (15.2:1), a little deeper on hover, for every button that ends, removes or refuses something: Delete, Remove, Revoke, Discard, Stop, Mark lost, Not a lead, cancelling a thing, and a confirm dialog's last step alike. Never red words on an outline or a ghost (`test/no-red-outline-buttons.test.ts`); an icon-only remover in a list's or a form's rows (a trash can, an ✕) stays a ghost, its dialog's last step soft red. One primary button per view region. Disabled: muted ink on surface, no pointer events, and say why in a hint. Loading: spinner replaces label width-stable, button stays disabled.
+**Buttons.** Pill. Heights 44px (default, mobile and desktop), 36px dense only in desktop table toolbars where an adjacent 44px hit area is provided. Primary: blue fill, white text (5.17:1), hover `#1d4ed8`. Secondary: canvas fill, hairline-strong border (`#8a8a82`), ink text. Ghost: no border, blue text. Destructive (owner, 2026-11-21; deepened 2026-11-26): a clear red fill, the status-bad tint mixed with 22% of its dot (about `#f5c2be`), with ink words (11:1), 32% on hover, for every button that ends, removes or refuses something: Delete, Remove, Revoke, Discard, Stop, Take the page down, Mark lost, Not a lead, cancelling a thing, and a confirm dialog's last step alike. Never red words on an outline or a ghost (`test/no-red-outline-buttons.test.ts`); an icon-only remover in a list's or a form's rows (a trash can, an ✕) stays a ghost, its dialog's last step soft red. Success (owner, 2026-11-27): the same recipe in green, the status-good tint mixed with 22% of its dot (about `#bbdec2`), ink words (11.9:1), 32% on hover, for Mark accepted and nothing else. One primary button per view region. Disabled: muted ink on surface, no pointer events, and say why in a hint. Loading: spinner replaces label width-stable, button stays disabled.
 
 **Inputs.** 44px high (16px text), 6px radius, 1px border `#8a8a82` (3.4:1 as a UI boundary), canvas fill, visible label above (never placeholder-only). Placeholder is ink muted. Focus: 2px blue ring with 2px offset. Error: red border plus message below with an icon, `aria-describedby` linked. Phone fields use `+91` prefix and mono digits. Money fields show `₹` prefix, mono, right-aligned, Indian grouping on blur.
 
@@ -252,7 +254,8 @@ Target WCAG 2.2 AA. Contrast checked with the WCAG relative-luminance formula (c
 | Forest `#034f46` on canvas                                                            | 9.35:1 | Money text                                              |
 | Forest on tint `#e3f1ee`                                                              | 8.18:1 | Money badges                                            |
 | Red ink `#9b1c1c` on `#fdecea`                                                        | 7.13:1 | Status badge                                            |
-| Ink `#1a1a1a` on red tint `#fdecea`                                                   | 15.2:1 | Destructive buttons                                     |
+| Ink `#1a1a1a` on deepened red `#f5c2be`                                               | 11.1:1 | Destructive buttons                                     |
+| Ink `#1a1a1a` on deepened green `#bbdec2`                                             | 11.9:1 | Success button (Mark accepted)                          |
 | Amber ink `#7a4100` on `#fff3d6`                                                      | 7.37:1 | Status badge                                            |
 | Green ink `#14532d` on `#e3f4e7`                                                      | 7.97:1 | Status badge                                            |
 | Neutral ink `#4a4a4a` on `#ecebe6`                                                    | 7.42:1 | Status badge                                            |

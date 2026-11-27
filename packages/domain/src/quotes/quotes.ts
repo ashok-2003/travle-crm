@@ -31,6 +31,7 @@ import {
   toSummary,
 } from "./quote-rows.js";
 import { assertTakesStandInPayments } from "./placeholder-payments.js";
+import { countsOf, seatsSoldAndHeld } from "./seat-counts.js";
 import { quoteSettingsOf } from "./settings.js";
 import { quoteMoney } from "./totals.js";
 
@@ -69,9 +70,25 @@ function columnsOf(fields: Fields, context: QuoteContext) {
 
 const seesMargin = (access: MemberAccess) => access.permissions.has("money:view_margin");
 
-/** A quote row as the member reads it: the margin warning for all, its figures and the lines' costs only for whoever may see them. */
+/**
+ * A quote row as the member reads it: the margin warning for all, its figures and the lines' costs only for whoever may
+ * see them, and its departure's free seats.
+ */
 async function detailOf(tx: OrgTx, access: MemberAccess, row: Parameters<typeof toDetail>[0]): Promise<QuoteDetail> {
-  return toDetail(row, { settings: await quoteSettingsOf(tx), seesMargin: seesMargin(access) });
+  const { departure } = row;
+  const [settings, seats] = await Promise.all([
+    quoteSettingsOf(tx),
+    departure === null ? null : seatsSoldAndHeld(tx, [departure.id], new Date()),
+  ]);
+  const taken = departure === null ? undefined : seats?.get(departure.id);
+  return toDetail(row, {
+    settings,
+    seesMargin: seesMargin(access),
+    departureFree:
+      departure === null || taken === undefined
+        ? undefined
+        : countsOf(departure.seatsTotal, taken.sold, taken.held).free,
+  });
 }
 
 /**
@@ -334,12 +351,29 @@ export async function listLeadQuotes(tx: OrgTx, access: MemberAccess, leadId: st
   return rows.map(toSummary);
 }
 
+/** A name or trip title in any case, or the digits of a phone typed in any form ("+91 98765 43210", "98765"). */
+function searchFilter(search: string | undefined) {
+  const text = search?.trim() ?? "";
+  if (text === "") return {};
+  const digits = /^[+\d\s()-]+$/.test(text) ? text.replace(/\D/g, "") : "";
+  // Prisma passes LIKE's wildcards through, so "%" and "_" are escaped to be letters.
+  const contains = { contains: text.replace(/[\\%_]/g, "\\$&"), mode: "insensitive" } as const;
+  return {
+    OR: [
+      { title: contains },
+      { lead: { person: { name: contains } } },
+      ...(digits === "" ? [] : [{ lead: { person: { phoneE164: { contains: digits } } } }]),
+    ],
+  };
+}
+
 /** The member's quotes (or the agency's, for a role that sees all), recently changed first, 200 at most. */
 export async function listQuotes(tx: OrgTx, access: MemberAccess, input: ListQuotesInput): Promise<QuoteSummary[]> {
   const rows = await tx.quote.findMany({
     where: {
       lead: scopeFilter(access, "quotes:view", "ownerUserId"),
       ...(input.status === undefined ? {} : { status: input.status }),
+      ...searchFilter(input.search),
     },
     orderBy: { updatedAt: "desc" },
     take: 200,

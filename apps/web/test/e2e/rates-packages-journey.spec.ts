@@ -127,11 +127,11 @@ test("a quote line priced from a rate carries its cost, a thin margin warns and 
   await expect(page.getByText(/This quote earns 9\.09% \(₹2,800\)/)).toBeVisible();
   await expect(page.getByRole("heading", { name: "Margin" })).toBeVisible();
 
-  // It warns and never blocks: Send anyway goes on to the customer's link.
-  await page.getByRole("button", { name: "Customer link" }).click();
+  // It warns and never blocks: Send anyway goes on to the customer's live link.
+  await page.getByRole("button", { name: "Create live link" }).click();
   await expect(page.getByRole("alertdialog")).toContainText("Send below the minimum margin?");
   await page.getByRole("button", { name: "Send anyway" }).click();
-  await expect(page.getByLabel("The customer's link")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Live link" })).toBeVisible();
   const sent = await callApi<{ status: string }>(page, "quotes.get", { quoteId });
   expect(sent.status).toBe("sent");
 });
@@ -283,11 +283,11 @@ test("a package with two tiers makes a quote for each, and a date with no rate m
   await expect(page).toHaveURL(/\/quotes\/[0-9a-f-]{36}$/);
   await expect(page.getByText("1 line needs a rate")).toBeVisible();
   await expect(page.getByText("Needs a rate", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Customer link" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Create live link" })).toBeDisabled();
   // Typing a price settles it.
   await page.getByLabel("Price of one").first().fill("4,000");
   await page.getByRole("button", { name: "Save quote" }).click();
   await expect(page.getByText("Quote saved")).toBeVisible();
   await expect(page.getByText("1 line needs a rate")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Customer link" })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Create live link" })).toBeEnabled();
 });

@@ -52,15 +52,14 @@ test("quotes, payments, the invoice, Finance, Reports, hot leads and a lost reas
   await page.getByRole("button", { name: "Save quote" }).click();
   await expect(page.getByText("Quote saved")).toBeVisible();
 
-  await page.getByRole("button", { name: "Customer link" }).click();
-  const link = await page.getByLabel("The customer's link").inputValue();
+  await page.getByRole("button", { name: "Create live link" }).click();
+  const path = await page.getByRole("link", { name: "Live link" }).getAttribute("href");
   const customer = await browser.newPage();
   await customer.setViewportSize(page.viewportSize() ?? { width: 390, height: 844 });
-  await customer.goto(link);
+  await customer.goto(new URL(path ?? "", page.url()).href);
   await expect(customer.getByRole("heading", { level: 1, name: "Goa for four, 5 nights" })).toBeVisible();
   await shoot(customer, "quote-customer-link");
   await customer.getByLabel("Your name").fill("Rahul Sharma");
-  await customer.getByLabel(/I agree to the terms/).check();
   await customer.getByRole("button", { name: "Accept quote" }).click();
   await expect(customer.getByText("Thank you, your acceptance is recorded")).toBeVisible();
   await customer.close();
@@ -82,6 +81,8 @@ test("quotes, payments, the invoice, Finance, Reports, hot leads and a lost reas
   const quoteId = page.url().split("/").pop() ?? "";
   await callApi(page, "finance.addCost", {
     quoteId,
+    departureId: null,
+    supplierId: null,
     category: "hotel",
     supplier: "Hotel Baga Bliss",
     amountPaise: 3_200_000,
@@ -108,7 +109,7 @@ test("quotes, payments, the invoice, Finance, Reports, hot leads and a lost reas
     }
   });
   await page.goto("/dashboard");
-  await expect(page.getByRole("heading", { name: /hot lead/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /hot leads/i })).toBeVisible();
   await shoot(page, "home-hot-leads");
 
   await page.goto(`/leads/${other}`);
@@ -118,7 +119,7 @@ test("quotes, payments, the invoice, Finance, Reports, hot leads and a lost reas
   await shoot(page, "lost-reason");
   await page.keyboard.press("Escape");
   await page.goto("/dashboard");
-  await expect(page.getByRole("region", { name: "Today at a glance" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: /^Good (morning|afternoon|evening)/ })).toBeVisible();
   await shoot(page, "home-final");
   await page.goto("/reports");
   await expect(page.getByRole("heading", { level: 1, name: "Reports" })).toBeVisible();

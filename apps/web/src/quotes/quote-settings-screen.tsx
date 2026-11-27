@@ -3,7 +3,12 @@
 // /settings/quotes (step 3, P0): the agency's UPI id and the name customers see when they pay (money goes straight to
 // the agency, never through us), the GST rate a new quote starts with, and the terms printed under every quote.
 import { paiseFromRupeesText } from "@travel-crm/contracts/kernel";
-import { saveQuoteSettingsInput, type QuoteSettings, type SaveQuoteSettingsInput } from "@travel-crm/contracts/quotes";
+import {
+  saveQuoteSettingsInput,
+  upiPayLink,
+  type QuoteSettings,
+  type SaveQuoteSettingsInput,
+} from "@travel-crm/contracts/quotes";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { BackToSettings } from "@/components/back-to-settings";
@@ -22,6 +27,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { NoteField } from "@/leads/form/note-field";
 import { basisPointsOf, percentText } from "@/lib/percent";
 import { useWriteAccess } from "@/subscription/write-access";
+import { UpiQrPreview } from "./upi-qr-preview";
 import { useQuoteSettings, useSaveQuoteSettings } from "./use-quotes";
 
 interface Values {
@@ -90,6 +96,8 @@ function SettingsForm({ saved }: { saved: QuoteSettings }) {
     },
     (problem) => t(`problems.${problem}`),
   );
+  // What the agency has saved, not what it is typing: the code it prints and sends is the saved one.
+  const link = upiPayLink(saved);
   return (
     <Card className="max-w-[720px]">
       <CardContent>
@@ -115,6 +123,15 @@ function SettingsForm({ saved }: { saved: QuoteSettings }) {
             hint={t("upiNameHint")}
             disabled={save.isPending}
           />
+          {link === null ? null : (
+            <UpiQrPreview
+              link={link}
+              upiId={saved.upiId}
+              verifiedAt={saved.upiVerifiedAt}
+              verifiedByName={saved.upiVerifiedByName}
+              writeHint={access.hint}
+            />
+          )}
           <SelectField
             control={form.control}
             name="taxRate"
@@ -136,7 +153,7 @@ function SettingsForm({ saved }: { saved: QuoteSettings }) {
               label={t("markup")}
               hint={t("markupHint")}
               inputMode="decimal"
-              className="numbers"
+              inputClassName="numbers"
               disabled={save.isPending}
             />
             <TextField
@@ -145,7 +162,7 @@ function SettingsForm({ saved }: { saved: QuoteSettings }) {
               label={t("minMargin")}
               hint={t("minMarginHint")}
               inputMode="decimal"
-              className="numbers"
+              inputClassName="numbers"
               disabled={save.isPending}
             />
             <MoneyField

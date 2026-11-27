@@ -66,6 +66,7 @@ describe("type scale", () => {
     body: "body",
     label: "label",
     caption: "caption",
+    micro: "micro",
     number: "number",
     "number-lg": "number-lg",
   };

@@ -1,0 +1,132 @@
+// The quotation template prints what the quote page does: the whole trip name, the date and people in words, whole
+// rupees, a total with its GST note and no tax table, the days, inclusions, exclusions, notes and terms.
+import { describe, expect, it } from "vitest";
+import { renderPdf, type QuotationDocumentData } from "../../src/pdf/index.js";
+import { pdfText } from "./pdf-text.js";
+
+const issuedAt = new Date("2026-11-27T05:30:00Z");
+const tripName = "Manali, Sissu and Kasol: Strangers Trip (5N/6D) from Delhi with a very long name indeed";
+
+const quotation: QuotationDocumentData = {
+  title: tripName,
+  number: "QT-2026-0007",
+  issuedOn: "27 Nov 2026",
+  customer: "Meera Iyer",
+  when: "Fri 4 Dec 2026 · 1 adult",
+  lines: [{ description: "Strangers Trip × 1", detail: "Shared tempo traveller", amount: "₹8,570" }],
+  gst: { label: "GST 5%", amount: "₹429" },
+  total: "₹8,999",
+  totalNote: "incl. 5% GST",
+  dues: [{ label: "Advance", by: "1 Dec 2026", amount: "₹3,000" }],
+  days: [{ title: "Delhi to Manali", description: "Overnight Volvo, arrive by morning." }, { title: "Sissu" }],
+  inclusions: ["Stay in a hotel", "Breakfast and dinner"],
+  exclusions: ["Lunch", "Personal expenses"],
+  notes: ["Carry a warm jacket"],
+};
+const branding = { organizationName: "Sharma Holidays", terms: "50% to book, the balance 30 days before travel." };
+
+describe("the quotation template", () => {
+  it("prints the trip, the price, the days and the points, in words and whole rupees", async () => {
+    const pdf = await renderPdf("quotation", { issuedAt, data: quotation, branding });
+    const { text } = await pdfText(pdf);
+    for (const part of [
+      "Sharma Holidays",
+      "QT-2026-0007",
+      "To: Meera Iyer",
+      tripName,
+      "Fri 4 Dec 2026 · 1 adult",
+      "Strangers Trip × 1",
+      "₹8,570",
+      "GST 5%",
+      "₹429",
+      "Total ₹8,999 (incl. 5% GST)",
+      "Advance",
+      "By 1 Dec 2026",
+      "₹3,000",
+      "Day 1: Delhi to Manali",
+      "Overnight Volvo, arrive by morning.",
+      "Day 2: Sissu",
+      "Stay in a hotel",
+      "Not included",
+      "Personal expenses",
+      "Carry a warm jacket",
+      "50% to book, the balance 30 days before travel.",
+    ]) {
+      expect(text, part).toContain(part);
+    }
+    expect(text).not.toContain("…");
+    expect(text).not.toMatch(/CGST|SGST|Taxable/);
+    expect(text).not.toMatch(/\.\d\d/);
+  });
+
+  it("prints a Pay box with the QR of the link, the UPI id, the agency's name and the amount due now", async () => {
+    const link = "upi://pay?pa=agency%40bank&pn=Sharma%20Holidays&am=3000.00&cu=INR&tn=Goa";
+    const pay = { link, upiId: "agency@bank", name: "Sharma Holidays", amount: "₹3,000" };
+    const pdf = await renderPdf("quotation", { issuedAt, data: { ...quotation, pay }, branding });
+    const { text } = await pdfText(pdf);
+    for (const part of ["Pay ₹3,000 now", "Scan with any UPI app", "agency@bank", "Sharma Holidays"]) {
+      expect(text, part).toContain(part);
+    }
+    const without = await renderPdf("quotation", { issuedAt, data: quotation, branding });
+    expect((await pdfText(without)).text).not.toMatch(/Scan with any UPI app/);
+    expect(pdf.length).toBeGreaterThan(without.length);
+  });
+
+  it("prints the Pay box without a QR when the link is not given (the UPI QR is unverified)", async () => {
+    const pay = { upiId: "agency@bank", name: "Sharma Holidays", amount: "₹3,000" };
+    const withBox = await renderPdf("quotation", { issuedAt, data: { ...quotation, pay }, branding });
+    const { text } = await pdfText(withBox);
+    expect(text).toContain("Pay ₹3,000 now");
+    expect(text).toContain("agency@bank");
+    expect(text).not.toContain("Scan with any UPI app");
+    const link = "upi://pay?pa=agency%40bank&pn=Sharma%20Holidays&am=3000.00&cu=INR&tn=Goa";
+    const withQr = await renderPdf("quotation", { issuedAt, data: { ...quotation, pay: { ...pay, link } }, branding });
+    expect(withQr.length).toBeGreaterThan(withBox.length);
+  });
+
+  it("marks a due that was paid as Paid", async () => {
+    const dues = [
+      { label: "Advance", by: "1 Dec 2026", amount: "₹3,000", paid: true as const },
+      { label: "Balance", by: "3 Dec 2026", amount: "₹5,999" },
+    ];
+    const { text } = await pdfText(await renderPdf("quotation", { issuedAt, data: { ...quotation, dues }, branding }));
+    expect(text).toContain("By 1 Dec 2026 · Paid");
+    expect(text).not.toContain("By 3 Dec 2026 · Paid");
+  });
+
+  it("prints the payee once when its name is its UPI id (no UPI name)", async () => {
+    const pay = { upiId: "agency@bank", name: "agency@bank", amount: "₹3,000" };
+    const { text } = await pdfText(await renderPdf("quotation", { issuedAt, data: { ...quotation, pay }, branding }));
+    expect(text.split("agency@bank").length - 1).toBe(1);
+  });
+
+  it("leaves out the parts a quotation does not have", async () => {
+    const bare = {
+      ...quotation,
+      gst: undefined,
+      totalNote: undefined,
+      dues: [],
+      days: [],
+      inclusions: [],
+      exclusions: [],
+      notes: [],
+    };
+    const { text } = await pdfText(
+      await renderPdf("quotation", { issuedAt, data: bare, branding: { organizationName: "Sharma Holidays" } }),
+    );
+    expect(text).toContain("Total ₹8,999");
+    expect(text).not.toMatch(/GST|incl\.|To pay|day by day|Included|Not included|Notes|Terms/);
+  });
+
+  it("refuses the sample's content", async () => {
+    const sample = {
+      title: "x",
+      number: "n",
+      issuedOn: "d",
+      recipient: { name: "a", lines: [] },
+      rows: [],
+      totals: [],
+    };
+    await expect(renderPdf("quotation", { issuedAt, data: sample, branding })).rejects.toThrow(TypeError);
+  });
+});

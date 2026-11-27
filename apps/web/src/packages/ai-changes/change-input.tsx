@@ -33,6 +33,7 @@ export function ChangeInput({
   working,
   fileProblem,
   onShow,
+  focusOnMount = false,
 }: {
   text: string;
   onText: (text: string) => void;
@@ -41,6 +42,8 @@ export function ChangeInput({
   working: boolean;
   fileProblem: boolean;
   onShow: () => void;
+  /** Puts the cursor in the text box when the box appears (it was opened by a button). */
+  focusOnMount?: boolean;
 }) {
   const t = useTranslations("packages.aiChanges");
   const write = useWriteAccess("change");
@@ -54,6 +57,7 @@ export function ChangeInput({
         <FieldLabel htmlFor={textId}>{t("textLabel")}</FieldLabel>
         <Textarea
           id={textId}
+          autoFocus={focusOnMount}
           value={text}
           rows={4}
           maxLength={8000}

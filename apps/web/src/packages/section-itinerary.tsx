@@ -118,19 +118,13 @@ export function ItineraryFields({ control }: { control: Control<TripDetailsValue
   );
 }
 
-/** The itinerary's rows of Trip details' summary. */
+/** The itinerary's rows of Trip details' summary; its days are the plan's (section-details.tsx). */
 export function useItineraryRows(detail: PackageDetail): Detail[] {
   const t = useTranslations("packages.form");
-  const tSections = useTranslations("packages.sections");
-  const notSet = tSections("notSet");
+  const notSet = useTranslations("packages.sections")("notSet");
   return [
     { label: t("name"), value: detail.name },
     { label: t("destination"), value: detail.destinationName ?? notSet },
     { label: t("nights"), value: detail.nights ?? notSet },
-    {
-      label: t("days"),
-      value: tSections("details.days", { count: detail.days.length }),
-      ...(detail.days.length > 0 && { hint: detail.days.map((day) => day.title).join(" · ") }),
-    },
   ];
 }

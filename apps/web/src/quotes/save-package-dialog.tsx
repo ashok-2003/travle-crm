@@ -5,9 +5,10 @@
 import { savePackageInput, type SavePackageInput } from "@travel-crm/contracts/quotes";
 import { useTranslations } from "next-intl";
 import { checked } from "@/components/forms/checked";
-import { FormAlert, FormDialog, useFormDialog } from "@/components/forms/form-dialog";
+import { FormAlert, FormDialog, useFormDialog, type OpenState } from "@/components/forms/form-dialog";
 import { TextField } from "@/components/forms/text-field";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
+import type { ReturnFocusTo } from "@/components/return-focus";
 import { useQuoteChanges } from "./use-quotes";
 
 type Problem = "required" | "tooLong";
@@ -51,15 +52,26 @@ function PackageForm({
   );
 }
 
-export function SavePackageDialog({ quoteId, title }: { quoteId: string; title: string }) {
+/** Opened from the quote's "⋯" menu: the open state is held there, and the menu's button takes the focus back. */
+export function SavePackageDialog({
+  quoteId,
+  title,
+  held,
+  returnFocusTo,
+}: {
+  quoteId: string;
+  title: string;
+  held: OpenState;
+  returnFocusTo: ReturnFocusTo;
+}) {
   const t = useTranslations("quotes.package");
-  const dialog = useFormDialog(t("saved"));
+  const dialog = useFormDialog(t("saved"), undefined, held);
   const { savePackage } = useQuoteChanges();
   return (
     <FormDialog
       dialog={dialog}
       sending={savePackage}
-      trigger={{ label: t("save"), variant: "outline" }}
+      returnFocusTo={returnFocusTo}
       title={t("title")}
       description={t("description")}
       submit={t("save")}
