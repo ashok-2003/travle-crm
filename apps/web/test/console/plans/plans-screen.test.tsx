@@ -77,7 +77,8 @@ describe("PlansScreen", () => {
     const archived = screen.getByRole("region", { name: words.archivedTitle });
     const row = within(archived).getByRole("row", { name: /Starter/ });
     expect(within(row).getByText(words.archived)).toBeVisible();
-    expect(within(row).getAllByText(words.notSold)).not.toHaveLength(0);
+    // A way the plan isn't sold is left out of its Price cell (this one is sold monthly only).
+    expect(within(row).queryByText("Yearly")).toBeNull();
     expect(within(row).getByText(words.coreOnly)).toBeVisible();
   });
 

@@ -28,6 +28,8 @@
     "columns": {
       "plan": "Plan",
       "status": "Status",
+      "price": "Price",
+      "includes": "Includes",
       "monthly": "Monthly",
       "quarterly": "3 months",
       "yearly": "Yearly",
