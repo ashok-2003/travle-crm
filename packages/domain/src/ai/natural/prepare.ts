@@ -59,7 +59,6 @@ export interface NaturalPrepared {
 interface Read {
   prepared: Omit<NaturalPrepared, "voice" | "lead"> & { lead: Omit<NaturalLeadView, "teamNotes"> };
   agentName: string;
-  tone: AgentVoice["tone"];
   senders: ReadonlyMap<string, string>;
   notes: TeamNoteRead[];
 }
@@ -168,8 +167,6 @@ async function readTurn(
       ...limits,
     },
     agentName: basics.agentName,
-    // A stored "enthusiastic" reads as friendly: the agent has two tones.
-    tone: basics.tone === "professional" ? "professional" : "friendly",
     senders: read.senders,
     notes: lead.notes,
   };
@@ -202,7 +199,7 @@ export async function prepareNaturalTurn(
   }));
   return {
     ...prepared,
-    voice: { agentName: read.agentName, agencyName: await deps.agencyName(organizationId), tone: read.tone },
+    voice: { agentName: read.agentName, agencyName: await deps.agencyName(organizationId) },
     lead: { ...prepared.lead, teamNotes },
     lines: withTeamNames(prepared.lines, read.senders, contacts),
   };

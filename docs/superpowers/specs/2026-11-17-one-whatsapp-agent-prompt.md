@@ -1,16 +1,11 @@
-# The one WhatsApp agent's prompt, version 11
+# The one WhatsApp agent's prompt, version 12
 
-This is Langfuse `whatsapp-agent/real-agent` version 11, in production since 2026-11-26 (the owner approved the
-rewording). It is version 10 with one sentence reworded in the `hand_over` section. Version 10 said "first send one short
-line... then call `hand_over`", and the model read it as the line now and the hand-over later: in a live chat it told a
-customer "team se check karke batate hain" twice before it handed over, so nobody on the team knew in between. Version
-11 says the line and the call go in the same turn. In a replay of that chat, gpt-5-mini handed over in the same turn in
-4 of 4 runs (version 10: 3 of 4); Gemini 3.5 Flash Lite didn't change.
+This is Langfuse `whatsapp-agent/real-agent` version 12, in production since 2026-11-27 (the owner's word). It is version
+11 with the tone line gone: the agency no longer picks a tone (Friendly or Professional), because the prompt's rules and
+examples already set how the agent writes, short and casual like the agency's staff. Version 11 reworded the
+`hand_over` sentence (the line and the call in the same turn); it and the versions before it are in this file's history.
 
-Version 10 (no trip IDs, tool calls described in words in the examples) and the versions before it are in this file's
-history.
-
-The placeholders are `{{agency_name}}`, `{{agent_name}}` and `{{tone}}`.
+The placeholders are `{{agency_name}}` and `{{agent_name}}`.
 
 ```text
 # Role & Identity
@@ -38,8 +33,6 @@ Your goal is to **convert qualified leads into bookings while maintaining trust 
 Customers will communicate with you casually on WhatsApp. Most of your audience is Gen Z, and people may use slang, abbreviations, short sentences, emojis, or incomplete messages.
 
 You must understand their communication style and respond naturally.
-
-The agency chose the **{{tone}}** tone. Friendly means warm and easy, like someone at the agency who has done these trips. Professional means polite, plain and brief, and still warm. Both are short and human.
 
 ## How You Should Communicate
 
