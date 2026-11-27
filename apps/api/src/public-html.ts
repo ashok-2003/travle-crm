@@ -3,7 +3,7 @@
 // HTML and CSS: the fonts come from the web app's own /fonts (the same address, since /p is the web app's address
 // rewritten to the api; reached directly, the page reads in the device's own fonts), and nothing from another origin.
 import { brand, type StatusColour } from "@travel-crm/brand";
-import { formatMoney, formatRupees, money } from "@travel-crm/domain/kernel";
+import { formatRupees } from "@travel-crm/domain/kernel";
 import { qrSvg } from "@travel-crm/integrations/qr";
 
 export const SYSTEM_FONTS = 'system-ui,-apple-system,"Segoe UI",Roboto,sans-serif';
@@ -11,7 +11,6 @@ export const SYSTEM_FONTS = 'system-ui,-apple-system,"Segoe UI",Roboto,sans-seri
 /** Text and attribute values need these escaped. */
 export const escapeHtml = (text: string) =>
   text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
-export const rupees = (paise: number) => escapeHtml(formatMoney(money(paise)));
 /** Whole rupees ("₹52,500"), for a total a customer reads rather than reconciles. */
 export const wholeRupees = (paise: number) => escapeHtml(formatRupees(paise));
 export const paragraphs = (text: string) => escapeHtml(text).replaceAll("\n", "<br>");
@@ -20,6 +19,9 @@ const dayWords = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "shor
 const shortDayWords = new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", timeZone: "UTC" });
 export const dayOf = (day: string) => escapeHtml(dayWords.format(new Date(`${day}T00:00:00Z`)));
 export const shortDayOf = (day: string) => escapeHtml(shortDayWords.format(new Date(`${day}T00:00:00Z`)));
+/** A day as DESIGN.md writes one: "25 Nov" in `today`'s year, "6 Jan 2027" in another. */
+export const dayIn = (day: string, today: string) =>
+  day.slice(0, 4) === today.slice(0, 4) ? shortDayOf(day) : dayOf(day);
 
 /** A link is shown only when it is an http(s) address; anything else (javascript:) is dropped. */
 export const safeLink = (link: string) => (/^https?:\/\/\S+$/.test(link) ? escapeHtml(link) : null);
@@ -41,6 +43,10 @@ export const card = (heading: string, body: string, attributes = "") =>
 
 /** An amount in the numbers font, in whole rupees. */
 export const amount = (paise: number) => `<span class="amount">${wholeRupees(paise)}</span>`;
+
+/** A part of a whole as a bar; the words beside it say the amounts. */
+export const progress = (part: number, whole: number) =>
+  `<div class="progress" aria-hidden="true"><span style="width:${String(whole <= 0 ? 0 : Math.min(100, Math.round((part / whole) * 100)))}%"></span></div>`;
 
 /** The trip's days as the quote page draws them: blue boxes, one below the other. Each item is its own HTML. */
 export const dayBoxes = (days: string[]) => (days.length === 0 ? "" : `<ol class="days">${days.join("")}</ol>`);
@@ -176,11 +182,12 @@ ol,ul.plain{list-style:none;padding:0;margin:0}
 .days li:not(:last-child)::after{content:"\\2193";position:absolute;left:0;right:0;bottom:-1.4rem;height:1.4rem;line-height:1.4rem;text-align:center;color:var(--sky-ink)}
 .pay{display:flex;flex-wrap:wrap;gap:1rem;align-items:center}
 .pay p{margin:.5rem 0 0}
+p+.pay,h3+.pay{margin-top:.75rem}
 .qr{flex:none;width:10rem;height:10rem}
 .qr svg{display:block;width:100%;height:100%;border-radius:8px}
 label{display:block;margin:1rem 0 .375rem;font-weight:500}
 input[type=text],input[type=tel],input[type=date],input[type=number],input:not([type]),select,textarea{display:block;width:100%;min-height:44px;padding:.625rem .75rem;border:1px solid var(--input);border-radius:6px;background:var(--canvas);color:var(--ink);font:inherit}
-select{appearance:none;padding-right:2.5rem;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 1.25rem) 50%,calc(100% - .9rem) 50%;background-size:.35rem .35rem;background-repeat:no-repeat}
+select{appearance:none;padding-right:2.5rem;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 22px) 55%,calc(100% - 16px) 55%;background-size:6px 6px;background-repeat:no-repeat}
 textarea{min-height:6rem;resize:vertical}
 input[type=file]{display:block;max-width:100%;font:inherit;font-size:.9375rem}
 .tick{display:flex;gap:.75rem;align-items:flex-start;margin:1rem 0;font-weight:400}
@@ -188,6 +195,19 @@ input[type=file]{display:block;max-width:100%;font:inherit;font-size:.9375rem}
 fieldset{border:0;padding:0;margin:1rem 0 0}legend{font-weight:500;padding:0;margin-bottom:.375rem}
 details>summary{list-style:none;cursor:pointer;min-height:44px;display:flex;align-items:center;font-weight:600}
 details>summary::-webkit-details-marker{display:none}
+details.fold>summary,.fold>details>summary{gap:.75rem}
+details.fold>summary::after,.fold>details>summary::after{content:"";flex:none;margin:0 .25rem 0 auto;width:.5rem;height:.5rem;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:translateY(-25%) rotate(45deg)}
+details.fold[open]>summary::after,.fold>details[open]>summary::after{transform:translateY(25%) rotate(225deg)}
+section.fold{padding-top:.25rem;padding-bottom:.25rem}
+section.fold h2{margin:0}
+section.fold details[open]{padding-bottom:.75rem}
+.claim{margin-top:.25rem}
+.claim form{background:var(--surface);border-radius:10px;padding:.25rem 1rem 1rem;margin-top:.75rem}
+.claim form .row{margin-top:1rem}
+input[type=file]::file-selector-button{min-height:44px;margin-right:.75rem;padding:0 1rem;border:1px solid var(--input);border-radius:999px;background:var(--canvas);color:var(--ink);font:inherit;font-weight:600;cursor:pointer}
+.progress{height:6px;border-radius:999px;background:var(--hairline);overflow:hidden;margin:.75rem 0 .25rem}
+.progress span{display:block;height:100%;border-radius:inherit;background:var(--money)}
+.money{color:var(--money)}
 .sr{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 .bar{position:fixed;left:0;right:0;bottom:0;z-index:10;background:var(--canvas);border-top:1px solid var(--hairline);padding:.75rem 1rem calc(.75rem + env(safe-area-inset-bottom))}
 .bar .button{width:100%}

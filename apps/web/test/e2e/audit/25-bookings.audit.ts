@@ -85,6 +85,8 @@ test("bookings, the trip page, the PDFs and a cancellation", async ({ page, brow
     emergencyName: "",
     emergencyPhone: "",
     medicalNotes: "",
+    roomRequest: "none",
+    roomNote: "",
     identity: null,
   });
   const traveller = await anotherPersonsDevice(browser);
@@ -137,8 +139,11 @@ test("bookings, the trip page, the PDFs and a cancellation", async ({ page, brow
   await expect(customer.getByText("Coconut Lagoon Resort")).toBeVisible();
   await shoot(customer, "r6-trip-page");
   await customer.getByText("I've paid Advance").click();
-  await shoot(customer, "r6-claim-form", { element: customer.locator("section", { hasText: "Payments" }).first() });
-  await customer.getByText(/Traveller 2/).click();
+  const card = (heading: string) =>
+    customer.locator("section", { has: customer.getByRole("heading", { name: heading, exact: true }) });
+  await shoot(customer, "r6-claim-form", { element: card("Payments") });
+  // Traveller 2, the first still needed, is open already.
+  await expect(customer.getByRole("textbox", { name: "Name as on ID" })).toBeVisible();
   await shoot(customer, "r6-details-form", {
     element: customer.locator("section", { hasText: "Travellers' details" }),
   });

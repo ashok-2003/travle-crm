@@ -1,19 +1,24 @@
-// The trip page at /p/<token> (release 6): the quote's link once the agency has confirmed the booking. In the order a phone
-// reads it: where the booking stands and the next payment, the plan with its days, the hotels, the vouchers and tickets, the
-// payments with "I've paid", each traveller's details, who to meet and where, the packing list, the cancellation terms and
-// the trip PDF, then the feedback form once asked for, and the ways to reach the agency: Talk to and WhatsApp us (its main
-// WhatsApp number). It never shows an ID number or photo back ("Details received"), and never a margin or a cost. A
-// cancelled booking shows a plain notice, the terms and the ways to reach the agency.
+// The trip page at /p/<token> (release 6): the quote's link once the agency has confirmed the booking, in the app's look
+// (public-html.ts). In the order a phone reads it: the trip and its status, where the money stands and the next payment
+// (trip-money.ts), the plan with its days, the hotels, the vouchers and tickets, the payments with "I've paid", each
+// traveller's details, who to meet and where, the packing list, the cancellation terms (folded) and the trip PDF, then the
+// feedback form once asked for, and the ways to reach the agency: Talk to and WhatsApp us (its main WhatsApp number). On a
+// phone, a bar at the foot pays what is due. It never shows an ID number or photo back ("Details received"), and never a
+// margin or a cost. A cancelled booking shows a plain notice, the terms and the ways to reach the agency.
 import type { PublicTrip } from "@travel-crm/domain/bookings";
 import { randomBytes } from "node:crypto";
-import { claimForm, feedbackForm, travellerForm } from "./trip-forms.js";
+import { feedbackForm, travellerForm } from "./trip-forms.js";
+import { nextPayment, payBar, payments, standing, statusPill } from "./trip-money.js";
 import { uploadScript } from "./trip-upload-script.js";
 import {
-  document,
+  card,
+  dayBoxes,
   dayOf,
+  document,
   escapeHtml,
+  pageHeader,
   paragraphs,
-  rupees,
+  pill,
   safeLink,
   securityHeaders,
   shortDayOf,
@@ -32,7 +37,36 @@ export interface TripPageContext {
   storageOrigin: string | null;
 }
 
-const section = (heading: string, body: string) => (body === "" ? "" : `<section><h2>${heading}</h2>${body}</section>`);
+/** The trip page's own parts: payment rows, lists split by hairlines, travellers' rows and the feedback's stars. */
+const tripStyles = `
+.paid-of{margin:0}
+.dues{list-style:none;padding:0;margin:0}
+.due{display:grid;grid-template-columns:1fr auto;align-items:center;gap:.375rem 1rem;padding:.875rem 0;border-top:1px solid var(--hairline)}
+.due:first-child{border-top:0;padding-top:0}
+.due>.amount{justify-self:end}
+.due>.pill{justify-self:start}
+.due>.hint{text-align:right;font-size:.875rem}
+.due>details{grid-column:1/-1}
+.received{margin-top:.75rem;border-top:1px solid var(--hairline)}
+.items>li{padding:.875rem 0;border-top:1px solid var(--hairline)}
+.items>li:first-child{border-top:0;padding-top:0}
+.items>li:last-child{padding-bottom:0}
+.items p{margin:.25rem 0 0}
+.items>li>a{display:inline-flex;align-items:center;min-height:44px}
+.items>li.locked{display:flex;flex-wrap:wrap;gap:.5rem 1rem;align-items:center;justify-content:space-between}
+.items>li:has(>details.traveller){padding:0}
+details.traveller>summary{flex-wrap:wrap;padding:.375rem 0;font-weight:500}
+details.traveller>summary .who{font-weight:600}
+details.traveller[open]>summary{margin-bottom:-.5rem}
+details.traveller form{padding-bottom:1.25rem}
+.meet p{margin:0 0 .5rem}
+.stars{display:flex;gap:.5rem;flex-wrap:wrap}
+.stars label{position:relative;margin:0;cursor:pointer}
+.stars input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+.stars span{display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;padding:0 .75rem;border:1px solid var(--input);border-radius:999px;font-weight:500}
+.stars input:checked+span{background:var(--ink);border-color:var(--ink);color:var(--canvas)}
+.stars input:focus-visible+span{outline:2px solid var(--action);outline-offset:2px}
+`;
 
 const REFUSALS: Record<string, string> = {
   DETAILS_LOCKED: "Details can no longer be changed here. Please ask your agent.",
@@ -54,7 +88,7 @@ function noticeOf(context: TripPageContext): string {
     const words =
       (why === null ? undefined : REFUSALS[why]) ??
       `We couldn't save that. Check the details and try again, or ask ${context.agencyName}.`;
-    return `<section class="notice"><h2>That didn't go through</h2><p>${escapeHtml(words)}</p></section>`;
+    return `<section class="notice bad"><h2>That didn't go through</h2><p>${escapeHtml(words)}</p></section>`;
   }
   return "";
 }
@@ -64,70 +98,35 @@ function talkTo(context: TripPageContext): string {
   const who = context.contact.name ?? context.agencyName;
   return context.contact.phone === null
     ? escapeHtml(who)
-    : `<a class="button quiet" href="tel:+${context.contact.phone.replace(/[^\d]/g, "")}">Talk to ${escapeHtml(who)}</a>`;
+    : `<a class="button secondary" href="tel:+${context.contact.phone.replace(/[^\d]/g, "")}">Talk to ${escapeHtml(who)}</a>`;
 }
 
 /** The page's last section, the ways to reach the agency: a call and WhatsApp us; none when it has neither to link. */
 function questions(context: TripPageContext): string {
   if (context.contact.phone === null && context.whatsapp === null) return "";
   const call = context.contact.phone === null ? "" : talkTo(context);
-  return `<section><h2>Questions?</h2><div class="row">${call}${whatsappUs(context.whatsapp)}</div></section>`;
-}
-
-function statusWords(trip: PublicTrip): string {
-  switch (trip.status) {
-    case "confirmed":
-      return trip.balancePaise === 0 ? "Confirmed and fully paid" : "Confirmed";
-    case "completed":
-      return "Trip completed";
-    case "cancelled":
-      return "Cancelled";
-    case "requested":
-      return "Waiting for confirmation";
-  }
-}
-
-/** Where the booking stands, and the next payment with the ways to pay it. */
-function standing(trip: PublicTrip, context: TripPageContext): string {
-  const pending = trip.claims.filter((claim) => claim.status === "pending");
-  const next = trip.installments.find((due) => !due.paid);
-  const owing = trip.status === "confirmed" && trip.balancePaise > 0;
-  const pay = !owing
-    ? ""
-    : `<p class="status">Next payment ${rupees(trip.payPaise)}${next === undefined ? "" : ` by ${dayOf(next.dueOn)}`}</p>
-${trip.payLink === null ? "" : `<div class="row"><a class="button" href="${escapeHtml(trip.payLink)}">Pay by UPI</a></div><p class="hint">Or pay to UPI id <strong>${escapeHtml(trip.upiId)}</strong>. The money goes straight to ${escapeHtml(context.agencyName)}.</p>`}
-${trip.bankDetails === "" ? "" : `<h3>Bank transfer</h3><p>${paragraphs(trip.bankDetails)}</p>`}`;
-  const verifying =
-    pending.length === 0
-      ? ""
-      : `<p class="status">Payment being verified</p><p class="hint">${pending.length === 1 ? "Your payment" : "Your payments"} will be marked received once your agent has checked.</p>`;
-  return section(
-    "Your booking",
-    `<p class="status">${escapeHtml(statusWords(trip))}</p>${trip.balancePaise > 0 && trip.status !== "cancelled" ? `<p>${rupees(trip.paidPaise)} paid of ${rupees(trip.totalPaise)}</p>` : ""}${pay}${verifying}`,
-  );
+  return card("Questions?", `<div class="row">${call}${whatsappUs(context.whatsapp)}</div>`);
 }
 
 function plan(trip: PublicTrip): string {
-  const days = trip.days
-    .map(
-      (day, index) =>
-        `<li><strong>Day ${String(index + 1)}${day.date === null ? "" : ` · ${shortDayOf(day.date)}`}: ${escapeHtml(day.title)}</strong>${day.description === "" ? "" : `<p>${paragraphs(day.description)}</p>`}</li>`,
-    )
-    .join("");
-  return section("Your trip, day by day", days === "" ? "" : `<ol>${days}</ol>`);
+  const days = trip.days.map(
+    (day, index) =>
+      `<li><strong>Day ${String(index + 1)}${day.date === null ? "" : ` · ${shortDayOf(day.date)}`}: ${escapeHtml(day.title)}</strong>${day.description === "" ? "" : `<p>${paragraphs(day.description)}</p>`}</li>`,
+  );
+  return card("Your trip, day by day", dayBoxes(days));
 }
 
 function hotels(trip: PublicTrip, base: string): string {
   const stays = trip.stays
     .map((stay) => {
       const map = safeLink(stay.mapUrl);
+      const links = `${map === null ? "" : `<a class="button secondary" href="${map}" rel="noopener noreferrer" target="_blank">Open map</a>`}${stay.voucherDocumentId === null ? "" : `<a class="button secondary" href="${base}/doc/${escapeHtml(stay.voucherDocumentId)}">Hotel voucher</a>`}`;
       return `<li><strong>${escapeHtml(stay.name)}</strong>
-<p>${shortDayOf(stay.checkIn)} to ${shortDayOf(stay.checkOut)}${stay.address === "" ? "" : ` · ${escapeHtml(stay.address)}`}</p>
-${stay.notes === "" ? "" : `<p>${paragraphs(stay.notes)}</p>`}
-<div class="row">${map === null ? "" : `<a class="button quiet" href="${map}" rel="noopener noreferrer" target="_blank">Open map</a>`}${stay.voucherDocumentId === null ? "" : `<a class="button quiet" href="${base}/doc/${escapeHtml(stay.voucherDocumentId)}">Hotel voucher</a>`}</div></li>`;
+<p class="hint">${shortDayOf(stay.checkIn)} to ${shortDayOf(stay.checkOut)}${stay.address === "" ? "" : ` · ${escapeHtml(stay.address)}`}</p>
+${stay.notes === "" ? "" : `<p>${paragraphs(stay.notes)}</p>`}${links === "" ? "" : `<div class="row">${links}</div>`}</li>`;
     })
     .join("");
-  return section("Where you stay", stays === "" ? "" : `<ul class="plain">${stays}</ul>`);
+  return card("Where you stay", stays === "" ? "" : `<ul class="plain items">${stays}</ul>`);
 }
 
 function documents(trip: PublicTrip, base: string): string {
@@ -137,63 +136,21 @@ function documents(trip: PublicTrip, base: string): string {
   const itinerary =
     trip.tripPdfDocumentId === null
       ? ""
-      : `<div class="row"><a class="button" href="${base}/doc/${escapeHtml(trip.tripPdfDocumentId)}">Download trip PDF</a></div><p class="hint">Keep it on your phone: it opens without a connection.</p>`;
-  return section("Tickets and documents", `${files === "" ? "" : `<ul class="plain">${files}</ul>`}${itinerary}`);
+      : `<div class="row"><a class="button secondary" href="${base}/doc/${escapeHtml(trip.tripPdfDocumentId)}">Download trip PDF</a></div><p class="hint">Keep it on your phone: it opens without a connection.</p>`;
+  return card("Tickets and documents", `${files === "" ? "" : `<ul class="plain items">${files}</ul>`}${itinerary}`);
 }
 
-function payments(trip: PublicTrip, talk: string): string {
-  if (trip.status === "cancelled") return "";
-  const dues = trip.installments
-    .map((due) => {
-      const form =
-        due.paid || trip.status !== "confirmed"
-          ? ""
-          : claimForm({
-              key: due.id.slice(0, 8),
-              label: `I've paid ${due.label}`,
-              installmentId: due.id,
-              amountPaise: due.amountPaise,
-            });
-      return `<tr><td>${escapeHtml(due.label)}<small>By ${dayOf(due.dueOn)}</small></td><td class="n">${rupees(due.amountPaise)}${due.paid ? "<small>Paid</small>" : ""}</td></tr>${form === "" ? "" : `<tr><td colspan="2">${form}</td></tr>`}`;
-    })
-    .join("");
-  const received = trip.payments
-    .map(
-      (payment) =>
-        `<tr><td>Received ${dayOf(payment.receivedOn)}</td><td class="n">${rupees(payment.amountPaise)}</td></tr>`,
-    )
-    .join("");
-  const claims = trip.claims
-    .map((claim) => {
-      const words =
-        claim.status === "pending"
-          ? "Payment being verified"
-          : claim.status === "confirmed"
-            ? "Received"
-            : "We couldn't match this payment";
-      return `<tr><td>${words}<small>${dayOf(claim.createdAt.slice(0, 10))}</small></td><td class="n">${rupees(claim.amountPaise)}</td></tr>`;
-    })
-    .join("");
-  const anyRejected = trip.claims.some((claim) => claim.status === "rejected");
-  const freeForm =
-    trip.installments.length === 0 && trip.balancePaise > 0 && trip.status === "confirmed"
-      ? claimForm({ key: "any", label: "I've paid", installmentId: null, amountPaise: trip.payPaise })
-      : "";
-  return section(
-    "Payments",
-    `<table><tbody>${dues}${received}</tbody></table>${freeForm}${claims === "" ? "" : `<h3>Payments you told us about</h3><table><tbody>${claims}</tbody></table>`}${anyRejected ? `<p>We couldn't match one payment. Please contact us.</p><div class="row">${talk}</div>` : ""}`,
-  );
-}
-
+/** Each traveller a row with their state, opening to their form; the first still needed opens by itself. */
 function travellers(trip: PublicTrip): string {
   if (trip.travellers.length === 0 || trip.status === "cancelled") return "";
   const done = trip.travellers.filter((traveller) => traveller.complete).length;
+  const firstNeeded = trip.travellers.findIndex((traveller) => !traveller.complete);
   const rows = trip.travellers
     .map((traveller, index) => {
-      const heading = traveller.name === "" ? `Traveller ${String(index + 1)}` : traveller.name;
-      const status = traveller.complete ? "Details received ✓" : "Details needed";
-      if (trip.detailsLocked) return `<li><strong>${escapeHtml(heading)}</strong><p>${status}</p></li>`;
-      return `<li><details${traveller.complete ? "" : " open"}><summary>${escapeHtml(heading)} · ${status}</summary>${travellerForm(trip, index)}</details></li>`;
+      const heading = escapeHtml(traveller.name === "" ? `Traveller ${String(index + 1)}` : traveller.name);
+      const state = traveller.complete ? pill("good", "Details received") : pill("attention", "Details needed");
+      if (trip.detailsLocked) return `<li class="locked"><span class="who">${heading}</span>${state}</li>`;
+      return `<li><details class="fold traveller"${index === firstNeeded ? " open" : ""}><summary><span class="who">${heading}</span>${state}</summary>${travellerForm(trip, index)}</details></li>`;
     })
     .join("");
   const lock = trip.detailsLocked
@@ -201,9 +158,9 @@ function travellers(trip: PublicTrip): string {
     : trip.detailsCutoffOn === null
       ? "Anyone with this link can fill in any traveller."
       : `Fill them in by ${dayOf(trip.detailsCutoffOn)}. Anyone with this link can fill in any traveller.`;
-  return section(
+  return card(
     "Travellers' details",
-    `<p class="status">${String(done)} of ${String(trip.travellers.length)} complete</p><p class="hint">${lock}</p><ul class="plain">${rows}</ul>`,
+    `<p><strong>${String(done)} of ${String(trip.travellers.length)} done</strong></p><p class="hint">${lock}</p><ul class="plain items">${rows}</ul>`,
   );
 }
 
@@ -220,9 +177,10 @@ function meeting(trip: PublicTrip): string {
       ? ""
       : `<p><strong>Emergency contact</strong> ${escapeHtml(essentials.emergencyName)} ${essentials.emergencyPhone === "" ? "" : `<a href="tel:${escapeHtml(essentials.emergencyPhone.replace(/[^\d+]/g, ""))}">${escapeHtml(essentials.emergencyPhone)}</a>`}</p>`,
   ].join("");
-  return section("Who to meet and where", lines);
+  return card("Who to meet and where", lines, ' class="meet"');
 }
 
+/** The cancellation terms, folded; open on a cancelled booking, where they are what the page is about. */
 function terms(trip: PublicTrip): string {
   const { rules, notes } = trip.policy;
   const sorted = [...rules].sort((a, b) => b.daysBeforeMin - a.daysBeforeMin);
@@ -242,26 +200,19 @@ function terms(trip: PublicTrip): string {
       return `<li>${escapeHtml(range)}: ${share}% of the trip total is charged</li>`;
     })
     .join("");
-  const cancelled =
-    trip.cancellation === null
-      ? ""
-      : `<p class="status">This booking was cancelled on ${dayOf(trip.cancellation.cancelledOn)}. The cancellation charge is ${rupees(trip.cancellation.chargePaise)}.</p>`;
-  return section(
-    "Cancellation terms",
-    `${cancelled}<ul class="plain">${lines}</ul>${notes === "" ? "" : `<p>${paragraphs(notes)}</p>`}<p class="hint">To cancel, ask your agent.</p>`,
-  );
+  return `<section class="fold"><details${trip.status === "cancelled" ? " open" : ""}><summary><h2>Cancellation terms</h2></summary><ul class="plain items">${lines}</ul>${notes === "" ? "" : `<p>${paragraphs(notes)}</p>`}<p class="hint">To cancel, ask your agent.</p></details></section>`;
 }
 
 function feedback(trip: PublicTrip): string {
   if (!trip.feedback.asked || trip.status === "cancelled") return "";
   const review = safeLink(trip.feedback.googleReviewUrl);
   if (trip.feedback.sent) {
-    return section(
+    return card(
       "Your feedback",
       `<p>Thank you for telling us about your trip.</p>${review === null ? "" : `<div class="row"><a class="button" href="${review}" rel="noopener noreferrer" target="_blank">Review us on Google</a></div>`}`,
     );
   }
-  return section("How was your trip?", feedbackForm());
+  return card("How was your trip?", feedbackForm());
 }
 
 /** The trip page, or, for a cancelled booking, the notice and the terms. */
@@ -274,14 +225,22 @@ export function tripPage(trip: PublicTrip, context: TripPageContext): Response {
     .filter(Boolean)
     .join(" · ");
   const cancelled = trip.status === "cancelled";
-  const body = `<header><p>${escapeHtml(context.agencyName)} · Booking ${escapeHtml(trip.number)} for ${escapeHtml(trip.customerName)}</p><h1>${escapeHtml(trip.title)}</h1><p>${travelling}</p></header>
+  const header = pageHeader({
+    agencyName: context.agencyName,
+    for: `Booking ${escapeHtml(trip.number)} for ${escapeHtml(trip.customerName)}`,
+    title: trip.title,
+    when: travelling,
+    status: statusPill(trip),
+  });
+  const body = `${header}
 ${noticeOf(context)}
-${standing(trip, context)}
+${standing(trip)}
+${nextPayment(trip, context.agencyName)}
 ${cancelled ? "" : plan(trip) + hotels(trip, base) + documents(trip, base)}
 ${payments(trip, talkTo(context))}
 ${travellers(trip)}
 ${cancelled ? "" : meeting(trip)}
-${cancelled ? "" : section("Pack for the trip", trip.packingList === "" ? "" : `<p>${paragraphs(trip.packingList)}</p>`)}
+${cancelled ? "" : card("Pack for the trip", trip.packingList === "" ? "" : `<p>${paragraphs(trip.packingList)}</p>`)}
 ${terms(trip)}
 ${cancelled ? "" : feedback(trip)}
 ${questions(context)}`;
@@ -291,6 +250,8 @@ ${questions(context)}`;
     title: trip.title,
     agencyName: context.agencyName,
     body,
+    styles: tripStyles,
+    bar: payBar(trip),
     ...(withScript ? { script: { nonce, code: uploadScript } } : {}),
   });
   return new Response(html, {

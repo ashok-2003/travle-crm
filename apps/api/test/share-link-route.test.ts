@@ -385,7 +385,7 @@ describe("WhatsApp us on a quote's and a trip's page", () => {
     });
     for (const path of [quote, trip]) {
       const html = await pageAt(path);
-      expect(html).toContain('<a class="button quiet" href="https://wa.me/919800000082"');
+      expect(html).toContain('<a class="button secondary" href="https://wa.me/919800000082"');
       expect(html).toContain("WhatsApp us");
       expect(html).not.toContain("919800000081");
     }
