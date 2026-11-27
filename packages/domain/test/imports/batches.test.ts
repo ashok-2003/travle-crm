@@ -25,6 +25,7 @@ function entitlements(access: Entitlements["access"], modules: readonly string[]
     status: access === "full" ? "active" : "read_only",
     access,
     planName: "Growth",
+    planKey: "starter",
     modules: new Set(modules) as Entitlements["modules"],
     limits: { seats: 10, whatsappNumbers: 1, storageBytes: 1_000_000 },
     trialEndsOn: null,

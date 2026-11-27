@@ -69,6 +69,7 @@ export const paidSubscription: SubscriptionOverview = {
   status: "active",
   access: "full",
   planName: "Growth",
+  planKey: "growth",
   modules: [],
   trialEndsOn: null,
   paidThrough: "2027-10-15",

@@ -7,18 +7,24 @@ import { assertSoldOn, subscriptionPriceOf } from "../../src/subscriptions/index
 
 const growth = {
   monthlyPricePaise: 499_900,
+  quarterlyPricePaise: null,
   yearlyPricePaise: 4_999_000,
   extraSeatMonthlyPricePaise: 29_900,
+  extraSeatQuarterlyPricePaise: null,
   extraSeatYearlyPricePaise: 299_000,
 };
 
-const agreed = (customPricePaise: number) =>
-  subscriptionPriceOf(growth, { billingCycle: "monthly", extraSeats: 0, customPricePaise });
+const GST = 1800;
+
+const agreed = (customPricePaise: number, gst = GST) =>
+  subscriptionPriceOf(growth, { billingCycle: "monthly", extraSeats: 0, customPricePaise }, gst);
 
 describe("a subscription's price", () => {
   it("is the flat price for the cycle and the extra seats at the plan's seat price, with GST apart", () => {
     // ₹4,999 and two seats at ₹299: ₹5,597.00, CGST and SGST ₹503.73 each, ₹6,604.46 in all.
-    expect(subscriptionPriceOf(growth, { billingCycle: "monthly", extraSeats: 2, customPricePaise: null })).toEqual({
+    expect(
+      subscriptionPriceOf(growth, { billingCycle: "monthly", extraSeats: 2, customPricePaise: null }, GST),
+    ).toEqual({
       cycle: "monthly",
       basePaise: 499_900,
       extraSeats: 2,
@@ -30,7 +36,7 @@ describe("a subscription's price", () => {
       totalPaise: 660_446,
     });
     expect(
-      subscriptionPriceOf(growth, { billingCycle: "yearly", extraSeats: 2, customPricePaise: null }),
+      subscriptionPriceOf(growth, { billingCycle: "yearly", extraSeats: 2, customPricePaise: null }, GST),
     ).toMatchObject({ subtotalPaise: 5_597_000, gstPaise: 1_007_460, totalPaise: 6_604_460 });
   });
 
@@ -60,13 +66,42 @@ describe("a subscription's price", () => {
     }
   });
 
+  it("has no GST while the policy's rate is 0: the total is the subtotal", () => {
+    expect(agreed(4_000_000, 0)).toMatchObject({
+      subtotalPaise: 4_000_000,
+      cgstPaise: 0,
+      sgstPaise: 0,
+      gstPaise: 0,
+      totalPaise: 4_000_000,
+    });
+  });
+
+  it("sells a plan priced only for 3 months that way and refuses it monthly", () => {
+    const quarterlyOnly = {
+      ...growth,
+      monthlyPricePaise: null,
+      yearlyPricePaise: null,
+      quarterlyPricePaise: 1_199_900,
+      extraSeatQuarterlyPricePaise: 80_000,
+    };
+    expect(
+      subscriptionPriceOf(quarterlyOnly, { billingCycle: "quarterly", extraSeats: 1, customPricePaise: null }, 0),
+    ).toMatchObject({ cycle: "quarterly", basePaise: 1_199_900, extraSeatsPaise: 80_000, totalPaise: 1_279_900 });
+    expect(() =>
+      subscriptionPriceOf(quarterlyOnly, { billingCycle: "monthly", extraSeats: 0, customPricePaise: null }, 0),
+    ).toThrow(expect.objectContaining({ reason: "NOT_SOLD_MONTHLY" }));
+    expect(() => {
+      assertSoldOn(growth, "quarterly");
+    }).toThrow(expect.objectContaining({ reason: "NOT_SOLD_QUARTERLY" }));
+  });
+
   it("refuses a cycle the plan isn't sold on without an agreed price; extra seats it doesn't sell cost nothing", () => {
     const monthlyOnly = { ...growth, yearlyPricePaise: null, extraSeatYearlyPricePaise: null };
     expect(() =>
-      subscriptionPriceOf(monthlyOnly, { billingCycle: "yearly", extraSeats: 1, customPricePaise: null }),
+      subscriptionPriceOf(monthlyOnly, { billingCycle: "yearly", extraSeats: 1, customPricePaise: null }, GST),
     ).toThrow(expect.objectContaining({ code: "VALIDATION", reason: "NOT_SOLD_YEARLY" }));
     expect(
-      subscriptionPriceOf(monthlyOnly, { billingCycle: "yearly", extraSeats: 1, customPricePaise: 1_000_000 }),
+      subscriptionPriceOf(monthlyOnly, { billingCycle: "yearly", extraSeats: 1, customPricePaise: 1_000_000 }, GST),
     ).toMatchObject({ basePaise: 1_000_000, extraSeatsPaise: 0 });
     expect(() => {
       assertSoldOn({ ...growth, monthlyPricePaise: null }, "monthly");

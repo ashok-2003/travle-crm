@@ -16,9 +16,12 @@ const values: PlanValues = {
   key: "growth",
   name: "Growth",
   monthlyPrice: "4,999",
+  quarterlyPrice: "",
   yearlyPrice: "",
   extraSeatMonthlyPrice: "299.50",
+  extraSeatQuarterlyPrice: "",
   extraSeatYearlyPrice: "",
+  aiCredits: "10000",
   seats: "10",
   whatsappNumbers: "2",
   storageGigabytes: "25",
@@ -30,8 +33,11 @@ const growth: PlanSummary = {
   key: "growth",
   name: "Growth",
   monthlyPricePaise: 499_900,
+  quarterlyPricePaise: null,
   yearlyPricePaise: 4_999_000,
+  aiCreditsPerMonth: 10_000,
   extraSeatMonthlyPricePaise: null,
+  extraSeatQuarterlyPricePaise: null,
   extraSeatYearlyPricePaise: 299_000,
   seatLimit: 10,
   whatsappNumberLimit: 2,
@@ -50,8 +56,11 @@ describe("toCreatePlanInput", () => {
         key: "growth",
         name: "Growth",
         monthlyPricePaise: 499_900,
+        quarterlyPricePaise: null,
         yearlyPricePaise: null,
+        aiCreditsPerMonth: 10_000,
         extraSeatMonthlyPricePaise: 29_950,
+        extraSeatQuarterlyPricePaise: null,
         extraSeatYearlyPricePaise: null,
         seatLimit: 10,
         whatsappNumberLimit: 2,
@@ -82,9 +91,12 @@ describe("toCreatePlanInput", () => {
         key: "Growth plan",
         name: " ",
         monthlyPrice: "4.999.00",
+        quarterlyPrice: "x",
         yearlyPrice: "-10",
         extraSeatMonthlyPrice: "abc",
+        extraSeatQuarterlyPrice: "y",
         extraSeatYearlyPrice: "3,00,00,000",
+        aiCredits: "0",
         seats: "0",
         whatsappNumbers: "2.5",
         storageGigabytes: "0",
@@ -96,13 +108,34 @@ describe("toCreatePlanInput", () => {
         key: "keyInvalid",
         name: "required",
         monthlyPrice: "priceInvalid",
+        quarterlyPrice: "priceInvalid",
         yearlyPrice: "priceInvalid",
         extraSeatMonthlyPrice: "priceInvalid",
+        extraSeatQuarterlyPrice: "priceInvalid",
         extraSeatYearlyPrice: "priceInvalid",
+        aiCredits: "aiCreditsInvalid",
         seats: "seatsInvalid",
         whatsappNumbers: "whatsappInvalid",
         storageGigabytes: "storageInvalid",
       },
+    });
+  });
+});
+
+describe("a plan priced for 3 months", () => {
+  it("is priced with a 3-month price alone, and sends its AI credits", () => {
+    expect(
+      toCreatePlanInput({ ...values, monthlyPrice: "", quarterlyPrice: "11,999", aiCredits: "20,000" }),
+    ).toMatchObject({
+      ok: true,
+      input: { monthlyPricePaise: null, quarterlyPricePaise: 1_199_900, aiCreditsPerMonth: 20_000 },
+    });
+  });
+
+  it("is unpriced with no price for any cycle", () => {
+    expect(toCreatePlanInput({ ...values, monthlyPrice: "" })).toEqual({
+      ok: false,
+      problems: { monthlyPrice: "priceRequired" },
     });
   });
 });
@@ -134,9 +167,12 @@ describe("planValues", () => {
       key: "growth",
       name: "Growth",
       monthlyPrice: "4,999",
+      quarterlyPrice: "",
       yearlyPrice: "49,990",
       extraSeatMonthlyPrice: "",
+      extraSeatQuarterlyPrice: "",
       extraSeatYearlyPrice: "2,990",
+      aiCredits: "10000",
       seats: "10",
       whatsappNumbers: "2",
       storageGigabytes: "931.32",
@@ -149,9 +185,12 @@ describe("planValues", () => {
       key: "",
       name: "",
       monthlyPrice: "",
+      quarterlyPrice: "",
       yearlyPrice: "",
       extraSeatMonthlyPrice: "",
+      extraSeatQuarterlyPrice: "",
       extraSeatYearlyPrice: "",
+      aiCredits: "10000",
       seats: "",
       whatsappNumbers: "",
       storageGigabytes: "",

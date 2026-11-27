@@ -35,7 +35,7 @@ export { agentSetupOf, countHandedOver, handedOverChatsOf, setAgentOn } from "./
 export { aiEnabled, aiSettingsOf, saveAiSettings } from "./settings.js";
 export { aiFilledLeadIds, decideSuggestions, suggestedFieldsOf } from "./fill/lead-fields.js";
 export { suggestReply } from "./suggest.js";
-export { MONTHLY_AI_LIMIT } from "./usage.js";
+export { MONTHLY_AI_LIMIT, monthlyAiLimitOf, usedThisMonth } from "./usage.js";
 export {
   AI_NUDGES_QUEUE,
   AI_REPLY_QUEUE,

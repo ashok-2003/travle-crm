@@ -26,6 +26,7 @@ describe("SettingsSections", () => {
       [expect.stringContaining(sections.files), routes.files],
       [expect.stringContaining(sections.documents), routes.documents],
       [expect.stringContaining(sections.teamNotifications), routes.teamNotifications],
+      [expect.stringContaining(sections.plan), routes.plan],
       [expect.stringContaining(sections.audit), routes.audit],
     ]);
   });
@@ -39,6 +40,14 @@ describe("SettingsSections", () => {
   it("shows the audit log alone to a role that may only read it", () => {
     renderAs(<SettingsSections />, member({ permissions: ["audit:view"] }));
     expect(links()).toEqual([[expect.stringContaining(sections.audit), routes.audit]]);
+  });
+
+  it("shows Plan & billing alone to a role holding billing:view, and never to one without it", () => {
+    const { unmount } = renderAs(<SettingsSections />, member({ permissions: ["billing:view"] }));
+    expect(links()).toEqual([[expect.stringContaining(sections.plan), routes.plan]]);
+    unmount();
+    renderAs(<SettingsSections />, member({ permissions: ["settings:manage", "audit:view"] }));
+    expect(screen.queryByRole("link", { name: new RegExp(sections.plan) })).toBeNull();
   });
 
   it("shows nothing at all to a role that may use none of them", () => {

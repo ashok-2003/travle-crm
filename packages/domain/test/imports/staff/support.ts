@@ -23,6 +23,7 @@ export const paid: Entitlements = {
   status: "active",
   access: "full",
   planName: "Growth",
+  planKey: "starter",
   modules: new Set(["crm"]),
   limits: { seats: 10, whatsappNumbers: 1, storageBytes: 1_000_000 },
   trialEndsOn: null,

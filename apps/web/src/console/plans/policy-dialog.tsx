@@ -5,12 +5,13 @@
 // above the button, which sits in the dialog's footer.
 import type { SubscriptionPolicy } from "@travel-crm/contracts/subscriptions";
 import { useTranslations } from "next-intl";
+import { ChoiceField } from "@/components/forms/choice-field";
 import { TextField } from "@/components/forms/text-field";
 import { FormAlert, FormDialog } from "@/components/forms/form-dialog";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { FieldGroup } from "@/components/ui/field";
 import type { ReturnFocusTo } from "@/components/return-focus";
-import { policyValues, toPolicyInput, type PolicyField } from "./policy-values";
+import { GST_CHOICES, policyValues, toPolicyInput, type PolicyField } from "./policy-values";
 import { useSetPolicy } from "./use-policy";
 
 const FIELDS: readonly PolicyField[] = ["trialDays", "pastDueDays", "readOnlyDays"];
@@ -44,6 +45,13 @@ function PolicyForm({
             className="[&_input]:numbers"
           />
         ))}
+        <ChoiceField
+          control={form.control}
+          name="subscriptionGstBasisPoints"
+          legend={t("subscriptionGstBasisPoints")}
+          inline
+          options={GST_CHOICES.map((rate) => ({ value: rate, label: t(`gstRates.${rate}`) }))}
+        />
       </FieldGroup>
       <FormAlert sending={sending} problem={formProblem} />
     </form>

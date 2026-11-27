@@ -9,6 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useTRPC } from "@/data/trpc";
 import { cn } from "@/lib/utils";
 import { useMe } from "@/session/me-context";
+import { VerifiedBadge } from "@/subscription/verified-badge";
 
 const LINK_REFRESH = 4 * 60 * 1000;
 
@@ -26,20 +27,24 @@ function useOrgLogo() {
 export function OrgMark({ className }: { className?: string }) {
   const me = useMe();
   const logo = useOrgLogo();
-  if (logo.data) {
+  // The verified tick sits beside the mark, wherever the mark is shown (the phone's top bar).
+  return (
+    <div className="flex min-w-0 items-center">
+      <Mark name={me.organization.name} logoUrl={logo.data?.url ?? null} className={className} />
+      <VerifiedBadge />
+    </div>
+  );
+}
+
+function Mark({ name, logoUrl, className }: { name: string; logoUrl: string | null; className?: string | undefined }) {
+  if (logoUrl !== null) {
     return (
       // A presigned link to storage, which Next's image optimiser can't fetch.
       // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={logo.data.url}
-        alt={me.organization.name}
-        className={cn("h-10 w-auto max-w-full object-contain object-left", className)}
-      />
+      <img src={logoUrl} alt={name} className={cn("h-10 w-auto max-w-full object-contain object-left", className)} />
     );
   }
-  return (
-    <p className={cn("script-leading text-section font-semibold break-words", className)}>{me.organization.name}</p>
-  );
+  return <p className={cn("script-leading text-section font-semibold break-words", className)}>{name}</p>;
 }
 
 /** The agency's mark in the sidebar: its first letter in the sidebar's green on a white disc while it has no logo. */

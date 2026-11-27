@@ -27,5 +27,15 @@
       "body": "Nobody can use it until support sets one up."
     },
     "contactHeading": "Contact support"
+  },
+  "verified": {
+    "label": "Verified · {plan} plan",
+    "plan": "{plan} plan",
+    "paidTill": "Paid till {date}",
+    "seeBilling": "Plan & billing"
+  },
+  "renewal": {
+    "line": "Your {plan} plan is paid till {date}. Contact us to renew.",
+    "hide": "Hide this reminder"
   }
 }

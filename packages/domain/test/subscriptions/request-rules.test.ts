@@ -18,6 +18,7 @@ const entitlements = (status: SubscriptionStatus, modules: Entitlements["modules
   status,
   access: lifecycleAccessOf(status),
   planName: "Starter",
+  planKey: "starter",
   modules,
   limits: { seats: 5, whatsappNumbers: 1, storageBytes: 1 },
   trialEndsOn: null,

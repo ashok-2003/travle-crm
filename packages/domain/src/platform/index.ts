@@ -79,6 +79,7 @@ export {
 export { platformJobHandlers } from "./jobs.js";
 export { financialYearOf, invoiceNumber } from "./invoice-numbers.js";
 export { getBillingDetails, setBillingDetails } from "./billing-details.js";
+export { billingImageLink, billingImageUploadLink } from "./billing-images.js";
 export { cancelInvoice, createInvoice, getInvoice, invoiceDownloadLink, listInvoices } from "./invoices.js";
 export { listOrganizationMembers } from "./members.js";
 export { onboardOrganization, resendInvite } from "./onboarding.js";

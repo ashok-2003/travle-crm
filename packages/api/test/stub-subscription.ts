@@ -27,6 +27,7 @@ export function stubSubscriptions(
             extraSeats: 0,
             extraModules: [],
             plan: {
+              key: "starter",
               name: planName,
               modules: [...modules],
               seatLimit: 5,

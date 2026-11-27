@@ -18,6 +18,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { FieldDescription, FieldGroup, FieldLegend, FieldSet } from "@/components/ui/field";
 import { Spinner } from "@/components/ui/spinner";
 import { NoteField } from "@/leads/form/note-field";
+import { BillingImageField } from "./billing-image-field";
 import { consoleRoutes } from "../routes";
 import { isSuperAdmin, useStaff } from "../session/staff-context";
 import {
@@ -97,6 +98,27 @@ function BillingDetailsForm({ saved }: { saved: BillingDetails | null }) {
                 />
                 <TextField control={control} name="bankNameBranch" label={t("bankNameBranch")} autoComplete="off" />
                 <TextField control={control} name="upiId" label={t("upiId")} autoComplete="off" />
+              </div>
+            </FieldSet>
+            <FieldSet>
+              <FieldLegend variant="label">{t("signLegend")}</FieldLegend>
+              <FieldDescription>{t("signIntro")}</FieldDescription>
+              <div className="grid gap-5 sm:grid-cols-2">
+                <BillingImageField control={control} name="logoKey" kind="logo" savedKey={saved?.logoKey ?? ""} />
+                <BillingImageField
+                  control={control}
+                  name="signatureKey"
+                  kind="signature"
+                  savedKey={saved?.signatureKey ?? ""}
+                />
+                <TextField control={control} name="signatoryName" label={t("signatoryName")} autoComplete="off" />
+                <TextField
+                  control={control}
+                  name="signatoryTitle"
+                  label={t("signatoryTitle")}
+                  hint={t("signatoryTitleHint")}
+                  autoComplete="off"
+                />
               </div>
             </FieldSet>
             <FieldSet>

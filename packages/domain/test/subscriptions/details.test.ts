@@ -29,28 +29,28 @@ describe("a subscription's details", () => {
 
   const inPlatform = <T>(fn: Parameters<typeof test.platformDb.transaction<T>>[0]) => test.platformDb.transaction(fn);
 
-  it("shows the price per billing cycle before GST, its extra seats, and GST at 18 % on top", async () => {
+  it("shows the price per billing cycle before GST, its extra seats, and no GST while the policy charges none", async () => {
     const organizationId = await createSubscribedOrganization(test, starter);
     const withSeats = await inPlatform((tx) =>
       setOverrides(tx, byAdmin, { organizationId, extraSeats: 2, customPricePaise: null, extraModules: [] }, now),
     );
-    // ₹2,500 a month and two seats at ₹500: ₹3,500, and GST of ₹630.
+    // ₹2,500 a month and two seats at ₹500: ₹3,500; the policy's GST is 0 for now (the 18 % split is in pricing.test.ts).
     expect(withSeats.price).toEqual({
       cycle: "monthly",
       basePaise: 250_000,
       extraSeats: 2,
       extraSeatsPaise: 100_000,
       subtotalPaise: 350_000,
-      cgstPaise: 31_500,
-      sgstPaise: 31_500,
-      gstPaise: 63_000,
-      totalPaise: 413_000,
+      cgstPaise: 0,
+      sgstPaise: 0,
+      gstPaise: 0,
+      totalPaise: 350_000,
     });
     const agreed = await inPlatform((tx) =>
       setOverrides(tx, byAdmin, { organizationId, extraSeats: 2, customPricePaise: 199_999, extraModules: [] }, now),
     );
     // An agreed price replaces the plan's; the extra seats still cost the plan's seat price.
-    expect(agreed.price).toMatchObject({ basePaise: 199_999, subtotalPaise: 299_999, gstPaise: 54_000 });
+    expect(agreed.price).toMatchObject({ basePaise: 199_999, subtotalPaise: 299_999, gstPaise: 0 });
   });
 
   it("shows the state due today, and what the daily job last recorded", async () => {

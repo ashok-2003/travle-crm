@@ -34,8 +34,11 @@ function plan(overrides: Partial<PlanSummary>): PlanSummary {
     key: "growth",
     name: "Growth",
     monthlyPricePaise: 250_000,
+    quarterlyPricePaise: null,
     yearlyPricePaise: 2_500_000,
+    aiCreditsPerMonth: 10_000,
     extraSeatMonthlyPricePaise: null,
+    extraSeatQuarterlyPricePaise: null,
     extraSeatYearlyPricePaise: null,
     seatLimit: 10,
     whatsappNumberLimit: 1,
@@ -54,7 +57,9 @@ export const pro = plan({
   key: "pro",
   name: "Pro",
   monthlyPricePaise: null,
+  quarterlyPricePaise: null,
   yearlyPricePaise: 5_000_000,
+  aiCreditsPerMonth: 10_000,
 });
 
 export const suspendedByHand: SubscriptionWithPayments = {

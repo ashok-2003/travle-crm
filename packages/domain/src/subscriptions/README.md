@@ -28,11 +28,12 @@ Changes take `now?` last (the tests' clock); dates are calendar days in the orga
   `recorded`, a `manualSuspension`, the dates and overrides, and the `price`.
 - Payments: `recordPayment(tx, by, input, { now?, provider? })`, `voidPayment(tx, by, input)`,
   `listPayments(tx, organizationId)`.
-- Prices: `subscriptionPriceOf(plan, { billingCycle, extraSeats, customPricePaise })` (the cycle's flat or agreed
-  price, the extra seats at the plan's seat price, the subtotal, CGST and SGST at half of
-  `SUBSCRIPTION_GST_BASIS_POINTS` (1800, 18 %) each, the GST and the total, in paise; `NOT_SOLD_MONTHLY` or
-  `NOT_SOLD_YEARLY` for a cycle with neither), `planPriceFor(plan, cycle)`, `assertSoldOn(plan, cycle)`.
-- The policy: `getSubscriptionPolicy(tx)` (`trialDays`, `pastDueDays`, `readOnlyDays`),
+- Prices: `subscriptionPriceOf(plan, { billingCycle, extraSeats, customPricePaise }, gstBasisPoints)` (the cycle's
+  flat or agreed price, the extra seats at the plan's seat price, the subtotal, CGST and SGST at half of the
+  policy's `subscriptionGstBasisPoints` (0 or 1800) each, the GST and the total, in paise; `NOT_SOLD_MONTHLY`,
+  `NOT_SOLD_QUARTERLY` or `NOT_SOLD_YEARLY` for a cycle with neither), `planPriceFor(plan, cycle)`,
+  `assertSoldOn(plan, cycle)`. The cycles are `monthly`, `quarterly` (3 months) and `yearly`.
+- The policy: `getSubscriptionPolicy(tx)` (`trialDays`, `pastDueDays`, `readOnlyDays`, `subscriptionGstBasisPoints`),
   `setSubscriptionPolicy(tx, by, policy)` (returns `before`, `after` and whether it `changed`), `samePolicy(a, b)`.
 - `by` is a `ConsoleActor`, `{ userId }`: the platform admin, or `null` for the platform's own jobs.
 - The lifecycle (pure, on calendar days): `nextStep(state, policy)` (the next state and its first day, or null) and

@@ -18,7 +18,9 @@ const growth = {
   key: `growth-${crypto.randomUUID().slice(0, 8)}`,
   name: "Growth",
   monthlyPricePaise: 450_000,
+  quarterlyPricePaise: null,
   yearlyPricePaise: 4_500_000,
+  aiCreditsPerMonth: 10_000,
   extraSeatMonthlyPricePaise: 29_900,
   extraSeatYearlyPricePaise: 299_000,
   seatLimit: 15,
@@ -96,7 +98,7 @@ describe("the console's plans", () => {
   });
 
   it("shows the subscription policy, and lets only a super admin change it", async () => {
-    const policy = { trialDays: 7, pastDueDays: 7, readOnlyDays: 14 };
+    const policy = { trialDays: 7, pastDueDays: 7, readOnlyDays: 14, subscriptionGstBasisPoints: 0 };
     expect(await dataOf(await consoleQuery(testConsole, "plans.policy", support.jar))).toEqual(policy);
     const changed = { ...policy, readOnlyDays: 15 };
     expect(await refusalOf(await consoleMutate(testConsole, "plans.setPolicy", changed, support.jar))).toEqual({

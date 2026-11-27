@@ -17,7 +17,7 @@ import { organizationTimeZone, type MemberAccess } from "../../identity/index.js
 import { jsonObjectIn } from "../fill/json.js";
 import { refuse, modelRefusal } from "../refusals.js";
 import { aiEnabled } from "../settings.js";
-import { MONTHLY_AI_LIMIT, recordTokens, releaseAiCall, reserveAiCall, usedThisMonth } from "../usage.js";
+import { monthlyAiLimitOf, recordTokens, releaseAiCall, reserveAiCall, usedThisMonth } from "../usage.js";
 import { requestHash } from "./applied.js";
 import { managedPrompt } from "../managed-prompt.js";
 import { ROOMING_PROMPT_NAME, roomRequestsPrompt, type RoomingBooking } from "./prompt.js";
@@ -208,7 +208,7 @@ export async function readRoomRequests(
       fillId: row?.id ?? null,
       suggestions,
       usedThisMonth: await usedThisMonth(tx, now, prepared.timeZone),
-      monthlyLimit: MONTHLY_AI_LIMIT,
+      monthlyLimit: await monthlyAiLimitOf(tx),
     };
   });
 }

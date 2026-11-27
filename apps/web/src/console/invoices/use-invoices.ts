@@ -4,6 +4,8 @@
 // cancelling, saving the details), each refreshing what shows it from the hook itself so it doesn't depend on the dialog
 // that asked still being open. Download and Copy read one invoice and use it at once.
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { BillingImageKind } from "@travel-crm/contracts/platform";
+import { uploadFile } from "@/files/upload";
 import { useCursorPages } from "@/data/use-cursor-pages";
 import { useConsoleTRPC, useConsoleTRPCClient } from "../data/console-trpc";
 
@@ -64,9 +66,25 @@ export function useSetBillingDetails(onSaved: () => void) {
   return useMutation(
     trpc.invoices.setBillingDetails.mutationOptions({
       onSuccess: onSaved,
-      onSettled: () => queryClient.invalidateQueries({ queryKey: trpc.invoices.billingDetails.pathKey() }),
+      onSettled: () =>
+        Promise.all([
+          queryClient.invalidateQueries({ queryKey: trpc.invoices.billingDetails.pathKey() }),
+          queryClient.invalidateQueries({ queryKey: trpc.invoices.billingImageLink.pathKey() }),
+        ]),
     }),
   );
+}
+
+/** Sends a logo or signature straight to storage by the link the api signs; the result is the key to save. */
+export function useUploadBillingImage(kind: BillingImageKind) {
+  const client = useConsoleTRPCClient();
+  return useMutation({
+    mutationFn: async ({ file, contentType }: { file: File; contentType: "image/png" | "image/jpeg" }) => {
+      const link = await client.invoices.billingImageUploadLink.mutate({ kind, contentType, sizeBytes: file.size });
+      await uploadFile(link, file);
+      return link.key;
+    },
+  });
 }
 
 /**

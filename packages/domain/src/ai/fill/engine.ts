@@ -22,7 +22,7 @@ import { DomainError, calendarDateIn } from "../../kernel/index.js";
 import { getQuote } from "../../quotes/index.js";
 import { searchDestinations } from "../../catalog/index.js";
 import { aiEnabled } from "../settings.js";
-import { MONTHLY_AI_LIMIT, recordTokens, releaseAiCall, reserveAiCall, usedThisMonth } from "../usage.js";
+import { monthlyAiLimitOf, recordTokens, releaseAiCall, reserveAiCall, usedThisMonth } from "../usage.js";
 import { callAnswer, leadAnswer, quoteAnswer, tripAnswer } from "@travel-crm/contracts/ai";
 import { jsonObjectIn } from "./json.js";
 import { managedPrompt } from "../managed-prompt.js";
@@ -314,8 +314,9 @@ export async function fillForm(
       questions,
       removedAmounts,
       usedThisMonth: await usedThisMonth(tx, now, prepared.timeZone),
+      monthlyLimit: await monthlyAiLimitOf(tx),
     };
   });
   if (saved === null) throw refuse("AI_NOTHING_TO_FILL", "The AI found nothing to fill in what it was given");
-  return { ...saved, truncated: prepared.truncated, monthlyLimit: MONTHLY_AI_LIMIT };
+  return { ...saved, truncated: prepared.truncated };
 }

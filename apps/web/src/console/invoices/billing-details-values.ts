@@ -17,6 +17,11 @@ export interface BillingDetailsValues {
   bankNameBranch: string;
   upiId: string;
   defaultTerms: string;
+  /** Storage keys of the logo and the signature; empty for none. */
+  logoKey: string;
+  signatureKey: string;
+  signatoryName: string;
+  signatoryTitle: string;
   proformaPrefix: string;
   invoicePrefix: string;
 }
@@ -38,6 +43,10 @@ const fields = [
   "bankNameBranch",
   "upiId",
   "defaultTerms",
+  "logoKey",
+  "signatureKey",
+  "signatoryName",
+  "signatoryTitle",
   "proformaPrefix",
   "invoicePrefix",
 ] as const satisfies readonly (keyof BillingDetailsValues)[];
@@ -61,6 +70,10 @@ export function billingDetailsValues(saved: BillingDetails | null): BillingDetai
     bankNameBranch: saved?.bankNameBranch ?? "",
     upiId: saved?.upiId ?? "",
     defaultTerms: saved?.defaultTerms ?? "",
+    logoKey: saved?.logoKey ?? "",
+    signatureKey: saved?.signatureKey ?? "",
+    signatoryName: saved?.signatoryName ?? "",
+    signatoryTitle: saved?.signatoryTitle ?? "",
     proformaPrefix: saved?.proformaPrefix ?? "PI",
     invoicePrefix: saved?.invoicePrefix ?? "INV",
   };
@@ -87,6 +100,10 @@ export function toSetBillingDetailsInput(
       bankNameBranch: given(values.bankNameBranch),
       upiId: given(values.upiId),
       defaultTerms: given(values.defaultTerms),
+      logoKey: given(values.logoKey),
+      signatureKey: given(values.signatureKey),
+      signatoryName: given(values.signatoryName),
+      signatoryTitle: given(values.signatoryTitle),
       proformaPrefix: values.proformaPrefix.trim(),
       invoicePrefix: values.invoicePrefix.trim(),
     }),

@@ -52,21 +52,23 @@ export function PlanForm({
         <FieldSet>
           <FieldLegend variant="label">{t("pricesLegend")}</FieldLegend>
           <FieldDescription>{t("pricesHint")}</FieldDescription>
-          <div className="grid gap-5 sm:grid-cols-2">
+          <div className="grid gap-5 sm:grid-cols-3">
             <MoneyField control={control} name="monthlyPrice" label={t("monthlyPrice")} />
+            <MoneyField control={control} name="quarterlyPrice" label={t("quarterlyPrice")} />
             <MoneyField control={control} name="yearlyPrice" label={t("yearlyPrice")} />
           </div>
         </FieldSet>
         <FieldSet>
           <FieldLegend variant="label">{t("extraSeatLegend")}</FieldLegend>
           <FieldDescription>{t("extraSeatHint")}</FieldDescription>
-          <div className="grid gap-5 sm:grid-cols-2">
+          <div className="grid gap-5 sm:grid-cols-3">
             <MoneyField control={control} name="extraSeatMonthlyPrice" label={t("extraSeatMonthlyPrice")} />
+            <MoneyField control={control} name="extraSeatQuarterlyPrice" label={t("extraSeatQuarterlyPrice")} />
             <MoneyField control={control} name="extraSeatYearlyPrice" label={t("extraSeatYearlyPrice")} />
           </div>
         </FieldSet>
-        <div className="grid gap-5 sm:grid-cols-3">
-          {(["seats", "whatsappNumbers", "storageGigabytes"] as const).map((name) => (
+        <div className="grid gap-5 sm:grid-cols-2">
+          {(["aiCredits", "seats", "whatsappNumbers", "storageGigabytes"] as const).map((name) => (
             <TextField
               key={name}
               control={control}
