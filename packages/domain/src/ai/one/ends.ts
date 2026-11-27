@@ -11,7 +11,10 @@ import type { OneContext } from "./context.js";
 import { withoutDashes } from "./dashes.js";
 import type { OneRun } from "./tools.js";
 
-/** The reply. Words beside stay_quiet go out and drop it (ruling 11): silence is the costlier mistake. */
+/**
+ * The reply. Words beside stay_quiet reach here only when the turn owes them (a hold, a resend, a hand-over): they go
+ * out and drop it (ruling 11). Otherwise the loop has kept the silence (the owner, 2026-11-27).
+ */
 export function oneFinal(
   run: OneRun,
   words: string,
