@@ -53,10 +53,11 @@ export function BookingsScreen() {
   const filtersButton = useRef<HTMLButtonElement>(null);
   const newButton = useRef<HTMLButtonElement>(null);
   const [choosing, setChoosing] = useState(false);
-  // A booking makes its quote too: both permissions, as the api asks.
-  const mayEdit = useHolds("bookings:edit");
-  const mayQuote = useHolds("quotes:edit");
-  const mayCreate = mayEdit && mayQuote;
+  // A booking makes its quote too: all three permissions, as the api asks.
+  const mayBook = useHolds("bookings:create");
+  const mayCreateQuote = useHolds("quotes:create");
+  const mayEditQuote = useHolds("quotes:edit");
+  const mayCreate = mayBook && mayCreateQuote && mayEditQuote;
   const total = list.data?.total ?? 0;
   const settled = list.data !== undefined && !list.isPlaceholderData;
   const { range, show, go, resize } = useTablePlace(address, bookingsHref, TABLE_PAGE_SIZES, { total, settled });
@@ -174,7 +175,8 @@ export function BookingsScreen() {
         noun={t("pageNoun", { count: total })}
         onPage={go}
         onLimit={resize}
-        sort={{ key: address.sort, direction: address.direction }}
+        // The default order (upcoming trips first) reads as the travel date, soonest first.
+        sort={{ key: address.sort === "upcoming" ? "travel" : address.sort, direction: address.direction }}
         onSort={(sort) => {
           show({ ...address, sort: sort.key, direction: sort.direction });
         }}

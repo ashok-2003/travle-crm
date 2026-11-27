@@ -26,9 +26,9 @@ const answers = {
 };
 
 describe("New booking", () => {
-  it("is for a member who may edit both bookings and quotes", async () => {
+  it("is for a member who may create bookings and create and edit quotes", async () => {
     stubApi(answers);
-    const bookingsOnly = member({ permissions: ["bookings:view", "bookings:edit"] });
+    const bookingsOnly = member({ permissions: ["bookings:view", "bookings:create", "quotes:create"] });
     renderScreen(<BookingsScreen />, { me: bookingsOnly, width: "wide" });
     await screen.findByText(words.title);
     expect(screen.queryByRole("button", { name: words.new })).toBeNull();

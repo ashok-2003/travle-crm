@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useDepartureList } from "@/departures/use-departures";
 import { useLead } from "@/leads/lead/use-lead";
+import { formatCalendarDay } from "@/lib/format";
 import { bookingRoute } from "@/lib/routes";
 import { LeadStep } from "@/quotes/lead-step";
 import { useQuotePackages, useQuoteSettings } from "@/quotes/use-quotes";
@@ -139,7 +140,7 @@ function BookingForm({
           name="departureId"
           label={t("departure")}
           placeholder={t("departureNone")}
-          options={open.map((one) => ({ value: one.id, label: `${one.title} · ${one.startDate}` }))}
+          options={open.map((one) => ({ value: one.id, label: `${one.title} · ${formatCalendarDay(one.startDate)}` }))}
           onChosen={(id) => {
             const one = open.find((candidate) => candidate.id === id);
             if (one !== undefined) form.setValue("startDate", one.startDate);

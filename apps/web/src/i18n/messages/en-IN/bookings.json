@@ -221,7 +221,7 @@
   },
   "travellers": {
     "heading": "Travellers",
-    "progress": "{done} of {total} complete",
+    "progress": "<n>{done}</n> of <n>{total}</n> complete",
     "cutoff": "Locks for travellers on {day}",
     "level": "What each traveller fills in",
     "levels": {

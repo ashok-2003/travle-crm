@@ -33,7 +33,7 @@ export interface BookingsAddress {
   limit: BookingTablePageInput["limit"];
 }
 
-export const bookingsStart: BookingsAddress = { chip: "all", sort: "travel", direction: "asc", page: 1, limit: 25 };
+export const bookingsStart: BookingsAddress = { chip: "all", sort: "upcoming", direction: "asc", page: 1, limit: 25 };
 
 const fields: AddressFields<BookingsAddress> = {
   chip: { name: "status", schema: z.enum(bookingChips) },

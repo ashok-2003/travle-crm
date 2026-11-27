@@ -114,7 +114,7 @@ describe("BookingsScreen", () => {
     expect(meera.getByText("1").parentElement).toHaveTextContent(/^1 of 3$/);
     expect(meera.getByText("Ravi Kumar")).toBeVisible();
     expect(screen.getByRole("columnheader", { name: words.columns.travel })).toHaveAttribute("aria-sort", "ascending");
-    expect(inputsTo("bookings.page")).toEqual([{ page: 1, limit: 25, sort: "travel", direction: "asc" }]);
+    expect(inputsTo("bookings.page")).toEqual([{ page: 1, limit: 25, sort: "upcoming", direction: "asc" }]);
   });
 
   it("says a payment is overdue in red, with the word", async () => {
@@ -143,7 +143,7 @@ describe("BookingsScreen", () => {
       expect(lastInputTo("bookings.page")).toEqual({
         page: 1,
         limit: 25,
-        sort: "travel",
+        sort: "upcoming",
         direction: "asc",
         search: "98765",
       });
@@ -203,7 +203,7 @@ describe("BookingsScreen", () => {
       expect(lastInputTo("bookings.page")).toEqual({
         page: 1,
         limit: 25,
-        sort: "travel",
+        sort: "upcoming",
         direction: "asc",
         status: "confirmed",
       });

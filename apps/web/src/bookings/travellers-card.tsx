@@ -36,44 +36,50 @@ export function TravellersCard({ booking }: { booking: BookingDetail }) {
   const menuButton = useRef<HTMLButtonElement>(null);
   return (
     <SectionCard title={t("heading")} anchor="travellers">
-      <p>
-        <span className="numbers font-semibold">
-          {t("progress", { done: booking.travellersComplete, total: booking.travellersTotal })}
-        </span>
-        {booking.detailsCutoffOn !== null && (
-          <span className="text-muted-foreground">
-            {" "}
-            · {t("cutoff", { day: formatCalendarDay(booking.detailsCutoffOn) })}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p>
+          <span className="font-semibold">
+            {t.rich("progress", {
+              done: booking.travellersComplete,
+              total: booking.travellersTotal,
+              n: (chunks) => <span className="numbers">{chunks}</span>,
+            })}
           </span>
+          {booking.detailsCutoffOn !== null && (
+            <span className="text-muted-foreground">
+              {" "}
+              · {t("cutoff", { day: formatCalendarDay(booking.detailsCutoffOn) })}
+            </span>
+          )}
+        </p>
+        {mayEdit && (
+          <div className="flex items-center gap-2">
+            <FillTravellersWithAi booking={booking} />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button ref={menuButton} variant="ghost" size="icon" aria-label={t("menu")}>
+                  <EllipsisIcon aria-hidden="true" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  disabled={!access.allowed}
+                  onSelect={() => {
+                    setSettings(true);
+                  }}
+                >
+                  {t("settings")}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <TravellerSettingsDialog
+              booking={booking}
+              held={{ open: settings, setOpen: setSettings }}
+              returnFocusTo={menuButton}
+            />
+          </div>
         )}
-      </p>
-      {mayEdit && (
-        <div className="flex flex-wrap items-center gap-2">
-          <FillTravellersWithAi booking={booking} />
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button ref={menuButton} variant="ghost" size="icon" aria-label={t("menu")}>
-                <EllipsisIcon aria-hidden="true" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                disabled={!access.allowed}
-                onSelect={() => {
-                  setSettings(true);
-                }}
-              >
-                {t("settings")}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <TravellerSettingsDialog
-            booking={booking}
-            held={{ open: settings, setOpen: setSettings }}
-            returnFocusTo={menuButton}
-          />
-        </div>
-      )}
+      </div>
       {count === 0 ? (
         <p className="text-muted-foreground">{t("none")}</p>
       ) : (
