@@ -454,7 +454,8 @@ export function QuoteForm({
         </Card>
 
         <RefusalAlert error={sending.error} />
-        <div className="sticky bottom-4 flex justify-end">
+        {/* Stuck to the screen on a phone only: on a wide screen it floats over the price lines' remove buttons. */}
+        <div className="flex justify-end max-md:sticky max-md:bottom-4">
           <Button type="submit" size="lg" disabled={busy}>
             {sending.isPending && <Spinner aria-hidden="true" />}
             {sending.isPending ? t("saving") : t("save")}
