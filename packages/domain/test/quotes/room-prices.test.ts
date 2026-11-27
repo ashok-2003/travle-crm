@@ -67,47 +67,29 @@ describe("priceOn", () => {
 });
 
 describe("totalFor", () => {
-  it("totals by room, and refuses a split that doesn't fit", () => {
-    const prices = { ...none, double: 800_000, triple: 699_900 };
-    expect(totalFor(prices, [{ roomType: "triple", people: 3 }], all)).toMatchObject({
-      ok: true,
-      totalPaise: 2_099_700,
-    });
-    expect(totalFor(prices, [{ roomType: "double", people: 3 }], all)).toEqual({
-      ok: false,
-      reason: "ROOM_SPLIT",
-      roomType: "double",
-    });
-    expect(totalFor(prices, [{ roomType: "quad", people: 4 }], all)).toEqual({
+  const prices = { ...none, double: 800_000, triple: 699_900, quad: 599_900, child_bed: 399_900 };
+
+  it("prices people, not rooms: each person at their sharing's price, however many share (the owner, 2026-11-27)", () => {
+    // Live, 26 and 27 Nov: a solo traveller in double sharing, 8 friends in triple and 5 in quad were all refused.
+    expect(totalFor(prices, [{ roomType: "double", people: 1 }])).toMatchObject({ ok: true, totalPaise: 800_000 });
+    expect(totalFor(prices, [{ roomType: "triple", people: 8 }])).toMatchObject({ ok: true, totalPaise: 8 * 699_900 });
+    expect(totalFor(prices, [{ roomType: "quad", people: 5 }])).toMatchObject({ ok: true, totalPaise: 5 * 599_900 });
+  });
+
+  it("totals a mix of sharings and children line by line", () => {
+    const total = totalFor(prices, [
+      { roomType: "triple", people: 6 },
+      { roomType: "double", people: 2 },
+      { roomType: "child_bed", people: 1 },
+    ]);
+    expect(total).toMatchObject({ ok: true, totalPaise: 6 * 699_900 + 2 * 800_000 + 399_900 });
+  });
+
+  it("refuses a sharing with no price", () => {
+    expect(totalFor({ ...none, double: 800_000 }, [{ roomType: "quad", people: 4 }])).toEqual({
       ok: false,
       reason: "NO_PRICE",
       roomType: "quad",
-    });
-  });
-
-  it("a package selling one room type alone is per person: its people need not fill whole rooms", () => {
-    const prices = { ...none, triple: 499_800 };
-    expect(totalFor(prices, [{ roomType: "triple", people: 4 }], ["triple"])).toMatchObject({
-      ok: true,
-      totalPaise: 4 * 499_800,
-    });
-    // Two room types sold: the split still has to fit.
-    expect(totalFor(prices, [{ roomType: "triple", people: 4 }], ["double", "triple"])).toMatchObject({
-      ok: false,
-      reason: "ROOM_SPLIT",
-    });
-  });
-
-  it("a child's price is no room type: a triple-only trek with a child bed is still per person", () => {
-    const prices = { ...none, triple: 599_900, child_bed: 399_900 };
-    expect(totalFor(prices, [{ roomType: "triple", people: 2 }], ["triple", "child_bed"])).toMatchObject({
-      ok: true,
-      totalPaise: 2 * 599_900,
-    });
-    // Two adult room types and a child bed: the adults still fill whole rooms.
-    expect(totalFor(prices, [{ roomType: "triple", people: 2 }], ["double", "triple", "child_bed"])).toMatchObject({
-      ok: false,
-      reason: "ROOM_SPLIT",
     });
   });
 });
