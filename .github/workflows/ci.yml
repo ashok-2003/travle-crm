@@ -6,15 +6,12 @@
 # each passed but break together, and a commit pushed straight to main. The journeys, Lighthouse and the images already
 # ran on the pull request; repeating them after the merge stops nothing (the deploy doesn't wait for CI) and takes
 # runner slots the deploy needs. Run the workflow by hand to put main through every gate.
+#
+# PAUSED since 2026-11-27 (the owner): the repository is private, where GitHub Free's minutes are few. Every gate runs
+# only by hand (Run workflow, on any branch) until a lighter CI replaces this; run `pnpm check` before a merge.
 name: CI
 
 on:
-  pull_request:
-  push:
-    branches: [main]
-  # The performance job below, nightly and on demand; the gates run on dispatch too, and skip the schedule.
-  schedule:
-    - cron: "17 21 * * *"
   workflow_dispatch:
 
 permissions:

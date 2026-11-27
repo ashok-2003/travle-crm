@@ -51,7 +51,20 @@ else
     "scripts/server/release.sh --build-here, which builds it on your computer and loads it here"
 fi
 
-if runs_migrations; then
+# Whether the database package (its migrations, and what applies them) changed since the release running here, or
+# that can't be told: a release that changes neither has nothing to apply.
+migrations_may_have_changed() {
+  local running
+  running="$(cat "$release_file" 2>/dev/null || true)"
+  [ -n "$running" ] || return 0
+  if git -c safe.directory="$PWD" diff --quiet "$running" HEAD -- packages/db apps/api/docker-entrypoint.sh 2>/dev/null; then
+    return 1
+  fi
+}
+
+if runs_migrations && ! migrations_may_have_changed; then
+  echo "No migrations to apply: release $release changes nothing in packages/db since the running one"
+elif runs_migrations; then
   echo "Applying the migrations, as app_migrator, while the running release serves"
   if uses_local_database; then
     compose up --detach --wait postgres
@@ -101,7 +114,9 @@ fi
 app_host="$(sed -n -E "s/^APP_HOST='(.*)'\$/\1/p" "$settings_file")"
 # The address people use (APP_URL), which the api's sign-in takes requests from; this server's own when blank.
 app_url="$(sed -n -E "s/^APP_URL='(.*)'\$/\1/p" "$settings_file")"
-SERVER_ROLE="$role" ORIGIN="${app_url:-https://$app_host}" scripts/server/smoke.sh "https://$app_host" --local
+# The quick check: https and the health check through Caddy, after the containers' own health checks passed above.
+# The whole smoke check (the routes, the headers, the sign-in rate limit) checks settings, not a release: run it by hand.
+SERVER_ROLE="$role" ORIGIN="${app_url:-https://$app_host}" scripts/server/smoke.sh "https://$app_host" --local --quick
 # The smoke check needs the worker or the console up, whatever the time. Then the working hours write their timers for
 # this release's script and put each back as the time calls for (the night's state outside the hours and the bursts).
 scripts/server/work-hours.sh apply

@@ -298,8 +298,9 @@ is cut short.
          ssh -i ~/.ssh/travel-crm-oracle ubuntu@$ip 'cat >> ~/.ssh/authorized_keys' < ~/.ssh/travel-crm-github-deploy.pub
        done
 
-   The key reaches `ubuntu`, which can `sudo`, so whoever holds it holds the servers; that's why it lives only in the
-   `production` environment, and why that environment can ask for an approval.
+   The key reaches `ubuntu`, which can `sudo`, so whoever holds it holds the servers. It is the repository secret
+   `ORACLE_DEPLOY_SSH_KEY`: since the repository went private (2026-11-27), GitHub Free gives it no environment
+   secrets, so the `production` environment and its approval are gone.
 
 2. **The servers' host keys**, so the runner trusts only them: `ssh-keyscan -t ed25519 <api ip> <console ip>`, and
    check each line's key against the Mac's (`ssh-keygen -F <ip>`).
@@ -468,9 +469,10 @@ ARM capacity, so the database got a small server of its own.
 - **Oracle:** the subnet's default security list lets TCP 5432 in from the subnet (`10.0.0.0/24`). Nothing outside the
   private network can reach Postgres.
 - **Vercel:** `API_ORIGIN` and `CONSOLE_ORIGIN` are both the app server's address.
-- **GitHub:** the `production` environment has no `DATABASE_MIGRATOR_URL` (the runner can't reach a private address).
-  `ORACLE_API_SERVER` is the app server and `ORACLE_CONSOLE_SERVER` the database server: `release-servers.sh` releases
-  the app server, then the database server, whose deploy only checks that Postgres answers.
+- **GitHub:** no `DATABASE_MIGRATOR_URL` (the runner can't reach a private address): the app server migrates, and
+  only when the release changes `packages/db`. `ORACLE_API_SERVER` is the app server and `ORACLE_CONSOLE_SERVER` the
+  database server: `release-servers.sh` releases the app server, then the database server only when what it runs
+  changed, whose deploy only checks that Postgres answers.
 - **Memory:** the app server holds the three processes in 1 GB (about 560 MB idle) and its 4 GB of swap.
 - **The working hours** were for Neon's compute hours. With our own database they only spare the app server's memory
   at night; `work-hours.sh off` on the app server runs everything all day and night.

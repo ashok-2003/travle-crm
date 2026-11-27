@@ -22,7 +22,23 @@ if [ -n "${DATABASE_MIGRATOR_URL:-}" ]; then
   # The URL reaches the container from this environment, never on a command line.
   docker run --rm --env DATABASE_MIGRATOR_URL --env PRISMA_HIDE_UPDATE_MESSAGE=1 "$image" migrate
 else
-  echo "No DATABASE_MIGRATOR_URL: no migrations applied (apply them first, as docs/serverless.md says)"
+  echo "No DATABASE_MIGRATOR_URL here: a server whose settings hold it applies the migrations (deploy.sh)"
 fi
 SERVER="$api_server" scripts/server/release.sh --build-here "$commit"
-SERVER="$console_server" scripts/server/release.sh --build-here "$commit"
+
+# The database server runs Postgres alone, so most releases change nothing there: it gets one only when what it runs
+# (its compose file, its Postgres files, the server scripts) changed since its own release, or when that can't be told.
+database_server_unchanged() {
+  local state role running
+  state="$(ssh -i "${SSH_KEY:-$HOME/.ssh/travel-crm-oracle}" -o IdentitiesOnly=yes "$console_server" \
+    "sudo bash -c 'source /srv/travel-crm/app/scripts/server/paths.sh && echo \$(server_role) \$(cat \$release_file)'" \
+    2>/dev/null || true)"
+  read -r role running <<<"$state" || true
+  [ "$role" = database ] && [ -n "${running:-}" ] &&
+    git diff --quiet "$running" "$commit" -- docker-compose.server.yml docker scripts/server packages/db/sql 2>/dev/null
+}
+if database_server_unchanged; then
+  echo "Nothing the database server runs has changed: it keeps its release"
+else
+  SERVER="$console_server" scripts/server/release.sh --build-here "$commit"
+fi
