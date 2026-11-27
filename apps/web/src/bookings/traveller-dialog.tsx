@@ -16,6 +16,7 @@ import { DateField } from "@/components/date-field";
 import { checked } from "@/components/forms/checked";
 import { FormAlert, FormDialog, useFormDialog } from "@/components/forms/form-dialog";
 import { SelectField } from "@/components/forms/select-field";
+import { mayBeMissing } from "@/lib/older-api";
 import { prefilledField } from "@/components/card-tints";
 import { TextField } from "@/components/forms/text-field";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
@@ -46,6 +47,8 @@ function TravellerForm({
   dialog: { onSuccess: () => Promise<void> };
 }) {
   const t = useTranslations("bookings.travellers.form");
+  // An older api sends no marks.
+  const prefilled = mayBeMissing(traveller.prefilled) ?? [];
   const values = {
     name: traveller.name,
     dateOfBirth: traveller.dateOfBirth ?? "",
@@ -122,7 +125,7 @@ function TravellerForm({
         label={t("name")}
         autoComplete="off"
         disabled={saveTraveller.isPending}
-        {...(traveller.prefilled.includes("name") ? { inputClassName: prefilledField, hint: t("prefilledHint") } : {})}
+        {...(prefilled.includes("name") ? { inputClassName: prefilledField, hint: t("prefilledHint") } : {})}
       />
       <DateField control={form.control} name="dateOfBirth" label={t("dateOfBirth")} />
       <SelectField
@@ -141,7 +144,7 @@ function TravellerForm({
         label={t("phone")}
         type="tel"
         disabled={saveTraveller.isPending}
-        {...(traveller.prefilled.includes("phone") ? { inputClassName: prefilledField, hint: t("prefilledHint") } : {})}
+        {...(prefilled.includes("phone") ? { inputClassName: prefilledField, hint: t("prefilledHint") } : {})}
       />
       {level !== "basic" && (
         <>

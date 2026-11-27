@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { prefilledField } from "@/components/card-tints";
 import { formatCalendarDay } from "@/lib/format";
+import { mayBeMissing } from "@/lib/older-api";
 import { cn } from "@/lib/utils";
 import { useHolds } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
@@ -77,39 +78,43 @@ export function TravellersCard({ booking }: { booking: BookingDetail }) {
         <p className="text-muted-foreground">{t("none")}</p>
       ) : (
         <ItemGroup>
-          {booking.travellers.map((traveller, index) => (
-            <Item key={traveller.id} size="sm" role="listitem">
-              <ItemContent>
-                <ItemTitle>
-                  {traveller.name === "" ? (
-                    t("unnamed", { number: index + 1 })
-                  ) : (
-                    <span className={cn(traveller.prefilled.includes("name") && `rounded-sm px-1 ${prefilledField}`)}>
-                      {traveller.name}
-                    </span>
+          {booking.travellers.map((traveller, index) => {
+            // An older api sends no marks.
+            const prefilled = mayBeMissing(traveller.prefilled) ?? [];
+            return (
+              <Item key={traveller.id} size="sm" role="listitem">
+                <ItemContent>
+                  <ItemTitle>
+                    {traveller.name === "" ? (
+                      t("unnamed", { number: index + 1 })
+                    ) : (
+                      <span className={cn(prefilled.includes("name") && `rounded-sm px-1 ${prefilledField}`)}>
+                        {traveller.name}
+                      </span>
+                    )}
+                  </ItemTitle>
+                  <ItemDescription>
+                    {prefilled.length > 0 ? `${t("prefilled")} · ` : ""}
+                    {traveller.complete ? t("complete") : t("missing")}
+                    {traveller.hasIdentity ? ` · ${t("idOnFile")}` : ""}
+                  </ItemDescription>
+                </ItemContent>
+                <ItemActions>
+                  <StatusBadge tone={traveller.complete ? "good" : "attention"}>
+                    {traveller.complete ? t("badge.complete") : t("badge.missing")}
+                  </StatusBadge>
+                  {mayEdit && (
+                    <TravellerDialog
+                      traveller={traveller}
+                      level={booking.level}
+                      number={index + 1}
+                      onDeparture={booking.departure !== null}
+                    />
                   )}
-                </ItemTitle>
-                <ItemDescription>
-                  {traveller.prefilled.length > 0 ? `${t("prefilled")} · ` : ""}
-                  {traveller.complete ? t("complete") : t("missing")}
-                  {traveller.hasIdentity ? ` · ${t("idOnFile")}` : ""}
-                </ItemDescription>
-              </ItemContent>
-              <ItemActions>
-                <StatusBadge tone={traveller.complete ? "good" : "attention"}>
-                  {traveller.complete ? t("badge.complete") : t("badge.missing")}
-                </StatusBadge>
-                {mayEdit && (
-                  <TravellerDialog
-                    traveller={traveller}
-                    level={booking.level}
-                    number={index + 1}
-                    onDeparture={booking.departure !== null}
-                  />
-                )}
-              </ItemActions>
-            </Item>
-          ))}
+                </ItemActions>
+              </Item>
+            );
+          })}
         </ItemGroup>
       )}
     </SectionCard>

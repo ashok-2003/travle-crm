@@ -76,4 +76,18 @@ describe("pre-filled travellers", () => {
     expect(within(dialog).getByRole("combobox", { name: words.level })).toBeVisible();
     expect(within(dialog).getByRole("group", { name: words.count })).toBeVisible();
   });
+
+  it("reads a traveller from an older api, with no marks sent, as plain", async () => {
+    stubApi({});
+    const older: Partial<Traveller> = aTraveller();
+    delete older.prefilled;
+    renderScreen(<TravellersCard booking={aBooking({ travellers: [older as Traveller], travellersTotal: 1 })} />, {
+      me: editor,
+      width: "wide",
+    });
+    expect(screen.getByText("Meera Iyer").className).not.toContain(tint[0]);
+    await userEvent.click(screen.getByRole("button", { name: /Fill in|Edit/ }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByLabelText(words.form.name).className).not.toContain(tint[0]);
+  });
 });
