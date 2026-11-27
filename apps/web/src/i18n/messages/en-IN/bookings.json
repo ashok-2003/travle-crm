@@ -221,8 +221,13 @@
         "ground_floor": "A ground-floor room",
         "near_group": "A room near the group"
       },
-      "roomNote": "Anything else about their room"
-    }
+      "roomNote": "Anything else about their room",
+      "prefilledHint": "Filled in from the lead. Check it."
+    },
+    "menu": "More about travellers",
+    "settings": "Travellers' settings",
+    "settingsDescription": "What each traveller fills in on their trip page, and how many travellers there are.",
+    "prefilled": "Filled in from the lead, check it"
   },
   "essentials": {
     "title": "Trip essentials",

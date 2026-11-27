@@ -124,6 +124,7 @@ test("bookings, the trip page, the PDFs and a cancellation", async ({ page, brow
   await expect(page.getByRole("dialog").getByLabel("Payment 2: name")).toHaveValue("Balance");
   await shoot(page, "r6-booking-requested");
   await page.keyboard.press("Escape");
+  await shoot(page, "r8-travellers-prefilled", { element: page.getByRole("region", { name: "Travellers" }) });
 
   await page.goto(`/bookings/${meera.bookingId}`);
   await expect(page.getByRole("region", { name: "Money" })).toContainText("UTR448802217");

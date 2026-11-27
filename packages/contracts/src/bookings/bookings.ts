@@ -214,6 +214,8 @@ export const traveller = z.object({
   complete: z.boolean(),
   /** An ID number is on file (never shown here). */
   hasIdentity: z.boolean(),
+  /** The fields filled from the lead's person when the booking was made, until a person saves this traveller. */
+  prefilled: z.array(z.enum(["name", "phone"])),
 });
 export type Traveller = z.infer<typeof traveller>;
 

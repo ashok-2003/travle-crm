@@ -595,6 +595,11 @@ export const SHOTS = [
     as: owner,
   },
   {
+    name: "r8-travellers-prefilled",
+    screen: "A booking's travellers: the first filled from the lead, marked until someone checks it",
+    as: owner,
+  },
+  {
     name: "r6-booking",
     screen: "A confirmed booking: its trip first, Needs you, money, travellers, the trip, reminders",
     as: owner,

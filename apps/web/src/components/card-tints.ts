@@ -14,6 +14,9 @@ export const cardTints = {
   sky: "bg-[color-mix(in_oklab,var(--brand-avatar-sky-fill)_45%,var(--card))] [--color-border:color-mix(in_oklab,var(--brand-avatar-sky-ink)_12%,var(--card))] [--color-muted-foreground:color-mix(in_oklab,var(--brand-avatar-sky-ink)_30%,var(--muted-foreground))] [&_[data-slot=card-title]]:text-(--brand-avatar-sky-ink)",
 } as const;
 
+/** The background of an input filled from what the system already knew (the lead's name and phone): the primary tint, like a browser's autofill, until a person has looked. */
+export const prefilledField = "bg-[color-mix(in_oklab,var(--brand-action-tint)_80%,var(--card))]";
+
 export type CardTint = keyof typeof cardTints;
 
 /** A progress bar in the AI's violet on a faint violet track (Home's AI calls used, the AI agent's setup). */

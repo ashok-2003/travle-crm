@@ -313,6 +313,7 @@ export async function getBooking(tx: OrgTx, access: MemberAccess, bookingId: str
       roomNote: row.roomNote,
       complete: row.completeAt !== null,
       hasIdentity: identities.some((identity) => identity.travellerId === row.id),
+      prefilled: row.prefilledFields,
     })),
     claims: claims.map((claim) => ({
       id: claim.id,

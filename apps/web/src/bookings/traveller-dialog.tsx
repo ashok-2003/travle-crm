@@ -16,6 +16,7 @@ import { DateField } from "@/components/date-field";
 import { checked } from "@/components/forms/checked";
 import { FormAlert, FormDialog, useFormDialog } from "@/components/forms/form-dialog";
 import { SelectField } from "@/components/forms/select-field";
+import { prefilledField } from "@/components/card-tints";
 import { TextField } from "@/components/forms/text-field";
 import { useCheckedForm } from "@/components/forms/use-checked-form";
 import { NoteField } from "@/leads/form/note-field";
@@ -121,6 +122,7 @@ function TravellerForm({
         label={t("name")}
         autoComplete="off"
         disabled={saveTraveller.isPending}
+        {...(traveller.prefilled.includes("name") ? { inputClassName: prefilledField, hint: t("prefilledHint") } : {})}
       />
       <DateField control={form.control} name="dateOfBirth" label={t("dateOfBirth")} />
       <SelectField
@@ -133,7 +135,14 @@ function TravellerForm({
           ...gender.options.map((one) => ({ value: one, label: t(`genders.${one}`) })),
         ]}
       />
-      <TextField control={form.control} name="phone" label={t("phone")} type="tel" disabled={saveTraveller.isPending} />
+      <TextField
+        control={form.control}
+        name="phone"
+        label={t("phone")}
+        type="tel"
+        disabled={saveTraveller.isPending}
+        {...(traveller.prefilled.includes("phone") ? { inputClassName: prefilledField, hint: t("prefilledHint") } : {})}
+      />
       {level !== "basic" && (
         <>
           <TextField

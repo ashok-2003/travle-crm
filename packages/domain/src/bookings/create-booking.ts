@@ -50,7 +50,7 @@ export async function createBookingFromQuote(
       days: true,
       adults: true,
       children: true,
-      lead: { select: { ownerUserId: true, person: { select: { name: true } } } },
+      lead: { select: { ownerUserId: true, person: { select: { name: true, phoneE164: true } } } },
     },
   });
   if (quote?.status !== "accepted") return null;
@@ -110,8 +110,21 @@ export async function createBookingFromQuote(
     select: { id: true },
   });
   const heads = quote.adults + quote.children;
+  // Traveller 1 starts from the lead's person (name, and phone when there is one), marked until a person saves the row: a
+  // WhatsApp name is often not a real name, so the page says "check me". The other travellers stay empty.
+  const person = quote.lead.person;
   await tx.bookingTraveller.createMany({
-    data: Array.from({ length: heads }, (_, position) => ({ bookingId: booking.id, position })),
+    data: Array.from({ length: heads }, (_, position) => ({
+      bookingId: booking.id,
+      position,
+      ...(position === 0
+        ? {
+            name: person.name,
+            phone: person.phoneE164 ?? "",
+            prefilledFields: person.phoneE164 === null ? ["name"] : ["name", "phone"],
+          }
+        : {}),
+    })),
   });
   // On a group departure the booking takes the seats: the lead's hold becomes it, and going over the seats is noted.
   if (quote.departureId !== null) {
