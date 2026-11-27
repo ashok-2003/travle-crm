@@ -5,6 +5,7 @@
 // the platform log; the organization's beginning is in its own audit log.
 import { randomBytes } from "node:crypto";
 import type { CreateVipInvitesInput, VipInvite, VipInviteList, VipInviteOpened } from "@travel-crm/contracts/platform";
+import { billingCycle } from "@travel-crm/contracts/subscriptions";
 import { gstStateCode } from "@travel-crm/contracts/kernel";
 import { asOrganization, type PlatformTx } from "@travel-crm/db/platform";
 import { recordAudit } from "../audit/index.js";
@@ -211,7 +212,7 @@ async function join(
     {
       organizationId: organization.id,
       planId: invite.planId,
-      billingCycle: invite.billingCycle === "yearly" ? "yearly" : "monthly",
+      billingCycle: billingCycle.parse(invite.billingCycle),
       trialEndsOn: addDays(today, invite.trialDays - 1),
       paidThrough: null,
     },

@@ -21,5 +21,10 @@ ALTER TABLE "subscription" DROP CONSTRAINT subscription_billing_cycle_value;
 ALTER TABLE "subscription"
   ADD CONSTRAINT subscription_billing_cycle_value CHECK (billing_cycle IN ('monthly', 'quarterly', 'yearly'));
 
+-- A VIP invite may start a 3-month subscription too.
+ALTER TABLE "vip_invite" DROP CONSTRAINT vip_invite_billing_cycle_value;
+ALTER TABLE "vip_invite"
+  ADD CONSTRAINT vip_invite_billing_cycle_value CHECK (billing_cycle IN ('monthly', 'quarterly', 'yearly'));
+
 ALTER TABLE "subscription_policy"
   ADD CONSTRAINT subscription_policy_gst CHECK (subscription_gst_basis_points IN (0, 1800));
