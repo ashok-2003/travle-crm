@@ -26,6 +26,7 @@ export function webhookProvidersOf(services: Services, logger: Logger): readonly
           limiter: services.rateLimiter,
           identity: services.identity,
           subscriptions: services.subscriptions,
+          incidents: services.incidents,
         }),
       }),
     );

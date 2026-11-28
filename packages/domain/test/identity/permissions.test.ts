@@ -21,6 +21,7 @@ describe("permission catalog", () => {
         "staff",
         "roles",
         "settings",
+        "billing",
         "audit",
         "money",
         "documents",
@@ -32,6 +33,7 @@ describe("permission catalog", () => {
         "suppliers",
         "accounts",
         "ai",
+        "billing",
       ]),
     );
   });

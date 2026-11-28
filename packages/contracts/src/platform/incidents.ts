@@ -1,6 +1,7 @@
-// The system's health (the owner, 2026-11-02): something that broke (the AI, jobs, the api, the worker), reported by any
-// process as a job for the console, kept as an incident, emailed to the super admins and shown on the console's
-// dashboard until it has been quiet a while. A report holds a kind and a short code, never personal data.
+// The system's health (the owner, 2026-11-02): something that broke (the AI, jobs, the api, the worker, MSG91 refusing our
+// WhatsApp sends), reported by any process as a job for the console, kept as an incident, emailed to the super admins and
+// shown on the console's dashboard until it has been quiet a while. A report holds a kind and a short code, never personal
+// data.
 import { z } from "zod";
 import { recordId } from "../identity/index.js";
 
@@ -10,6 +11,7 @@ export const incidentKinds = [
   "jobs.failed",
   "api.errors",
   "worker.stalled",
+  "whatsapp.refused",
 ] as const;
 export const incidentKind = z.enum(incidentKinds);
 export type IncidentKind = z.infer<typeof incidentKind>;

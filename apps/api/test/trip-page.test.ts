@@ -101,11 +101,23 @@ describe("the trip page", () => {
     });
 
   /** The page's words as read, without its markup. */
-  const words = (html: string) =>
-    html
-      .replace(/<(style|script)[^>]*>[\s\S]*?<\/\1>/g, "")
-      .replace(/<[^>]+>/g, "")
-      .replace(/\s+/g, " ");
+  const words = (html: string) => {
+    // Read character by character: a tag is skipped to its ">", a style or script element to its closing tag.
+    let text = "";
+    let at = 0;
+    while (at < html.length) {
+      if (html[at] !== "<") {
+        text += html.charAt(at);
+        at += 1;
+        continue;
+      }
+      const element = /^<(style|script)\b/i.exec(html.slice(at, at + 8))?.[1]?.toLowerCase();
+      const end = element === undefined ? html.indexOf(">", at) : html.indexOf(`</${element}>`, at);
+      if (end === -1) break;
+      at = end + (element === undefined ? 1 : element.length + 3);
+    }
+    return text.replace(/\s+/g, " ");
+  };
   /** The card whose heading is `heading`. */
   const card = (html: string, heading: string) =>
     new RegExp(
