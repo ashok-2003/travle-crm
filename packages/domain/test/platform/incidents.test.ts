@@ -1,7 +1,7 @@
 // The system's health: a report opens an incident of its kind, a second report of an open one is counted on it, the
 // incident jobs every process sends are recorded, and the list says what is open.
 import { randomUUID } from "node:crypto";
-import type { IncidentKind } from "@travel-crm/contracts/platform";
+import { incidentKinds, type IncidentKind } from "@travel-crm/contracts/platform";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { platformStaffRoles } from "../../src/identity/index.js";
 import {
@@ -53,6 +53,13 @@ describe("the system's health", () => {
     const { open } = await listPlatformIncidents(test.services);
     expect(open.map((incident) => incident.kind)).toContain("api.errors");
     await expect(handler.handle({ kind: "disk.full", detail: "" })).rejects.toThrow();
+  });
+
+  it("stores an incident of every kind the contracts name (the table's CHECK keeps up with them)", async () => {
+    // Live, 28 Nov: whatsapp.refused was in the contracts but not the CHECK, so every report of it failed.
+    for (const kind of incidentKinds) await reportPlatformIncident(test.services, kind, "every kind", new Date());
+    const { open } = await listPlatformIncidents(test.services);
+    expect(new Set(open.map((incident) => incident.kind))).toEqual(new Set(incidentKinds));
   });
 });
 
