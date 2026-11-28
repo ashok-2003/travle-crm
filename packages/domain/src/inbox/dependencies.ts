@@ -6,6 +6,7 @@ import type { Logger } from "@travel-crm/integrations/logging";
 import type { WhatsAppProvider } from "@travel-crm/integrations/whatsapp";
 import type { AgencyDependencies } from "../crm/index.js";
 import type { Files } from "../files/index.js";
+import type { IncidentReporter } from "../jobs/index.js";
 import type { RateLimiter } from "../rate-limits/index.js";
 
 export interface InboxDependencies extends AgencyDependencies {
@@ -19,6 +20,8 @@ export interface InboxDependencies extends AgencyDependencies {
   limiter: Pick<RateLimiter, "hit">;
   /** Everyone who can assign leads: told when WhatsApp needs the agency's attention (spec 4.8). */
   managers: (organizationId: string) => Promise<string[]>;
+  /** Tells the console MSG91 refused a send of ours (its balance, a blocked country); none where nothing listens. */
+  incidents?: IncidentReporter | null;
 }
 
 /** The queue that copies one inbound file into our storage. Its data is `{ organizationId, messageId }`. */

@@ -12,6 +12,19 @@ import { receiveInbound } from "./inbound.js";
 import { noteUnrouted, routeOfNumber } from "./routes.js";
 import { applyStatus } from "./statuses.js";
 
+type StatusEvent = Extract<ParsedEvent, { type: "status" }>;
+
+/**
+ * MSG91's own reason for refusing a send of ours ("insufficient balance", a blocked country), which the platform fixes;
+ * null for anything else. Our sends' reports carry MSG91's request id (the phone app's don't), and WhatsApp's
+ * per-customer codes start with their number ("131026: Message undeliverable").
+ */
+function msg91Refusal(event: StatusEvent): string | null {
+  if (event.status !== "failed" || event.requestId === null) return null;
+  const reason = event.reasonCode?.trim() ?? "";
+  return reason === "" || /^\d/.test(reason) ? null : reason;
+}
+
 async function handleEvent(
   dependencies: InboxDependencies,
   processing: WebhookProcessing,
@@ -51,11 +64,15 @@ async function handleEvent(
     case "echo":
       await receiveEcho(dependencies, organizationId, connection, event, now);
       return;
-    case "status":
+    case "status": {
+      // The console hears it first (the owner, 2026-11-28), even when the report finds no message of ours.
+      const refusal = msg91Refusal(event);
+      if (refusal !== null) dependencies.incidents?.report("whatsapp.refused", refusal);
       await dependencies.db.forOrg(organizationId, (tx) =>
         applyStatus(tx, { organizationId, connectionId: connection.id }, event, now),
       );
       return;
+    }
     case "change":
       await receiveChange(dependencies, organizationId, connection, event, now);
       return;

@@ -24,6 +24,7 @@ const kindKeys = {
   "jobs.failed": "jobsFailed",
   "api.errors": "apiErrors",
   "worker.stalled": "workerStalled",
+  "whatsapp.refused": "whatsappRefused",
 } as const satisfies Record<IncidentKind, string>;
 
 export function SystemHealth() {

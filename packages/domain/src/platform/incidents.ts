@@ -47,6 +47,7 @@ const titles: Record<IncidentKind, string> = {
   "jobs.failed": "Background jobs are failing",
   "api.errors": "The api is hitting errors",
   "worker.stalled": "The worker isn't taking jobs",
+  "whatsapp.refused": "MSG91 is refusing WhatsApp messages",
 };
 
 const explanations: Record<IncidentKind, string> = {
@@ -58,6 +59,8 @@ const explanations: Record<IncidentKind, string> = {
   "api.errors": "Requests ended in errors nothing handled. The server's log has their names and codes.",
   "worker.stalled":
     "The worker didn't answer the console's ping. Follow-ups, WhatsApp replies, the AI, imports and emails wait until it runs again.",
+  "whatsapp.refused":
+    "MSG91 refused messages the AI or the team sent through the app, for the reason shown (for insufficient balance, recharge MSG91's wallet). Customers don't get them; the phone app's own messages still go.",
 };
 
 function incidentOf(row: {
