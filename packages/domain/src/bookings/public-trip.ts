@@ -46,6 +46,8 @@ export interface PublicTrip {
   payments: { amountPaise: number; receivedOn: string }[];
   upiId: string;
   payLink: string | null;
+  /** The agency verified its UPI QR for this UPI id (paid ₹1 and saw it arrive): only then does the page draw the QR. */
+  upiVerified: boolean;
   payPaise: number;
   bankDetails: string;
   claims: {
@@ -80,6 +82,8 @@ export interface PublicTrip {
   policy: Policy;
   cancellation: { cancelledOn: string; chargePaise: number } | null;
   feedback: { asked: boolean; sent: boolean; googleReviewUrl: string };
+  /** The agency's own calendar day now: a payment due before it, and not yet paid, is overdue. */
+  today: string;
 }
 
 /** The live booking behind a quote's link, as its traveller sees it; null when the quote has none. */
@@ -116,7 +120,7 @@ export async function publicTripOf(tx: OrgTx, quoteId: string, now: Date): Promi
         select: { id: true, fileName: true },
       }),
     ]);
-  const timeZone = await organizationTimeZone(tx, booking.organizationId);
+  const today = calendarDateIn(now, await organizationTimeZone(tx, booking.organizationId));
   const cutoff = await detailsCutoffOf(tx, booking);
   const total = booking.status === "cancelled" ? Number(booking.chargePaise ?? 0n) : Number(booking.quote.totalPaise);
   const balancePaise = Math.max(0, total - paidPaise);
@@ -178,6 +182,7 @@ export async function publicTripOf(tx: OrgTx, quoteId: string, now: Date): Promi
       booking.status === "cancelled"
         ? null
         : upiPayLink(quoteSettings, { amountPaise: payPaise, note: booking.quote.title }),
+    upiVerified: quoteSettings.upiVerifiedAt !== null,
     payPaise,
     bankDetails: settings.bankDetails,
     claims: claims.map((claim) => ({
@@ -204,7 +209,7 @@ export async function publicTripOf(tx: OrgTx, quoteId: string, now: Date): Promi
     })),
     level: booking.level as TravellerLevel,
     onDeparture: booking.departureId !== null,
-    detailsLocked: booking.status === "completed" || (cutoff !== null && calendarDateIn(now, timeZone) > cutoff),
+    detailsLocked: booking.status === "completed" || (cutoff !== null && today > cutoff),
     detailsCutoffOn: cutoff,
     essentials: {
       reportingTime: booking.reportingTime,
@@ -225,6 +230,7 @@ export async function publicTripOf(tx: OrgTx, quoteId: string, now: Date): Promi
       sent: feedback > 0,
       googleReviewUrl: settings.googleReviewUrl,
     },
+    today,
   };
 }
 

@@ -33,6 +33,7 @@ describe("permission catalog", () => {
         "suppliers",
         "accounts",
         "ai",
+        "billing",
       ]),
     );
   });
