@@ -12,11 +12,15 @@ import {
 import {
   bookingDetail,
   bookingIdInput,
+  setTravelDateInput,
   bookingPage,
   bookingSettingsView,
+  bookingTablePage,
+  bookingTablePageInput,
   cancelBookingInput,
   cancelPreview,
   confirmBookingInput,
+  createBookingInput,
   confirmClaimInput,
   issuedDocumentRef,
   leadBooking,
@@ -37,14 +41,17 @@ import {
   travellerIdentity,
   travellerIdInput,
 } from "@travel-crm/contracts/bookings";
+import { leadWorker } from "@travel-crm/contracts/crm";
 import { quoteLink } from "@travel-crm/contracts/quotes";
 import { assertPdfCanBeMade, getIssuedDocument } from "@travel-crm/domain/documents";
 import {
   BOOKING_VOUCHER_RECORD_TYPE,
   bookingSettingsOf,
+  bookingTablePageOf,
   cancelBooking,
   confirmBooking,
   confirmClaim,
+  createBookingDirect,
   findBookingInScope,
   getBooking,
   issueVoucher,
@@ -65,6 +72,7 @@ import {
   saveTravellersByStaff,
   setLevel,
   setRemindersPaused,
+  setTravelDate,
   setTravellerCount,
   travellerIdentityOf,
   removeStay,
@@ -76,14 +84,17 @@ import { QUOTE_RECORD_TYPE } from "@travel-crm/domain/quotes";
 import { createShareLink } from "@travel-crm/domain/share-links";
 import { z } from "zod";
 import type { Context } from "../context.js";
+import { salespeopleFor, withOwnerNames } from "../table-people.js";
 import { freshProcedure, orgProcedure } from "../procedures.js";
 import { router } from "../trpc.js";
-import { documentContext } from "./quotes.js";
+import { documentContext, quoteContext } from "./quotes.js";
 
 const viewer = orgProcedure.requires("bookings:view");
 const editor = orgProcedure.requires("bookings:view", "bookings:edit");
 // What takes a document number or changes a booking's money is read from the database, never the five-minute session cache.
 const freshEditor = freshProcedure.requires("bookings:view", "bookings:edit");
+// A new booking makes the quote as well as the booking.
+const bookingMaker = freshProcedure.requires("bookings:view", "bookings:create", "quotes:create", "quotes:edit");
 const paymentChecker = freshProcedure.requires("bookings:view", "quotes:record_payments");
 
 type BookingContext = Pick<Context, "db" | "files" | "identity" | "profiles" | "appUrl"> & { member: MemberAccess };
@@ -189,6 +200,21 @@ export const bookingsRouter = router({
     .input(listBookingsInput)
     .output(bookingPage)
     .query(({ ctx, input }) => ctx.db.forOrg(ctx.member.organizationId, (tx) => listBookings(tx, ctx.member, input))),
+
+  /** The Bookings table: one numbered page, its total, and each salesperson by name (R13). */
+  page: viewer
+    .input(bookingTablePageInput)
+    .output(bookingTablePage)
+    .query(async ({ ctx, input }) => {
+      const { organizationId } = ctx.member;
+      const found = await ctx.db.forOrg(organizationId, (tx) => bookingTablePageOf(tx, ctx.member, input));
+      return { total: found.total, items: await withOwnerNames(ctx.identity, organizationId, found.items) };
+    }),
+
+  /** Who the table's salesperson filter offers: the agency's lead workers, for a member who sees every booking. */
+  salespeople: viewer
+    .output(z.array(leadWorker))
+    .query(({ ctx }) => salespeopleFor(ctx.identity, ctx.member, "bookings:view")),
 
   /** A lead's bookings in brief, for its page. */
   forLead: viewer
@@ -372,6 +398,12 @@ export const bookingsRouter = router({
       ctx.db.forOrg(ctx.member.organizationId, (tx) => setRemindersPaused(tx, ctx.member, input, new Date())),
     ),
 
+  setTravelDate: editor
+    .input(setTravelDateInput)
+    .mutation(({ ctx, input }) =>
+      ctx.db.forOrg(ctx.member.organizationId, (tx) => setTravelDate(tx, ctx.member, input, new Date())),
+    ),
+
   recordTripUpdates: editor
     .input(bookingIdInput)
     .mutation(({ ctx, input }) =>
@@ -394,6 +426,17 @@ export const bookingsRouter = router({
         ),
       ),
     ),
+
+  create: bookingMaker
+    .input(createBookingInput)
+    .output(z.object({ bookingId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const context = await quoteContext(ctx);
+      const bookingId = await ctx.db.forOrg(ctx.member.organizationId, (tx) =>
+        createBookingDirect(tx, ctx.member, input, context),
+      );
+      return { bookingId };
+    }),
 
   cancel: freshEditor
     .input(cancelBookingInput)

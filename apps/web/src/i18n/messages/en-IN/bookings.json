@@ -8,6 +8,9 @@
   "list": {
     "title": "Bookings",
     "intro": "A quote the customer accepted becomes a booking. Confirm it, collect the money, and give the traveller their trip page.",
+    "bookings": "Bookings",
+    "search": "Search bookings by name, phone, trip or number",
+    "searchPlaceholder": "Name, phone or trip",
     "filterLabel": "Show",
     "filters": {
       "all": "All",
@@ -17,41 +20,99 @@
       "cancelled": "Cancelled",
       "claims": "Payments to check"
     },
+    "filtersButton": "Filters",
+    "filtersChosen": "Filters, {count} chosen",
+    "filtersDialog": {
+      "title": "Filters",
+      "description": "Show only the bookings that match.",
+      "payment": "Payment",
+      "anyPayment": "Any",
+      "payments": {
+        "paid": "Paid in full",
+        "part_paid": "Part paid",
+        "nothing": "Nothing received",
+        "overdue": "Overdue"
+      },
+      "clear": "Clear all",
+      "apply": "Show bookings"
+    },
+    "applied": {
+      "payment": "Payment: {state}"
+    },
     "columns": {
       "booking": "Booking",
+      "trip": "Trip",
+      "travel": "Travel date",
+      "people": "People",
       "status": "Status",
-      "paid": "Paid",
-      "travellers": "Details"
+      "total": "Total",
+      "paid": "Paid and to pay",
+      "details": "Details",
+      "salesperson": "Salesperson"
     },
     "claims": "{count, plural, one {# payment to check} other {# payments to check}}",
-    "toPay": "{amount} to pay",
-    "details": "{done} of {total}",
-    "refundDue": "Refund {amount} due",
-    "more": "Show more bookings",
+    "paidAmount": "<n>{amount}</n> paid",
+    "toPay": "<n>{amount}</n> to pay",
+    "overdue": "Overdue",
+    "refundDue": "Refund <n>{amount}</n> due",
+    "details": "<n>{done}</n> of <n>{total}</n>",
+    "detailsLine": "<n>{done}</n> of <n>{total}</n> details",
+    "people": "{adults, plural, one {# adult} other {# adults}}{children, plural, =0 {} one {, # child} other {, # children}}",
+    "noDate": "No date yet",
+    "onDeparture": "Departure: {title}",
+    "tripOn": "{trip} · {day}",
+    "noSalesperson": "Nobody",
+    "pageNoun": "{count, plural, one {booking} other {bookings}}",
+    "found": "Showing {from} to {to} of {total, plural, one {# booking} other {# bookings}}",
     "loadFailed": "Bookings didn't load.",
     "loading": "Loading bookings",
     "empty": "No bookings yet. A booking appears here when a customer accepts a quote.",
-    "noneHere": "No bookings here."
+    "emptyFiltered": "No bookings match. Try another search or fewer filters.",
+    "clearFilters": "Clear filters",
+    "new": "New booking",
+    "newBooking": {
+      "title": "New booking",
+      "description": "Makes the quote and the confirmed booking in one step, for a customer who has already said yes. Choose the lead first.",
+      "change": "Change",
+      "loadFailed": "That lead didn't load.",
+      "trip": "Trip",
+      "custom": "A trip of my own",
+      "departure": "Departure",
+      "departureNone": "Choose a departure",
+      "tripTitle": "Trip name",
+      "startDate": "Travel date",
+      "adults": "Adults",
+      "children": "Children",
+      "total": "Total the customer pays",
+      "totalHint": "GST included. Payments due are made from your usual advance and balance.",
+      "tax": "GST on the quote",
+      "taxNone": "No GST",
+      "problem": "Check the fields marked in red.",
+      "submit": "Create booking",
+      "submitting": "Creating booking"
+    }
   },
   "booking": {
     "title": "Booking",
     "backToBookings": "All bookings",
-    "openLead": "Open {name}'s lead",
-    "requestedTitle": "Waiting for you to confirm",
-    "requestedBody": "{name} accepted the quote. Confirm the booking to ask for the advance and send them their trip page.",
     "cancelledTitle": "Cancelled on {day}",
     "cancelledBody": "The cancellation charge is {charge}. Reason: {reason}.",
     "refundDue": "A refund of {amount} is due.",
-    "claimsWaiting": "{count, plural, one {A traveller says they paid. Check it against your bank.} other {# payments to check against your bank.}}",
     "notFound": "This booking doesn't exist, or it isn't one of yours.",
     "loadFailed": "This booking didn't load.",
-    "loading": "Loading the booking"
+    "loading": "Loading the booking",
+    "people": "{count, plural, one {# person} other {# people}}",
+    "noDate": "No travel date yet"
   },
   "actions": {
+    "label": "Booking actions",
     "sendWhatsapp": "Send the trip link on WhatsApp",
-    "makeLink": "Make the trip link",
+    "makeLink": "Trip link",
+    "tripLink": "Trip link",
     "copyLink": "Copy the link",
-    "linkLabel": "The traveller's trip link",
+    "more": "More actions",
+    "changeDate": "Change the travel date",
+    "cancel": "Cancel booking",
     "noPhone": "This customer has no phone number. Copy the link and send it yourself.",
     "whatsappWords": "Hi {name}, here is the page for your trip, {title}: {link}"
   },
@@ -97,10 +158,8 @@
     "noInstallments": "No payments due yet. They are made when the booking is confirmed.",
     "by": "By {day}",
     "paidBadge": "Paid",
-    "toPay": "To pay",
     "received": "Payments received",
     "noneReceived": "No payment has been recorded yet.",
-    "openQuote": "Record a payment or open receipts on the quote",
     "refund": "Refund",
     "refunded": "Refunded",
     "refundDue": "Due",
@@ -110,7 +169,11 @@
       "cash": "Cash",
       "card": "Card",
       "other": "Other"
-    }
+    },
+    "dueOn": "Due {day}",
+    "overdue": "Overdue",
+    "recordPayment": "Record payment",
+    "paidBar": "Paid {paid} of {total}"
   },
   "claims": {
     "status": {
@@ -158,7 +221,7 @@
   },
   "travellers": {
     "heading": "Travellers",
-    "progress": "{done} of {total} complete",
+    "progress": "<n>{done}</n> of <n>{total}</n> complete",
     "cutoff": "Locks for travellers on {day}",
     "level": "What each traveller fills in",
     "levels": {
@@ -217,8 +280,13 @@
         "ground_floor": "A ground-floor room",
         "near_group": "A room near the group"
       },
-      "roomNote": "Anything else about their room"
-    }
+      "roomNote": "Anything else about their room",
+      "prefilledHint": "Filled in from the lead. Check it."
+    },
+    "menu": "More about travellers",
+    "settings": "Travellers' settings",
+    "settingsDescription": "What each traveller fills in on their trip page, and how many travellers there are.",
+    "prefilled": "Filled in from the lead, check it"
   },
   "essentials": {
     "title": "Trip essentials",
@@ -336,12 +404,17 @@
       "TEMPLATE_CAP_REACHED": "daily limit reached",
       "TIER_LIMIT_REACHED": "daily limit reached",
       "TEMPLATE_NOT_ON_NUMBER": "template not on that number"
-    }
+    },
+    "more": "More about reminders",
+    "recordTitle": "Record that they agreed to trip updates?",
+    "recordBody": "You are recording the traveller's agreement to trip updates on WhatsApp on their behalf. It is kept with your name on it. Only do this if they told you so.",
+    "recordConfirm": "Record their agreement"
   },
   "proof": {
     "title": "Proof of payment",
     "body": "What the customer sent in the chat when the AI took this booking.",
-    "open": "Proof {number}"
+    "open": "Proof {number}",
+    "loadFailed": "This file didn't load."
   },
   "feedback": {
     "title": "Feedback",
@@ -495,6 +568,34 @@
       "confirmedTemplate": "Template for a confirmed payment",
       "notFoundTemplate": "Template for a payment not found",
       "hint": "A message goes as plain words while the customer's chat is open (24 hours). After that it goes as the template you pick, and with no template it becomes a task for the lead's owner."
+    }
+  },
+  "needsYou": {
+    "title": "Needs you",
+    "confirmTitle": "Waiting for you to confirm",
+    "confirmBody": "{name} accepted the quote. Confirm the booking to ask for the advance and send them their trip page.",
+    "overdue": "{label}, {amount}, is overdue",
+    "overdueSince": "Was due {day}",
+    "recordPayment": "Record payment",
+    "claims": "{count, plural, one {# payment to check against your bank} other {# payments to check against your bank}}",
+    "proof": "The customer sent proof of payment in the chat",
+    "check": "Check",
+    "details": "{done} of {total} travellers' details are filled in",
+    "fillIn": "Fill in",
+    "noDate": "This booking has no travel date"
+  },
+  "travelDate": {
+    "add": "Add the travel date",
+    "addTitle": "Add the travel date",
+    "changeTitle": "Change the travel date",
+    "description": "The last day, the cut-off for travellers' details and the reminders not yet sent move with it. The payments due stay as they are.",
+    "field": "First day of the trip",
+    "submit": "Save the date",
+    "submitting": "Saving",
+    "saved": "Travel date saved",
+    "problems": {
+      "required": "Choose the first day.",
+      "invalid": "Type the day as dd/mm/yyyy."
     }
   }
 }

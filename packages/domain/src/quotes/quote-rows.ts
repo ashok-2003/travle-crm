@@ -13,8 +13,9 @@ import {
 } from "@travel-crm/contracts/quotes";
 import type { OrgTx } from "@travel-crm/db";
 import { assertRecordInScope, type MemberAccess } from "../identity/index.js";
-import { DomainError } from "../kernel/index.js";
+import { DomainError, type CalendarDate } from "../kernel/index.js";
 import { marginOf, needsRateLines, withoutCosts, type MarginSettings } from "./margin.js";
+import { dueStatesOf } from "./due-states.js";
 import { coveredInstallments } from "./totals.js";
 
 export const quoteColumns = {
@@ -149,6 +150,10 @@ export interface DetailView {
   seesMargin: boolean;
   /** The free seats on the quote's departure, when it has one. */
   departureFree?: number | undefined;
+  /** The agency's today, which decides what is overdue. */
+  today: CalendarDate;
+  /** The booking made from the quote, when there is one. */
+  booking: { id: string; number: string } | null;
 }
 
 export function toDetail(row: QuoteRow, view: DetailView): QuoteDetail {
@@ -171,6 +176,7 @@ export function toDetail(row: QuoteRow, view: DetailView): QuoteDetail {
     acceptedName: row.acceptedName,
     customerPhone: row.lead.person.phoneE164,
     invoiceDocumentId: row.invoiceDocumentId,
+    booking: view.booking,
     replacedById: row.replacedById,
     departure:
       row.departure === null
@@ -183,15 +189,7 @@ export function toDetail(row: QuoteRow, view: DetailView): QuoteDetail {
             free: view.departureFree ?? row.departure.seatsTotal,
             pickupPoints: row.departure.template?.pickupPoints ?? "",
           },
-    installments: coveredInstallments(
-      row.installments.map((due) => ({
-        id: due.id,
-        label: due.label,
-        amountPaise: Number(due.amountPaise),
-        dueOn: dayOf(due.dueOn),
-      })),
-      totals.paidPaise,
-    ),
+    installments: installmentsOf(row.installments, totals.paidPaise, view.today),
     payments: row.payments.map((payment) => ({
       id: payment.id,
       amountPaise: Number(payment.amountPaise),
@@ -220,4 +218,20 @@ export function copyOf(row: QuoteRow): CreateQuoteInput {
     taxRateBasisPoints: quoteTaxRate.catch(500).parse(row.taxRateBasisPoints),
     placeOfSupply: createQuoteInput.shape.placeOfSupply.catch(null).parse(row.placeOfSupply),
   };
+}
+
+/** A quote's or booking's payments due, each with whether what was paid covers it and its state at the agency's today. */
+export function installmentsOf(
+  dues: readonly { id: string; label: string; amountPaise: bigint | number; dueOn: Date }[],
+  paidPaise: number,
+  today: CalendarDate,
+) {
+  const plain = dues.map((due) => ({
+    id: due.id,
+    label: due.label,
+    amountPaise: Number(due.amountPaise),
+    dueOn: dayOf(due.dueOn),
+  }));
+  const states = dueStatesOf(plain, paidPaise, today);
+  return coveredInstallments(plain, paidPaise).map((due) => ({ ...due, state: states.get(due.id) }));
 }

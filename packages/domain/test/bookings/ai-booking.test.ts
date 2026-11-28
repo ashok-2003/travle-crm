@@ -112,6 +112,11 @@ describe("a booking the AI took", () => {
       createBookingFromQuote(tx, { organizationId: world.organizationId, quoteId, confirmed: false }, now),
     );
     expect(result).toBe(bookingId);
+    // The chat's booking keeps its traveller rows, and with them the lead's name and phone marked "check me".
+    const [first] = await world.inOrg((tx) =>
+      tx.bookingTraveller.findMany({ where: { bookingId }, orderBy: { position: "asc" } }),
+    );
+    expect(first?.prefilledFields).toEqual(["name", "phone"]);
     expect(await world.inOrg((tx) => tx.booking.count({ where: { leadId } }))).toBe(1);
     expect(await world.inOrg((tx) => tx.booking.findUniqueOrThrow({ where: { id: bookingId } }))).toMatchObject({
       quoteId,

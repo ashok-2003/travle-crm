@@ -1,6 +1,7 @@
 // quotes.*: a lead's quotations (step 3, P0): written by whoever may make and change quotes, seen within quotes:view's
 // scope (the lead's owner), shared with the customer by link (/p/<token>), and the money on them: what is due, what was
 // paid (recorded from a session read afresh, as money is), the quotation's PDF, its tax invoice and each receipt.
+import { leadWorker } from "@travel-crm/contracts/crm";
 import { downloadLink } from "@travel-crm/contracts/files";
 import { priceLineInput, pricedLine, ratesOnDate, ratesOnDateInput } from "@travel-crm/contracts/suppliers";
 import {
@@ -22,6 +23,8 @@ import {
   quoteIdInput,
   quoteLink,
   quoteList,
+  quoteTablePage,
+  quoteTablePageInput,
   quoteSettings,
   type QuoteSettings,
   recordPaymentInput,
@@ -51,6 +54,7 @@ import {
   issueQuotePdf,
   listLeadQuotes,
   listQuotes,
+  quoteTablePageOf,
   moneySummaryOf,
   newQuoteVersion,
   priceLine,
@@ -72,6 +76,7 @@ import type { Context } from "../context.js";
 import { agencyToday } from "../package-departures-gate.js";
 import { freshProcedure, orgProcedure } from "../procedures.js";
 import { memberNames } from "../member-names.js";
+import { salespeopleFor, withOwnerNames } from "../table-people.js";
 import { router } from "../trpc.js";
 import { currentLogo } from "./logo.js";
 
@@ -146,6 +151,24 @@ export const quotesRouter = router({
         withPaymentWaits(tx, await listQuotes(tx, ctx.member, input)),
       ),
     ),
+
+  /** The Quotes table: one numbered page, its total, what each quote waits for and each salesperson by name (R13). */
+  page: viewer
+    .input(quoteTablePageInput)
+    .output(quoteTablePage)
+    .query(async ({ ctx, input }) => {
+      const { organizationId } = ctx.member;
+      const found = await ctx.db.forOrg(organizationId, async (tx) => {
+        const table = await quoteTablePageOf(tx, ctx.member, input);
+        return { ...table, items: await withPaymentWaits(tx, table.items) };
+      });
+      return { total: found.total, items: await withOwnerNames(ctx.identity, organizationId, found.items) };
+    }),
+
+  /** Who the table's salesperson filter offers: the agency's lead workers, for a member who sees every quote. */
+  salespeople: viewer
+    .output(z.array(leadWorker))
+    .query(({ ctx }) => salespeopleFor(ctx.identity, ctx.member, "quotes:view")),
 
   forLead: viewer
     .input(leadQuotesInput)

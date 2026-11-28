@@ -39,4 +39,11 @@ describe("the trip page's data", () => {
     const { quoteId } = await aBooking(world, { confirmed: true });
     expect((await world.inOrg((tx) => publicTripOf(tx, quoteId, now)))?.today).toBe("2026-10-30");
   });
+
+  it("passes on which traveller fields were filled in from the lead and not yet saved", async () => {
+    const { quoteId } = await aBooking(world, { confirmed: true });
+    const trip = await world.inOrg((tx) => publicTripOf(tx, quoteId, now));
+    expect(trip?.travellers[0]?.prefilled).toContain("name");
+    expect(trip?.travellers.slice(1).every((traveller) => traveller.prefilled.length === 0)).toBe(true);
+  });
 });

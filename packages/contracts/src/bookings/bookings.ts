@@ -4,10 +4,10 @@
 import { z } from "zod";
 import { aiFillUse } from "../ai/fill-use.js";
 import { recordId } from "../identity/fields.js";
-import { calendarDate } from "../kernel/index.js";
+import { calendarDate, sortDirection, tablePage, tablePageSize } from "../kernel/index.js";
 import { departureRef } from "../departures/departures.js";
 import { roomRequest } from "../departures/rooming.js";
-import { installment, payment } from "../quotes/quotes.js";
+import { installment, MAX_QUOTE_PAISE, payment, quoteTaxRate } from "../quotes/quotes.js";
 
 export const bookingStatuses = ["requested", "confirmed", "cancelled", "completed"] as const;
 export const bookingStatus = z.enum(bookingStatuses);
@@ -55,7 +55,28 @@ const time = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Use a time like 06:3
 
 export const bookingIdInput = z.strictObject({ bookingId: recordId });
 export type BookingIdInput = z.infer<typeof bookingIdInput>;
+/** A booking a member makes in one step: the quote (accepted at once) and the confirmed booking. The total is what the customer pays, tax included. */
+export const createBookingInput = z.strictObject({
+  leadId: recordId,
+  packageId: recordId.nullable(),
+  departureId: recordId.nullable(),
+  title: text(120).min(1),
+  startDate: calendarDate.nullable(),
+  adults: z.int().min(1).max(500),
+  children: z.int().min(0).max(500),
+  totalPaise: paise.min(1).max(MAX_QUOTE_PAISE),
+  taxRateBasisPoints: quoteTaxRate,
+});
+export type CreateBookingInput = z.infer<typeof createBookingInput>;
+/** Staff set or change a booking's own travel date; a booking on a group departure follows its departure instead. */
+export const setTravelDateInput = z.strictObject({ bookingId: recordId, startDate: calendarDate });
+export type SetTravelDateInput = z.infer<typeof setTravelDateInput>;
 export const leadBookingsInput = z.strictObject({ leadId: recordId });
+
+/** A booking's money at the agency's today: paid in full, part paid, nothing received, or a payment due overdue. */
+export const bookingPaymentStates = ["paid", "part_paid", "nothing", "overdue"] as const;
+export const bookingPaymentState = z.enum(bookingPaymentStates);
+export type BookingPaymentState = z.infer<typeof bookingPaymentState>;
 
 export const BOOKINGS_PAGE_SIZE = 25;
 export const listBookingsInput = z.strictObject({
@@ -87,11 +108,60 @@ export const bookingSummary = z.object({
   pendingClaims: z.int(),
   /** What is owed back after a cancellation, until it is marked refunded. */
   refundDuePaise: paise,
+  /** Overdue wins over part paid and nothing; paid only when the balance is 0. */
+  paymentState: bookingPaymentState,
 });
 export type BookingSummary = z.infer<typeof bookingSummary>;
 
 export const bookingPage = z.object({ items: z.array(bookingSummary), nextCursor: recordId.nullable() });
 export type BookingPage = z.infer<typeof bookingPage>;
+
+/**
+ * What the table sorts by. "upcoming" is the default (no header): trips from the agency's today soonest first, then past
+ * trips most recent first, then bookings without a date. "travel" is the header's plain order by the travel date (no date
+ * last), then the customer and the total.
+ */
+export const bookingTableSorts = ["upcoming", "travel", "customer", "total"] as const;
+export const bookingTableSort = z.enum(bookingTableSorts);
+export type BookingTableSort = z.infer<typeof bookingTableSort>;
+
+/**
+ * One numbered page of the Bookings table (bookings revamp, 2026-11-27): searched by the customer's name, phone digits,
+ * the trip's title or the booking's number, filtered, sorted (every order ends on the id) and counted across its pages,
+ * all within the member's own-or-all view. The salesperson is the lead's owner; a member who sees only their own
+ * bookings has that filter ignored.
+ */
+export const bookingTablePageInput = z.strictObject({
+  page: tablePage,
+  limit: tablePageSize.default(25),
+  search: text(80).optional(),
+  status: bookingStatus.optional(),
+  /** Only bookings with a payment claim waiting to be checked. */
+  claimsPending: z.boolean().optional(),
+  /** Travel dates from and to (the booking's first day), both included. */
+  travelFrom: calendarDate.optional(),
+  travelTo: calendarDate.optional(),
+  ownerUserId: recordId.optional(),
+  payment: bookingPaymentState.optional(),
+  sort: bookingTableSort.default("upcoming"),
+  direction: sortDirection.default("asc"),
+});
+export type BookingTablePageInput = z.infer<typeof bookingTablePageInput>;
+
+/**
+ * A booking as the table shows it: its summary, the trip's travellers, and the salesperson's name (null for nobody or a
+ * former member).
+ */
+export const bookingTableRow = bookingSummary.extend({
+  adults: z.int(),
+  children: z.int(),
+  ownerName: z.string().nullable(),
+});
+export type BookingTableRow = z.infer<typeof bookingTableRow>;
+
+/** The page's rows and how many bookings match across every page. */
+export const bookingTablePage = z.object({ items: z.array(bookingTableRow), total: z.int() });
+export type BookingTablePage = z.infer<typeof bookingTablePage>;
 
 /** A booking in brief, beside its lead. */
 export const leadBooking = z.object({
@@ -209,6 +279,8 @@ export const traveller = z.object({
   complete: z.boolean(),
   /** An ID number is on file (never shown here). */
   hasIdentity: z.boolean(),
+  /** The fields filled from the lead's person when the booking was made, until a person saves this traveller. */
+  prefilled: z.array(z.enum(["name", "phone"])),
 });
 export type Traveller = z.infer<typeof traveller>;
 
@@ -288,6 +360,8 @@ export const bookingDetail = z.object({
   essentials,
   installments: z.array(installment),
   payments: z.array(payment),
+  /** The quote's invoice, once issued. */
+  invoiceDocumentId: recordId.nullable(),
   stays: z.array(stay),
   travellers: z.array(traveller),
   claims: z.array(claim),

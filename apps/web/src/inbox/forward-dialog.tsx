@@ -13,7 +13,7 @@ import { RefusalAlert } from "@/components/refusal-alert";
 import { ResponsiveDialog } from "@/components/responsive-dialog";
 import type { ReturnFocusTo } from "@/components/return-focus";
 import { Item, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@/components/ui/item";
-import { SearchField } from "@/leads/list/search-field";
+import { SearchField } from "@/components/search-field";
 import { formatPhoneNumber } from "@/lib/format";
 import { inboxRoute } from "@/lib/routes";
 import { keepTabValue } from "@/lib/tab-storage";

@@ -6,7 +6,7 @@
 // search reads person through its trigram indexes (R5). A Show (leads show spec, 2026-11-21) hands in the ids of its
 // leads, from the module whose rule it is, ranked by that rule: the same conditions apply on top of them.
 import { isOpenStage, openLeadStages, type LeadSource, type LeadStage, type TripType } from "@travel-crm/contracts/crm";
-import { emptySql, joinSql, sql, type Sql } from "@travel-crm/db";
+import { emptySql, joinSql, likePattern, sql, type Sql } from "@travel-crm/db";
 
 /** What one page of the list asks for, its scope already applied. */
 export interface LeadListFilter {
@@ -40,11 +40,6 @@ export type LeadCountsFilter = Omit<LeadListFilter, "stages" | "ranked" | "befor
 
 /** The open stages exactly as the partial indexes' predicate holds them. */
 const OPEN_STAGES = sql`lead.stage = ANY (ARRAY['new', 'contacted', 'quote_sent', 'booking_requested'])`;
-
-/** Escapes LIKE's wildcards, so "%" and "_" in a search are letters. */
-function likePattern(text: string): string {
-  return `%${text.replace(/[\\%_]/g, (character) => `\\${character}`)}%`;
-}
 
 function stageCondition(stages: readonly LeadStage[]): Sql {
   if (stages.length === 0) return sql`AND FALSE`;

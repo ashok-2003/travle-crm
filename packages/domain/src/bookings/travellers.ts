@@ -133,6 +133,8 @@ export async function applyDetails(
       ...(input.roomRequest === undefined ? {} : { roomRequest: input.roomRequest }),
       ...(input.roomNote === undefined ? {} : { roomNote: input.roomNote }),
       completeAt: complete ? now : null,
+      // Someone looked at this traveller, whoever saved: the "check me" marks go.
+      prefilledFields: [],
       updatedAt: now,
     },
   });

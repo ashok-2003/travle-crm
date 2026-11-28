@@ -1,10 +1,9 @@
 "use client";
 
-// The lead list's search (spec 3.3, R5): a name, forgiving of typos, or four or more digits of a phone, sent once
-// typing pauses. The box is named for screen readers; its placeholder says what it takes. It keeps its own text while
-// the person types; the list remounts it to empty it (Clear filters).
+// A list's search box (spec 3.3, R5; the Leads list's first, now every list's), sent once typing pauses. The box is named
+// for screen readers; its placeholder says what it takes, in the list's own words. It keeps its own text while the
+// person types; the list remounts it to empty it (Clear filters).
 import { SearchIcon } from "lucide-react";
-import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { useDebouncedValue } from "@/lib/use-debounced-value";
@@ -19,12 +18,11 @@ export function SearchField({
 }: {
   initial: string;
   onSearch: (text: string) => void;
-  /** Another list's words (the inbox's); the lead list's by default. */
-  label?: string;
-  placeholder?: string;
+  /** Its name for screen readers, and what its placeholder says it takes. */
+  label: string;
+  placeholder: string;
   className?: string;
 }) {
-  const t = useTranslations("leads.list");
   const [text, setText] = useState(initial);
   const settled = useDebouncedValue(text);
   const sent = useRef(settled);
@@ -40,8 +38,8 @@ export function SearchField({
       </InputGroupAddon>
       <InputGroupInput
         type="search"
-        aria-label={label ?? t("search")}
-        placeholder={placeholder ?? t("searchPlaceholder")}
+        aria-label={label}
+        placeholder={placeholder}
         autoComplete="off"
         value={text}
         onChange={(event) => {

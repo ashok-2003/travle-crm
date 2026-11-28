@@ -4,7 +4,7 @@
 import { z } from "zod";
 import { aiFillUse } from "../ai/fill-use.js";
 import { recordId } from "../identity/fields.js";
-import { calendarDate, gstStateCode } from "../kernel/index.js";
+import { calendarDate, gstStateCode, sortDirection, tablePage, tablePageSize } from "../kernel/index.js";
 
 /** ₹10 crore in paise: far above any one trip, well inside a JavaScript integer. */
 export const MAX_QUOTE_PAISE = 10_000_000_000;
@@ -183,6 +183,8 @@ export const installment = z.object({
   dueOn: calendarDate,
   /** Covered by what was paid, in due order. */
   paid: z.boolean(),
+  /** Paid, due or overdue (before the agency's today, not yet covered), worked out once by the domain. */
+  state: z.enum(["paid", "due", "overdue"]),
 });
 export type Installment = z.infer<typeof installment>;
 
@@ -215,6 +217,41 @@ export const quoteSummary = z.object({
 export type QuoteSummary = z.infer<typeof quoteSummary>;
 export const quoteList = z.array(quoteSummary);
 
+/** What the Quotes table's headers sort by: the last change (newest first by default), travel date, customer, total. */
+export const quoteTableSorts = ["updated", "travel", "customer", "total"] as const;
+export const quoteTableSort = z.enum(quoteTableSorts);
+export type QuoteTableSort = z.infer<typeof quoteTableSort>;
+
+/**
+ * One numbered page of the Quotes table (bookings revamp, 2026-11-27): searched by the customer's name, a phone's digits or
+ * the trip's title, filtered (status, travel dates, salesperson, money still to come on an accepted quote), sorted (every
+ * order ends on the id) and counted across its pages, within the member's own-or-all view. A member who sees only their
+ * own quotes has the salesperson filter ignored.
+ */
+export const quoteTablePageInput = z.strictObject({
+  page: tablePage,
+  limit: tablePageSize.default(25),
+  search: text(80).optional(),
+  status: quoteStatus.optional(),
+  /** Travel dates from and to (the quote's first day), both included. */
+  travelFrom: calendarDate.optional(),
+  travelTo: calendarDate.optional(),
+  ownerUserId: recordId.optional(),
+  /** Only accepted quotes with money still to come. */
+  balanceDue: z.boolean().optional(),
+  sort: quoteTableSort.default("updated"),
+  direction: sortDirection.default("desc"),
+});
+export type QuoteTablePageInput = z.infer<typeof quoteTablePageInput>;
+
+/** A quote as the table shows it: its summary and the salesperson's name (null for nobody or a former member). */
+export const quoteTableRow = quoteSummary.extend({ ownerName: z.string().nullable() });
+export type QuoteTableRow = z.infer<typeof quoteTableRow>;
+
+/** The page's rows and how many quotes match across every page. */
+export const quoteTablePage = z.object({ items: z.array(quoteTableRow), total: z.int() });
+export type QuoteTablePage = z.infer<typeof quoteTablePage>;
+
 export const quoteDetail = z.object({
   ...quoteSummary.shape,
   ...z.object(quoteFields).shape,
@@ -225,6 +262,8 @@ export const quoteDetail = z.object({
   /** The customer's phone (E.164), to send the link on WhatsApp. */
   customerPhone: z.string().nullable(),
   invoiceDocumentId: recordId.nullable(),
+  /** The booking this quote became, whose page holds its money now; null until it is booked. */
+  booking: z.object({ id: recordId, number: z.string() }).nullable(),
   /** The draft that took this quote's place, when it was replaced. */
   replacedById: recordId.nullable(),
   /**

@@ -1,14 +1,12 @@
 "use client";
 
-// The list's Filters (spec 3.3): a button saying how many filters narrow the list (a Show among them), and its dialog
-// (a sheet on phones) with the form (filters-form.tsx). Show leads puts the choice in the address (R41), Clear all
-// empties it; the search box keeps its text either way. Closed, or cancelled, the dialog gives the focus back to
-// Filters, whose button the screen holds (`opener`), so the Show's chip can give it the focus too.
-import { SlidersHorizontalIcon } from "lucide-react";
+// The list's Filters (spec 3.3): the shared Filters button and dialog (table-filters.tsx), counting the filters that
+// narrow the list (a Show among them), with the form (filters-form.tsx). Show leads puts the choice in the address
+// (R41), Clear all empties it; the search box keeps its text either way. Filters' button is the screen's (`opener`), so
+// the Show's chip can give it the focus.
 import { useTranslations } from "next-intl";
-import { useId, useState, type RefObject } from "react";
-import { ResponsiveDialog } from "@/components/responsive-dialog";
-import { Button } from "@/components/ui/button";
+import type { RefObject } from "react";
+import { TableFilters } from "@/components/data-table/table-filters";
 import { FiltersForm } from "./filters-form";
 import type { ListFilters } from "./list-filters";
 
@@ -34,51 +32,34 @@ export function FiltersDialog({
   onApply: (filters: ListFilters) => void;
 }) {
   const t = useTranslations("leads.list");
-  const [open, setOpen] = useState(false);
-  const formId = useId();
   const chosen = chosenCount(filters, chipShown);
-  const apply = (next: ListFilters) => {
-    onApply(next);
-    setOpen(false);
-  };
   return (
-    <>
-      <Button
-        ref={opener}
-        variant="outline"
-        aria-label={chosen > 0 ? t("filtersChosen", { count: chosen }) : undefined}
-        onClick={() => {
-          setOpen(true);
-        }}
-      >
-        <SlidersHorizontalIcon aria-hidden="true" />
-        {t("filters")}
-        {chosen > 0 && <span className="numbers">{chosen}</span>}
-      </Button>
-      <ResponsiveDialog
-        open={open}
-        onOpenChange={setOpen}
-        returnFocusTo={opener}
-        title={t("filtersDialog.title")}
-        description={t("filtersDialog.description")}
-        footer={
-          <>
-            <Button
-              variant="outline"
-              onClick={() => {
-                apply({ view: filters.view, stage: "open" });
-              }}
-            >
-              {t("filtersDialog.clear")}
-            </Button>
-            <Button type="submit" form={formId}>
-              {t("filtersDialog.apply")}
-            </Button>
-          </>
-        }
-      >
-        {open && <FiltersForm formId={formId} filters={filters} ownOnly={ownOnly} onApply={apply} />}
-      </ResponsiveDialog>
-    </>
+    <TableFilters
+      chosen={chosen}
+      opener={opener}
+      words={{
+        button: t("filters"),
+        chosen: t("filtersChosen", { count: chosen }),
+        title: t("filtersDialog.title"),
+        description: t("filtersDialog.description"),
+        clear: t("filtersDialog.clear"),
+        apply: t("filtersDialog.apply"),
+      }}
+      onClear={() => {
+        onApply({ view: filters.view, stage: "open" });
+      }}
+    >
+      {(form) => (
+        <FiltersForm
+          formId={form.id}
+          filters={filters}
+          ownOnly={ownOnly}
+          onApply={(next) => {
+            onApply(next);
+            form.done();
+          }}
+        />
+      )}
+    </TableFilters>
   );
 }

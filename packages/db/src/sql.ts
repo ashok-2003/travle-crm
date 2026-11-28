@@ -12,3 +12,8 @@ export const joinSql = Prisma.join;
 export const emptySql = Prisma.empty;
 
 export type Sql = Prisma.Sql;
+
+/** A LIKE pattern holding the text anywhere, with "%", "_" and the backslash escaped, so a search's are letters. */
+export function likePattern(text: string): string {
+  return `%${text.replace(/[\\%_]/g, (character) => `\\${character}`)}%`;
+}

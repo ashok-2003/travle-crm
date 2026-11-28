@@ -1,23 +1,25 @@
 "use client";
 
-// Bookings' reads and changes (release 6): the list a page at a time, one booking, a lead's bookings in brief, the settings,
-// and every change. A change loads again the booking, the lists that show it, the quotes (the money is the quote's), and
-// Today and the leads (its tasks and its lead's timeline).
-import type { ListBookingsInput } from "@travel-crm/contracts/bookings";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+// Bookings' reads and changes (release 6): the table a numbered page at a time (while another page loads, the rows in
+// view stay, keepPreviousData, and isPlaceholderData says so) and the salespeople its filter offers, one booking, a lead's
+// bookings in brief, the settings, and every change. A change loads again the booking, the lists that show it, the quotes
+// (the money is the quote's), and Today and the leads (its tasks and its lead's timeline).
+import type { BookingTablePageInput } from "@travel-crm/contracts/bookings";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { refusalOf } from "@/data/api-error";
-import { useCursorPages } from "@/data/use-cursor-pages";
 import { useTRPC, useTRPCClient } from "@/data/trpc";
 import { useRefreshWork } from "@/data/use-refresh-work";
 
-export function useBookingList(filter: Omit<ListBookingsInput, "cursor">) {
+/** One numbered page of the Bookings table, with the total. */
+export function useBookingTablePage(input: BookingTablePageInput) {
   const trpc = useTRPC();
-  const client = useTRPCClient();
-  return useCursorPages({
-    queryKey: [...trpc.bookings.list.pathKey(), filter],
-    page: (cursor) => client.bookings.list.query({ ...filter, ...(cursor === null ? {} : { cursor }) }),
-    items: (page) => page.items,
-  });
+  return useQuery({ ...trpc.bookings.page.queryOptions(input), placeholderData: keepPreviousData });
+}
+
+/** The salespeople the table's filter offers, for a member who sees every booking. */
+export function useBookingSalespeople(enabled: boolean) {
+  const trpc = useTRPC();
+  return useQuery({ ...trpc.bookings.salespeople.queryOptions(), enabled });
 }
 
 export function useBooking(bookingId: string) {
@@ -73,6 +75,7 @@ export function useBookingChanges() {
   const refresh = useRefreshBookings();
   const options = { onSuccess: refresh };
   return {
+    create: useMutation(trpc.bookings.create.mutationOptions(options)),
     confirm: useMutation(trpc.bookings.confirm.mutationOptions(options)),
     saveSchedule: useMutation(trpc.bookings.saveSchedule.mutationOptions(options)),
     saveEssentials: useMutation(trpc.bookings.saveEssentials.mutationOptions(options)),
@@ -85,6 +88,7 @@ export function useBookingChanges() {
     issueVoucher: useMutation(trpc.bookings.issueVoucher.mutationOptions(options)),
     prepareTripPdf: useMutation(trpc.bookings.prepareTripPdf.mutationOptions(options)),
     tripLink: useMutation(trpc.bookings.tripLink.mutationOptions(options)),
+    setTravelDate: useMutation(trpc.bookings.setTravelDate.mutationOptions(options)),
     pauseReminders: useMutation(trpc.bookings.pauseReminders.mutationOptions(options)),
     recordTripUpdates: useMutation(trpc.bookings.recordTripUpdates.mutationOptions(options)),
     requestFeedback: useMutation(trpc.bookings.requestFeedback.mutationOptions(options)),

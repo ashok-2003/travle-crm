@@ -32,5 +32,27 @@
     "last": "Last page"
   },
   "readMore": "More",
-  "readLess": "Less"
+  "readLess": "Less",
+  "table": {
+    "appliedFilters": "Filters in use",
+    "removeFilter": "Remove the filter {filter}"
+  },
+  "tripFilters": {
+    "travelFrom": "Travel from",
+    "travelTo": "Travel until",
+    "salesperson": "Salesperson",
+    "anyone": "Anyone",
+    "salespeopleFailed": "The salespeople didn't load.",
+    "problems": {
+      "notADay": "Write the day as dd/mm/yyyy.",
+      "toBeforeFrom": "Pick a day on or after the first day."
+    },
+    "applied": {
+      "travel": "Travel {from} to {to}",
+      "travelFrom": "Travel from {from}",
+      "travelTo": "Travel until {to}",
+      "salesperson": "Salesperson: {name}",
+      "someone": "the one chosen"
+    }
+  }
 }

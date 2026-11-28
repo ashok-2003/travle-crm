@@ -1,107 +1,142 @@
 "use client";
 
-// /quotes (step 3, P0): the member's quotes (or the agency's), recently changed first, each with its customer, status,
-// total and what is still to be paid; chips narrow it to one status or to the quotes with money still to come.
-import type { ListQuotesInput, QuoteSummary } from "@travel-crm/contracts/quotes";
-import { FileTextIcon, PlusIcon } from "lucide-react";
+// /quotes (step 3, P0; the table, bookings revamp 2026-11-27): the member's quotes (or the agency's), last changed first,
+// in numbered pages of 25 (50 or 100), each with its customer, trip, travel date, status (a draft behind an unpaid AI
+// booking says it waits for payment, or that its hold expired), total, last change and salesperson. At the top right the
+// search (a customer's name, a phone's digits or a trip) and Filters (travel dates, and the salesperson for a member who
+// sees everyone's), beside the status chips (one status, or the accepted quotes with money still to come); what Filters
+// applied shows as chips that let it go. The chips, filters, sort and page live in the address, the search in the tab;
+// any change but the page starts at page 1, and a page past the last moves to the last. New quote asks for the lead.
+import { TABLE_PAGE_SIZES } from "@travel-crm/contracts/kernel";
+import { quoteTablePageInput } from "@travel-crm/contracts/quotes";
+import { FileTextIcon, PlusIcon, SearchXIcon } from "lucide-react";
+import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
+import { DataTable } from "@/components/data-table/data-table";
+import { TableChips } from "@/components/data-table/table-chips";
+import { TableToolbar } from "@/components/data-table/table-toolbar";
+import { TripFiltersDialog, useTripChips, type TripFilters } from "@/components/data-table/trip-filters";
+import { useTablePlace } from "@/components/data-table/use-table-place";
+import { useTableSearch } from "@/components/data-table/use-table-search";
 import { EmptyState } from "@/components/empty-state";
-import { ErrorState } from "@/components/error-state";
-import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
-import { TextLink } from "@/components/text-link";
-import { rupees } from "@/components/forms/money-field";
 import { Button } from "@/components/ui/button";
-import { SearchField } from "@/leads/list/search-field";
-import { mayBeMissing } from "@/lib/older-api";
-import { useHolds } from "@/session/me-context";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { formatCalendarDay } from "@/lib/format";
+import { formatCount } from "@/lib/format";
 import { quoteRoute } from "@/lib/routes";
+import { useHolds, useMe, viewScope } from "@/session/me-context";
+import { isFiltered, quoteChips, quoteInputOf, quotesHref, quotesStart, readQuotesAddress } from "./list-address";
 import { NewQuoteDialog } from "./new-quote-dialog";
-import { QuoteStatusBadge } from "./quote-status";
-import { useQuotes } from "./use-quotes";
-import { useQuotesSearch } from "./use-quotes-search";
+import { useQuoteColumns, useStackedQuote } from "./quotes-table";
+import { useQuoteSalespeople, useQuoteTablePage } from "./use-quotes";
 
-const filters = ["all", "draft", "sent", "accepted", "due"] as const;
-type Filter = (typeof filters)[number];
-
-const inputOf = (filter: Filter, search: string): ListQuotesInput => ({
-  ...(filter === "due" ? { balanceDue: true } : filter === "all" ? {} : { status: filter }),
-  ...(search !== "" && { search }),
-});
-
-function QuoteRow({ quote }: { quote: QuoteSummary }) {
-  return (
-    <TableRow>
-      <TableCell>
-        <TextLink inline href={quoteRoute(quote.id)}>
-          {quote.title}
-        </TextLink>
-        <p className="text-caption text-muted-foreground">
-          {quote.customerName}
-          {quote.startDate === null ? "" : ` · ${formatCalendarDay(quote.startDate)}`}
-        </p>
-      </TableCell>
-      <TableCell>
-        <QuoteStatusBadge status={quote.status} paymentWait={mayBeMissing(quote.paymentWait)} />
-      </TableCell>
-      <TableCell className="numbers text-right">{rupees(quote.totals.totalPaise)}</TableCell>
-      <TableCell className="numbers text-right">{rupees(quote.totals.balancePaise)}</TableCell>
-    </TableRow>
-  );
-}
+const searchText = quoteTablePageInput.shape.search.unwrap();
 
 export function QuotesScreen() {
   const t = useTranslations("quotes.list");
-  const [filter, setFilter] = useState<Filter>("all");
-  const [search, setSearch] = useQuotesSearch();
+  const ownOnly = viewScope(useMe(), "quotes:view") !== "all";
+  const address = readQuotesAddress(useSearchParams(), ownOnly);
+  const [search, setSearch] = useTableSearch("quotes.search", searchText);
+  const list = useQuoteTablePage(quoteInputOf(address, search));
+  const salespeople = useQuoteSalespeople(!ownOnly);
+  const columns = useQuoteColumns(!ownOnly);
+  const stacked = useStackedQuote(!ownOnly);
   const mayCreate = useHolds("quotes:create");
   const newButton = useRef<HTMLButtonElement>(null);
   const [choosing, setChoosing] = useState(false);
-  const list = useQuotes(inputOf(filter, search));
-  const body = () => {
-    if (list.data === undefined) {
-      return list.isError ? (
-        <ErrorState
-          message={t("loadFailed")}
-          error={list.error}
-          retryLabel={t("retry")}
-          onRetry={() => void list.refetch()}
-        />
-      ) : (
-        <LoadingRows shape="table" columns={4} label={t("loading")} />
-      );
-    }
-    if (list.data.length === 0)
-      return (
-        <EmptyState
-          icon={FileTextIcon}
-          message={t(search !== "" ? "noMatch" : filter === "all" ? "empty" : "noneHere")}
-        />
-      );
-    return (
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{t("columns.quote")}</TableHead>
-            <TableHead>{t("columns.status")}</TableHead>
-            <TableHead className="text-right">{t("columns.total")}</TableHead>
-            <TableHead className="text-right">{t("columns.balance")}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {list.data.map((quote) => (
-            <QuoteRow key={quote.id} quote={quote} />
-          ))}
-        </TableBody>
-      </Table>
-    );
+  // Clear filters empties the search box too, by giving it a fresh start.
+  const [searchBox, setSearchBox] = useState(0);
+  const filtersButton = useRef<HTMLButtonElement>(null);
+  const total = list.data?.total ?? 0;
+  const settled = list.data !== undefined && !list.isPlaceholderData;
+  const { range, show, go, resize } = useTablePlace(address, quotesHref, TABLE_PAGE_SIZES, { total, settled });
+
+  const filters: TripFilters = {
+    travelFrom: address.travelFrom,
+    travelTo: address.travelTo,
+    ownerUserId: address.ownerUserId,
   };
+  const applyFilters = ({ travelFrom, travelTo, ownerUserId }: TripFilters) => {
+    show({ ...address, travelFrom, travelTo, ownerUserId });
+  };
+  // A chip let go gives the focus to Filters, where it was chosen.
+  const chips = useTripChips(filters, salespeople.data, (next) => {
+    applyFilters(next);
+    filtersButton.current?.focus();
+  });
+  const clear = () => {
+    show(quotesStart);
+    setSearch("");
+    setSearchBox((box) => box + 1);
+  };
+  const filtered = isFiltered(address, search);
+  const shown = !settled
+    ? null
+    : total > 0
+      ? t("found", { from: formatCount(range.from), to: formatCount(range.to), total })
+      : filtered
+        ? t("emptyFiltered")
+        : null;
+
+  const toolbar = (
+    <TableToolbar
+      key={searchBox}
+      search={search}
+      onSearch={(text) => {
+        setSearch(text);
+        if (address.page !== 1) show(address);
+      }}
+      searchLabel={t("search")}
+      searchPlaceholder={t("searchPlaceholder")}
+      chips={
+        <TableChips
+          chips={quoteChips}
+          value={address.chip}
+          label={t("filterLabel")}
+          wordOf={(chip) => t(`filters.${chip}`)}
+          onChoose={(chip) => {
+            show({ ...address, chip });
+          }}
+        />
+      }
+      filters={
+        <TripFiltersDialog
+          filters={filters}
+          chosen={chips.length}
+          salespeople={ownOnly ? null : salespeople}
+          opener={filtersButton}
+          words={{
+            button: t("filtersButton"),
+            chosen: t("filtersChosen", { count: chips.length }),
+            title: t("filtersDialog.title"),
+            description: t("filtersDialog.description"),
+            clear: t("filtersDialog.clear"),
+            apply: t("filtersDialog.apply"),
+          }}
+          onApply={applyFilters}
+        />
+      }
+      applied={chips}
+      status={shown}
+    />
+  );
+
+  const empty = filtered ? (
+    <EmptyState
+      icon={SearchXIcon}
+      message={t("emptyFiltered")}
+      action={
+        <Button variant="outline" onClick={clear}>
+          {t("clearFilters")}
+        </Button>
+      }
+    />
+  ) : (
+    <EmptyState icon={FileTextIcon} message={t("empty")} />
+  );
+
   return (
-    <div className="flex max-w-[1100px] flex-col gap-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
         title={t("title")}
         intro={t("intro")}
@@ -122,30 +157,33 @@ export function QuotesScreen() {
           )
         }
       />
-      <SearchField
-        initial={search}
-        onSearch={setSearch}
-        label={t("search")}
-        placeholder={t("searchPlaceholder")}
-        className="md:w-96"
-      />
-      <ToggleGroup
-        type="single"
-        variant="outline"
-        value={filter}
-        onValueChange={(value) => {
-          if (value !== "") setFilter(value as Filter);
+      <DataTable
+        label={t("quotes")}
+        columns={columns}
+        rows={list.data?.items}
+        rowKey={(quote) => quote.id}
+        rowHref={(quote) => quoteRoute(quote.id)}
+        stacked={stacked}
+        total={total}
+        page={address.page}
+        limit={address.limit}
+        sizes={TABLE_PAGE_SIZES}
+        noun={t("pageNoun", { count: total })}
+        onPage={go}
+        onLimit={resize}
+        sort={{ key: address.sort, direction: address.direction }}
+        onSort={(sort) => {
+          show({ ...address, sort: sort.key, direction: sort.direction });
         }}
-        aria-label={t("filterLabel")}
-        className="flex-wrap"
-      >
-        {filters.map((one) => (
-          <ToggleGroupItem key={one} value={one} className="min-h-11 px-4">
-            {t(`filters.${one}`)}
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
-      {body()}
+        busy={list.isPlaceholderData}
+        // A failure of the page asked for; a failed refetch of the page in view keeps its rows.
+        error={list.data === undefined || list.isPlaceholderData ? list.error : null}
+        onRetry={() => void list.refetch()}
+        loadFailed={t("loadFailed")}
+        loadingLabel={t("loading")}
+        toolbar={toolbar}
+        empty={empty}
+      />
     </div>
   );
 }

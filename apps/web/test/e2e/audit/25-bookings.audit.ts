@@ -116,7 +116,7 @@ test("bookings, the trip page, the PDFs and a cancellation", async ({ page, brow
   await callApi(page, "bookings.cancel", { bookingId: dev.bookingId, reason: "Family emergency" });
 
   await page.goto("/bookings");
-  await expect(page.getByRole("row", { name: /Meera Iyer/ })).toBeVisible();
+  await expect(page.getByText("Meera Iyer").first()).toBeVisible();
   await shoot(page, "r6-bookings");
 
   await page.goto(`/bookings/${rahul.bookingId}`);
@@ -124,11 +124,17 @@ test("bookings, the trip page, the PDFs and a cancellation", async ({ page, brow
   await expect(page.getByRole("dialog").getByLabel("Payment 2: name")).toHaveValue("Balance");
   await shoot(page, "r6-booking-requested");
   await page.keyboard.press("Escape");
+  await shoot(page, "r8-travellers-prefilled", { element: page.getByRole("region", { name: "Travellers" }) });
 
   await page.goto(`/bookings/${meera.bookingId}`);
   await expect(page.getByRole("region", { name: "Money" })).toContainText("UTR448802217");
   await shoot(page, "r6-booking");
   await shoot(page, "r6-claim-check", { element: page.getByRole("region", { name: "Money" }) });
+  await page.getByRole("button", { name: "More actions" }).click();
+  await page.getByRole("menuitem", { name: "Change the travel date" }).click();
+  await expect(page.getByRole("dialog").getByRole("textbox", { name: "First day of the trip" })).toBeVisible();
+  await shoot(page, "r6-booking-travel-date");
+  await page.keyboard.press("Escape");
 
   await page.goto("/today");
   await expect(page.getByText(/Check payment of ₹45,000.00 from Meera Iyer/)).toBeVisible();
@@ -198,7 +204,8 @@ test("bookings, the trip page, the PDFs and a cancellation", async ({ page, brow
     requestId: crypto.randomUUID(),
   });
   await page.goto(`/bookings/${isha.bookingId}`);
-  await page.getByRole("button", { name: "Cancel booking" }).click();
+  await page.getByRole("button", { name: "More actions" }).click();
+  await page.getByRole("menuitem", { name: "Cancel booking" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Why it is cancelled").fill("Travel dates clash with a wedding");
   await expect(dialog.getByText("10% of the trip total")).toBeVisible();
@@ -216,4 +223,55 @@ test("bookings, the trip page, the PDFs and a cancellation", async ({ page, brow
   await page.goto("/settings/bookings");
   await expect(page.getByRole("heading", { level: 1, name: "Bookings" })).toBeVisible();
   await shoot(page, "r6-settings");
+});
+
+// The bookings revamp (2026-11-27): the list as a table, by travel date, with a filter applied as a chip and a payment
+// overdue.
+test("the bookings table: the toolbar, a filter's chip and the numbered pages", async ({ page, browser, agency }) => {
+  test.setTimeout(300_000);
+  await signInByEmail(page, agency.owner);
+  await saveBusinessProfile(page);
+  const meera = await acceptedQuote(page, browser, {
+    name: "Meera Iyer",
+    phone: "+919876500002",
+    title: "Kerala backwaters",
+    totalRupees: 150_000,
+    days: 8,
+    adults: 3,
+  });
+  await callApi(page, "bookings.confirm", { bookingId: meera.bookingId });
+  await callApi(page, "quotes.recordPayment", {
+    quoteId: meera.quoteId,
+    amountPaise: 4_500_000,
+    receivedOn: dayInIndia(0),
+    method: "upi",
+    reference: "UTR448802217",
+    requestId: crypto.randomUUID(),
+  });
+  await acceptedQuote(page, browser, {
+    name: "Rahul Sharma",
+    phone: "+919876543210",
+    title: "Spiti in winter",
+    days: 40,
+  });
+  const dev = await acceptedQuote(page, browser, {
+    name: "Dev Patel",
+    phone: "+919876500005",
+    title: "Rajasthan forts",
+    days: 45,
+  });
+  // Dev's advance was due three days ago and nothing came: overdue, in red.
+  await callApi(page, "bookings.confirm", {
+    bookingId: dev.bookingId,
+    installments: [
+      { label: "Advance", amountPaise: 3_000_000, dueOn: dayInIndia(-3) },
+      { label: "Balance", amountPaise: 7_000_000, dueOn: dayInIndia(30) },
+    ],
+  });
+
+  await page.goto(`/bookings?from=${dayInIndia(0)}`);
+  await expect(page.getByText("Meera Iyer").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Remove the filter Travel from/ })).toBeVisible();
+  await expect(page.getByText("Overdue", { exact: true })).toBeVisible();
+  await shoot(page, "r6-bookings-table");
 });

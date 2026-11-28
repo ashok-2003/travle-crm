@@ -13,8 +13,10 @@ export {
 } from "./claims.js";
 export { confirmAiPayment, refuseAiPayment, type PaymentRefusalReason } from "./ai-payments.js";
 export { linkAiBooking, travellersOf, type AiBookingFacts } from "./from-ai.js";
+export { createBookingDirect } from "./create-direct.js";
 export { confirmBooking, confirmBookingAs, defaultSchedule, offeredSchedule, saveSchedule } from "./confirm.js";
 export { recordTripUpdatesConsentByStaff, setRemindersPaused } from "./controls.js";
+export { setTravelDate } from "./travel-date.js";
 export {
   BOOKING_REQUESTED_KIND,
   createBookingFromQuote,
@@ -50,6 +52,7 @@ export { countClaimTasks, countPaymentsToCheck, paymentsToCheck } from "./paymen
 export { paymentScreenshotLink } from "./payment-screenshots.js";
 export { publicUploadRecord, publicUploadTarget, type UploadTarget } from "./public-uploads.js";
 export { getBooking, listBookings, listLeadBookings } from "./reads.js";
+export { bookingTablePageOf, type BookingTableItem } from "./table-page.js";
 export {
   BOOKING_REMINDERS_QUEUE,
   rebuildReminders,

@@ -17,12 +17,13 @@ function text(
   name: string,
   label: string,
   value: string,
-  options: { required?: boolean; type?: string; max?: number; autocomplete?: string } = {},
+  options: { required?: boolean; type?: string; max?: number; autocomplete?: string; prefilled?: boolean } = {},
 ) {
+  const hint = options.prefilled ? `<p class="hint">Filled in from our records. Check it.</p>` : "";
   return field(
     id,
     label,
-    `<input id="${id}" name="${name}" type="${options.type ?? "text"}" value="${escapeHtml(value)}" maxlength="${String(options.max ?? 120)}"${options.required ? " required" : ""}${options.autocomplete ? ` autocomplete="${options.autocomplete}"` : ""}>`,
+    `<input id="${id}"${options.prefilled ? ' class="prefilled"' : ""} name="${name}" type="${options.type ?? "text"}" value="${escapeHtml(value)}" maxlength="${String(options.max ?? 120)}"${options.required ? " required" : ""}${options.autocomplete ? ` autocomplete="${options.autocomplete}"` : ""}>${hint}`,
   );
 }
 
@@ -75,10 +76,10 @@ export function travellerForm(trip: PublicTrip, index: number): string {
     `<option value="${value}"${traveller.gender === value ? " selected" : ""}>${label}</option>`;
   return `<form method="post">
 <input type="hidden" name="form" value="traveller"><input type="hidden" name="traveller" value="${escapeHtml(traveller.id)}">
-${text(`${id}-name`, "name", "Name as on ID", traveller.name, { required: true, autocomplete: "name" })}
+${text(`${id}-name`, "name", "Name as on ID", traveller.name, { required: true, autocomplete: "name", prefilled: traveller.prefilled.includes("name") })}
 ${text(`${id}-dob`, "dateOfBirth", "Date of birth", traveller.dateOfBirth ?? "", { required: true, type: "date", max: 10 })}
 ${field(`${id}-gender`, "Gender", `<select id="${id}-gender" name="gender"><option value="">Prefer not to say</option>${gender("female", "Female")}${gender("male", "Male")}${gender("other", "Other")}</select>`)}
-${text(`${id}-phone`, "phone", "Phone", traveller.phone, { type: "tel", max: 40, autocomplete: "tel" })}
+${text(`${id}-phone`, "phone", "Phone", traveller.phone, { type: "tel", max: 40, autocomplete: "tel", prefilled: traveller.prefilled.includes("phone") })}
 ${
   trip.onDeparture
     ? `${field(`${id}-room`, "What you'd like for your room", `<select id="${id}-room" name="roomRequest">${roomOption(traveller.roomRequest, "none", "Nothing in particular")}${roomOption(traveller.roomRequest, "single_room", "A room to myself")}${roomOption(traveller.roomRequest, "ground_floor", "A ground-floor room")}${roomOption(traveller.roomRequest, "near_group", "A room near my group")}</select>`)}

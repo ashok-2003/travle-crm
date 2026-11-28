@@ -11,7 +11,16 @@ import { AttachmentList } from "./attachment-list";
 import { UploadControl } from "./upload-control";
 import { useAttachments, type AttachmentRecord } from "./use-attachments";
 
-export function AttachmentsPanel({ record, emptyMessage }: { record: AttachmentRecord; emptyMessage: string }) {
+export function AttachmentsPanel({
+  record,
+  emptyMessage,
+  uploadVariant,
+}: {
+  record: AttachmentRecord;
+  emptyMessage: string;
+  /** The upload button's look: outline where the file is not the screen's one main action. */
+  uploadVariant?: "default" | "outline";
+}) {
   const t = useTranslations("business.attachments");
   const tCommon = useTranslations("common");
   // Always asked again when the screen opens: the copy restored from IndexedDB can predate a file just added.
@@ -40,7 +49,7 @@ export function AttachmentsPanel({ record, emptyMessage }: { record: AttachmentR
 
   return (
     <div className="flex flex-col gap-4">
-      <UploadControl record={record} />
+      <UploadControl record={record} {...(uploadVariant === undefined ? {} : { variant: uploadVariant })} />
       {body()}
     </div>
   );

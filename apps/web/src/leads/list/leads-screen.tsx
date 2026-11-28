@@ -21,6 +21,7 @@ import { ErrorState } from "@/components/error-state";
 import { LoadFailedAlert } from "@/components/load-failed-alert";
 import { LoadingRows } from "@/components/loading-rows";
 import { PageHeader } from "@/components/page-header";
+import { SearchField } from "@/components/search-field";
 import { pageRange, TablePagination } from "@/components/table-pagination";
 import { TextLink } from "@/components/text-link";
 import { Button } from "@/components/ui/button";
@@ -37,7 +38,6 @@ import { LeadRows } from "./lead-rows";
 import { LeadsHeaderActions } from "./leads-header-actions";
 import { LeadsTable, tableColumns } from "./leads-table";
 import { isFiltered, listFiltersHref, listFiltersOf, PAGE_SIZES, type FiltersToShow } from "./list-filters";
-import { SearchField } from "./search-field";
 import { ShowChip } from "./show-chip";
 import { isChipStage, StageChips } from "./stage-chips";
 import { useLeadCounts, useLeadPage, useUnassignedCount } from "./use-leads";
@@ -187,7 +187,14 @@ export function LeadsScreen() {
       )}
       {/* Filters sits beside the search, in view on a phone rather than at the end of the chips' strip. */}
       <div className="flex gap-2 md:ml-auto">
-        <SearchField key={searchBox} initial={search} onSearch={searchFor} className="min-w-0 flex-1 md:flex-none" />
+        <SearchField
+          key={searchBox}
+          initial={search}
+          onSearch={searchFor}
+          label={t("search")}
+          placeholder={t("searchPlaceholder")}
+          className="min-w-0 flex-1 md:flex-none"
+        />
         <FiltersDialog
           filters={filters}
           chipShown={isChipStage(filters.stage)}

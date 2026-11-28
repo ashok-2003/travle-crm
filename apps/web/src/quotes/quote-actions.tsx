@@ -28,6 +28,7 @@ import { percentText } from "@/lib/percent";
 import { useHolds } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
 import { WriteHint } from "@/subscription/write-hint";
+import { InvoiceButton } from "./invoice-button";
 import { SavePackageDialog } from "./save-package-dialog";
 import { useOpenDocument, useQuoteChanges, useQuoteSettings } from "./use-quotes";
 
@@ -160,16 +161,7 @@ export function QuoteActions({
           <FileDownIcon aria-hidden="true" />
         </IconButton>
         {quote.status === "accepted" && mayRecord && (
-          <Button
-            variant="outline"
-            disabled={open.isPending}
-            onClick={() => {
-              open.mutate({ kind: "invoice" });
-            }}
-          >
-            <FileDownIcon aria-hidden="true" />
-            {quote.invoiceDocumentId === null ? t("issueInvoice") : t("invoice")}
-          </Button>
+          <InvoiceButton quoteId={quote.id} issued={quote.invoiceDocumentId !== null} />
         )}
         {mayEdit && editsInPlace && (
           <Button variant="outline" asChild>

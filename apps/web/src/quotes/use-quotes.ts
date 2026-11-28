@@ -1,17 +1,24 @@
 "use client";
 
-// Quotes' reads and changes (step 3, P0): the lists, one quote, its money, its PDFs and its link. A change loads again
-// the quote, the lists that show it, and the lead whose stage it may move.
-import type { ListQuotesInput } from "@travel-crm/contracts/quotes";
+// Quotes' reads and changes (step 3, P0): the table a numbered page at a time and the salespeople its filter offers, a
+// lead's quotes, one quote, its money, its PDFs and its link. A change loads again the quote, the lists that show it,
+// and the lead whose stage it may move.
+import type { QuoteTablePageInput } from "@travel-crm/contracts/quotes";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { refusalOf } from "@/data/api-error";
 import { useTRPC, useTRPCClient } from "@/data/trpc";
 import { useRefreshWork } from "@/data/use-refresh-work";
 
-export function useQuotes(input: ListQuotesInput) {
+/** One numbered page of the Quotes table, with the total; the rows in view stay while another loads. */
+export function useQuoteTablePage(input: QuoteTablePageInput) {
   const trpc = useTRPC();
-  // The rows in view stay while a search or chip loads, so the table does not jump to a skeleton and back.
-  return useQuery({ ...trpc.quotes.list.queryOptions(input), placeholderData: keepPreviousData });
+  return useQuery({ ...trpc.quotes.page.queryOptions(input), placeholderData: keepPreviousData });
+}
+
+/** The salespeople the table's filter offers, for a member who sees every quote. */
+export function useQuoteSalespeople(enabled: boolean) {
+  const trpc = useTRPC();
+  return useQuery({ ...trpc.quotes.salespeople.queryOptions(), enabled });
 }
 
 export function useLeadQuotes(leadId: string) {
@@ -40,9 +47,12 @@ function useRefreshQuotes() {
   const queryClient = useQueryClient();
   const refreshWork = useRefreshWork();
   return () =>
-    Promise.all([queryClient.invalidateQueries({ queryKey: trpc.quotes.pathKey() }), refreshWork()]).then(
-      () => undefined,
-    );
+    // A booking's page shows the quote's money, so a change of it loads the bookings again too.
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: trpc.quotes.pathKey() }),
+      queryClient.invalidateQueries({ queryKey: trpc.bookings.pathKey() }),
+      refreshWork(),
+    ]).then(() => undefined);
 }
 
 export function useQuoteChanges() {

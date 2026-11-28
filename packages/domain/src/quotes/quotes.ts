@@ -17,8 +17,8 @@ import { softDeleted } from "@travel-crm/db";
 import { recordAudit } from "../audit/index.js";
 import { advanceLeadStage, getLead } from "../crm/index.js";
 import { publishEvent } from "../jobs/index.js";
-import { scopeFilter, type MemberAccess } from "../identity/index.js";
-import { DomainError, type Actor } from "../kernel/index.js";
+import { organizationTimeZone, scopeFilter, type MemberAccess } from "../identity/index.js";
+import { calendarDateIn, DomainError, type Actor } from "../kernel/index.js";
 import { keepStoredCosts, marginOf, needsRateLines, settledItems, withoutCosts } from "./margin.js";
 import {
   assertDraft,
@@ -80,8 +80,15 @@ async function detailOf(tx: OrgTx, access: MemberAccess, row: Parameters<typeof 
     quoteSettingsOf(tx),
     departure === null ? null : seatsSoldAndHeld(tx, [departure.id], new Date()),
   ]);
+  const booking = await tx.booking.findFirst({
+    where: { quoteId: row.id },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, number: true },
+  });
   const taken = departure === null ? undefined : seats?.get(departure.id);
   return toDetail(row, {
+    booking,
+    today: calendarDateIn(new Date(), await organizationTimeZone(tx, access.organizationId)),
     settings,
     seesMargin: seesMargin(access),
     departureFree:

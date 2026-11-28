@@ -3,125 +3,124 @@
 // A booking's travellers (release 6): "3 of 4 complete", what each fills in (Basic, Detailed, International), how many there
 // are, and each traveller with a way to fill or fix their row. Travellers fill their own rows from the trip page until the
 // cut-off; staff may at any time. An ID number is never shown here: a traveller with one on file says so.
-import { travellerLevels, type BookingDetail, type TravellerLevel } from "@travel-crm/contracts/bookings";
-import { MinusIcon, PlusIcon } from "lucide-react";
+import type { BookingDetail } from "@travel-crm/contracts/bookings";
+import { EllipsisIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { RefusalAlert } from "@/components/refusal-alert";
+import { useRef, useState } from "react";
 import { StatusBadge } from "@/components/status-badge";
 import { FillTravellersWithAi } from "@/ai/travellers/fill-travellers-with-ai";
 import { Button } from "@/components/ui/button";
 import { SectionCard } from "./section-card";
-import { Field, FieldLabel } from "@/components/ui/field";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { prefilledField } from "@/components/card-tints";
 import { formatCalendarDay } from "@/lib/format";
+import { mayBeMissing } from "@/lib/older-api";
+import { cn } from "@/lib/utils";
 import { useHolds } from "@/session/me-context";
 import { useWriteAccess } from "@/subscription/write-access";
 import { TravellerDialog } from "./traveller-dialog";
-import { useBookingChanges } from "./use-bookings";
+import { TravellerSettingsDialog } from "./traveller-settings-dialog";
 
 export function TravellersCard({ booking }: { booking: BookingDetail }) {
   const t = useTranslations("bookings.travellers");
   const mayEdit = useHolds("bookings:edit") && booking.status !== "cancelled";
   const access = useWriteAccess("change");
-  const { setLevel, setTravellerCount } = useBookingChanges();
   const count = booking.travellers.length;
-  const busy = setLevel.isPending || setTravellerCount.isPending || !access.allowed;
+  const [settings, setSettings] = useState(false);
+  const menuButton = useRef<HTMLButtonElement>(null);
   return (
-    <SectionCard title={t("heading")}>
-      <p>
-        <span className="numbers font-semibold">
-          {t("progress", { done: booking.travellersComplete, total: booking.travellersTotal })}
-        </span>
-        {booking.detailsCutoffOn !== null && (
-          <span className="text-muted-foreground">
-            {" "}
-            · {t("cutoff", { day: formatCalendarDay(booking.detailsCutoffOn) })}
+    <SectionCard title={t("heading")} anchor="travellers">
+      <div className="flex items-center justify-between gap-2">
+        <p className="min-w-0">
+          <span className="font-semibold">
+            {t.rich("progress", {
+              done: booking.travellersComplete,
+              total: booking.travellersTotal,
+              n: (chunks) => <span className="numbers">{chunks}</span>,
+            })}
           </span>
-        )}
-      </p>
-      {mayEdit && <FillTravellersWithAi booking={booking} />}
-      {mayEdit && (
-        <div className="flex flex-wrap items-end gap-4">
-          <Field className="max-w-64">
-            <FieldLabel htmlFor="traveller-level">{t("level")}</FieldLabel>
-            <Select
-              value={booking.level}
-              disabled={busy}
-              onValueChange={(level) => {
-                setLevel.mutate({ bookingId: booking.id, level: level as TravellerLevel });
-              }}
-            >
-              <SelectTrigger id="traveller-level" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {travellerLevels.map((one) => (
-                  <SelectItem key={one} value={one}>
-                    {t(`levels.${one}`)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          <div className="flex items-center gap-2" role="group" aria-label={t("count")}>
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label={t("fewer")}
-              disabled={busy || count <= 1}
-              onClick={() => {
-                setTravellerCount.mutate({ bookingId: booking.id, count: count - 1 });
-              }}
-            >
-              <MinusIcon aria-hidden="true" />
-            </Button>
-            <span className="numbers min-w-8 text-center" aria-live="polite">
-              {count}
+          {booking.detailsCutoffOn !== null && (
+            <span className="text-muted-foreground">
+              {" "}
+              · {t("cutoff", { day: formatCalendarDay(booking.detailsCutoffOn) })}
             </span>
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label={t("more")}
-              disabled={busy || count >= 500}
-              onClick={() => {
-                setTravellerCount.mutate({ bookingId: booking.id, count: count + 1 });
-              }}
-            >
-              <PlusIcon aria-hidden="true" />
-            </Button>
+          )}
+        </p>
+        {mayEdit && (
+          <div className="flex shrink-0 items-center gap-2">
+            <FillTravellersWithAi booking={booking} />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button ref={menuButton} variant="ghost" size="icon" aria-label={t("menu")}>
+                  <EllipsisIcon aria-hidden="true" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  disabled={!access.allowed}
+                  onSelect={() => {
+                    setSettings(true);
+                  }}
+                >
+                  {t("settings")}
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <TravellerSettingsDialog
+              booking={booking}
+              held={{ open: settings, setOpen: setSettings }}
+              returnFocusTo={menuButton}
+            />
           </div>
-        </div>
-      )}
-      <RefusalAlert error={setLevel.error ?? setTravellerCount.error} />
+        )}
+      </div>
       {count === 0 ? (
         <p className="text-muted-foreground">{t("none")}</p>
       ) : (
         <ItemGroup>
-          {booking.travellers.map((traveller, index) => (
-            <Item key={traveller.id} size="sm" role="listitem">
-              <ItemContent>
-                <ItemTitle>{traveller.name === "" ? t("unnamed", { number: index + 1 }) : traveller.name}</ItemTitle>
-                <ItemDescription>
-                  {traveller.complete ? t("complete") : t("missing")}
-                  {traveller.hasIdentity ? ` · ${t("idOnFile")}` : ""}
-                </ItemDescription>
-              </ItemContent>
-              <ItemActions>
-                <StatusBadge tone={traveller.complete ? "good" : "attention"}>
-                  {traveller.complete ? t("badge.complete") : t("badge.missing")}
-                </StatusBadge>
-                {mayEdit && (
-                  <TravellerDialog
-                    traveller={traveller}
-                    level={booking.level}
-                    number={index + 1}
-                    onDeparture={booking.departure !== null}
-                  />
-                )}
-              </ItemActions>
-            </Item>
-          ))}
+          {booking.travellers.map((traveller, index) => {
+            // An older api sends no marks.
+            const prefilled = mayBeMissing(traveller.prefilled) ?? [];
+            return (
+              <Item key={traveller.id} size="sm" role="listitem">
+                <ItemContent>
+                  <ItemTitle>
+                    {traveller.name === "" ? (
+                      t("unnamed", { number: index + 1 })
+                    ) : (
+                      <span className={cn(prefilled.includes("name") && `rounded-sm px-1 ${prefilledField}`)}>
+                        {traveller.name}
+                      </span>
+                    )}
+                  </ItemTitle>
+                  <ItemDescription>
+                    {prefilled.length > 0 ? `${t("prefilled")} · ` : ""}
+                    {traveller.complete ? t("complete") : t("missing")}
+                    {traveller.hasIdentity ? ` · ${t("idOnFile")}` : ""}
+                  </ItemDescription>
+                </ItemContent>
+                <ItemActions>
+                  <StatusBadge tone={traveller.complete ? "good" : "attention"}>
+                    {traveller.complete ? t("badge.complete") : t("badge.missing")}
+                  </StatusBadge>
+                  {mayEdit && (
+                    <TravellerDialog
+                      traveller={traveller}
+                      level={booking.level}
+                      number={index + 1}
+                      onDeparture={booking.departure !== null}
+                    />
+                  )}
+                </ItemActions>
+              </Item>
+            );
+          })}
         </ItemGroup>
       )}
     </SectionCard>

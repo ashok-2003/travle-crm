@@ -18,7 +18,7 @@ export {
 } from "./notifications.js";
 export { insideOrganization } from "./session.js";
 export { SignInRelationError } from "./sign-in-guard.js";
-export { emptySql, joinSql, sql, type Sql } from "./sql.js";
+export { emptySql, joinSql, likePattern, sql, type Sql } from "./sql.js";
 export { HardDeleteError, SoftDeleteUpsertError, softDeleted, withDeleted } from "./soft-delete.js";
 import type { Prisma } from "./generated/prisma/client.js";
 export type { Organization, OrgCounter, Role, RolePermission } from "./generated/prisma/client.js";

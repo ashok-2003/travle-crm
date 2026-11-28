@@ -133,7 +133,7 @@ function tokens(): string {
   const { colours } = brand;
   const tone = (name: string, colour: StatusColour) =>
     `--${name}-dot:${colour.dot};--${name}-fill:${colour.fill};--${name}-ink:${colour.ink}`;
-  return `:root{--ink:${colours.ink};--muted:${colours.muted};--canvas:${colours.canvas};--surface:${colours.surface};--hairline:${colours.hairline};--input:${colours.inputBorder};--action:${colours.action};--action-pressed:${colours.actionPressed};--on-action:${colours.onAction};--money:${colours.money};--sky-fill:${colours.avatar.sky.fill};--sky-ink:${colours.avatar.sky.ink};${tone("good", colours.status.good)};${tone("attention", colours.status.attention)};${tone("bad", colours.status.bad)};${tone("neutral", colours.status.neutral)};--ui:"${brand.fonts.ui}",${SYSTEM_FONTS};--title:"${brand.fonts.title}",Georgia,"Times New Roman",serif;--numbers:"${brand.fonts.numbers}",${SYSTEM_FONTS}}`;
+  return `:root{--ink:${colours.ink};--muted:${colours.muted};--canvas:${colours.canvas};--surface:${colours.surface};--hairline:${colours.hairline};--input:${colours.inputBorder};--action:${colours.action};--action-tint:${colours.actionTint};--action-pressed:${colours.actionPressed};--on-action:${colours.onAction};--money:${colours.money};--sky-fill:${colours.avatar.sky.fill};--sky-ink:${colours.avatar.sky.ink};${tone("good", colours.status.good)};${tone("attention", colours.status.attention)};${tone("bad", colours.status.bad)};${tone("neutral", colours.status.neutral)};--ui:"${brand.fonts.ui}",${SYSTEM_FONTS};--title:"${brand.fonts.title}",Georgia,"Times New Roman",serif;--numbers:"${brand.fonts.numbers}",${SYSTEM_FONTS}}`;
 }
 
 /** The page's stylesheet: DESIGN.md's tokens, cards, type and controls, for a 360px phone first. */
@@ -160,6 +160,7 @@ a{color:var(--action);text-underline-offset:.15em}
 strong{font-weight:600}
 small{display:block;color:var(--muted);font-size:.875rem}
 .hint{color:var(--muted);font-size:.9375rem}
+input.prefilled{background:color-mix(in oklab,var(--action-tint) 80%,var(--canvas))}
 .amount,td.n,.total{font-family:var(--numbers);font-variant-numeric:tabular-nums}
 .total{font-size:1.75rem;font-weight:500;line-height:1.2;letter-spacing:-.01em;margin:1rem 0 0}
 table{width:100%;border-collapse:collapse}

@@ -44,8 +44,8 @@ export function ClampedText({ text }: { text: string }) {
   );
 }
 
-/** The box's greatest height: from its top to the window's bottom, above the frame's foot. */
-function useRestOfWindow() {
+/** The box's greatest height: from its top to the window's bottom, above the frame's foot (the data table's too). */
+export function useRestOfWindow() {
   const [box, setBox] = useState<HTMLDivElement | null>(null);
   const [maxHeight, setMaxHeight] = useState<number>();
   useEffect(() => {

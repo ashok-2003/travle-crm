@@ -5,6 +5,8 @@ export { gstLabel, wholeRupeePrice, type WholeRupeePrice } from "./whole-rupees.
 export { agreedQuote, raiseAgreedQuote } from "./agreed-quote.js";
 export { assertTakesStandInPayments, moveStandInPayments } from "./placeholder-payments.js";
 export { moneySummaryOf } from "./money-summary.js";
+export { dueStatesOf, paymentStateOf, type DueState, type PaymentState } from "./due-states.js";
+export { installmentsOf } from "./quote-rows.js";
 export { addInstallment, recordPayment, removeInstallment, voidPayment } from "./payments.js";
 export {
   assertQuoteDocument,
@@ -93,6 +95,7 @@ export {
   type QuoteContext,
 } from "./quotes.js";
 export { quoteSettingsOf, saveQuoteSettings, verifyUpi } from "./settings.js";
+export { quoteTablePageOf, type QuoteTableItem } from "./table-page.js";
 export { upiPayLink } from "@travel-crm/contracts/quotes";
 export { coveredInstallments, quoteMoney, TOUR_OPERATOR_SAC } from "./totals.js";
 

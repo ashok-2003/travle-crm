@@ -267,4 +267,18 @@ describe("the trip page", () => {
     expect(html).not.toContain("Next payment");
     expect(phoneBar(html)).toBeNull();
   });
+
+  it("tints the traveller details we filled in, with a hint, until the traveller saves them", async () => {
+    const { path } = await aBooking();
+    let html = await page(path);
+    expect(html).toMatch(/<input id="traveller-0-name" class="prefilled"/);
+    expect(html).toContain("Filled in from our records. Check it.");
+    expect(html).not.toMatch(/<input id="traveller-1-name" class="prefilled"/);
+
+    const first = /name="traveller" value="([^"]+)"/.exec(html)?.[1] ?? "";
+    await post(path, { form: "traveller", traveller: first, name: "Asha Rao", dateOfBirth: "1990-04-02" });
+    html = await page(path);
+    expect(html).not.toContain('class="prefilled"');
+    expect(html).not.toContain("Filled in from our records");
+  });
 });

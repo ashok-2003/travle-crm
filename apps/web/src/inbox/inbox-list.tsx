@@ -14,7 +14,7 @@ import { ErrorState } from "@/components/error-state";
 import { LoadingRows } from "@/components/loading-rows";
 import { ShowMoreButton } from "@/components/show-more-button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { SearchField } from "@/leads/list/search-field";
+import { SearchField } from "@/components/search-field";
 import { keepTabValue, readTabValue } from "@/lib/tab-storage";
 import { AiAnsweredChip, useAiAnsweredAsked, useAiAnsweredFilter } from "./ai-answered-filter";
 import { ConversationList } from "./conversation-list";

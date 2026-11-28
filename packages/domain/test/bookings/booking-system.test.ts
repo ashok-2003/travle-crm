@@ -180,6 +180,7 @@ describe("the system's side of bookings", () => {
       tx.lead.findUniqueOrThrow({ where: { id: leadId }, select: { personId: true } }),
     );
     const traveller = await world.inOrg((tx) => tx.bookingTraveller.findFirstOrThrow({ where: { bookingId } }));
+    expect(traveller.prefilledFields).toEqual(["name", "phone"]);
     await world.inOrg(async (tx: OrgTx) => {
       await tx.bookingTraveller.update({
         where: { id: traveller.id },
@@ -208,7 +209,13 @@ describe("the system's side of bookings", () => {
       booking: await tx.booking.findUnique({ where: { id: bookingId } }),
       quote: await tx.quote.findUniqueOrThrow({ where: { id: quoteId } }),
     }));
-    expect(after.traveller).toMatchObject({ name: "", phone: "", medicalNotes: "", dateOfBirth: null });
+    expect(after.traveller).toMatchObject({
+      name: "",
+      phone: "",
+      medicalNotes: "",
+      dateOfBirth: null,
+      prefilledFields: [],
+    });
     expect(after.identities).toBe(0);
     expect(after.claim).toMatchObject({ reference: "", amountPaise: 100_00n });
     expect(after.feedback).toMatchObject({ comment: "", overall: 5 });

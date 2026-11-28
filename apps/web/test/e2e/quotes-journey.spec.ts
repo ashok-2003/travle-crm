@@ -63,8 +63,17 @@ test("an Owner quotes, the customer accepts on the link, the Owner records a pay
   await page.goto(`/leads/${leadId}`);
   await expect(page.getByText("Won", { exact: true }).first()).toBeVisible();
 
+  // The Quotes list finds it by the customer's name, accepted with money still to come (a table's row on a desktop, a
+  // stacked row on a phone), and opens it.
+  await page.goto("/quotes");
+  await page.getByRole("searchbox", { name: "Search quotes" }).fill("Rahul");
+  const row = page.getByRole("row").or(page.getByRole("listitem")).filter({ hasText: "Rahul Sharma" });
+  await expect(row).toContainText("Accepted");
+  await expect(row).toContainText("₹30,400 to pay");
+  await row.getByRole("link").first().click();
+  await expect(page).toHaveURL(/\/quotes\/[0-9a-f-]{36}$/);
+
   // The tax invoice, numbered once the worker has made it.
-  await page.goBack();
   const popup = page.waitForEvent("popup");
   await page.getByRole("button", { name: "Make tax invoice" }).click();
   await (await popup).close();

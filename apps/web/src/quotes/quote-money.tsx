@@ -4,10 +4,8 @@
 // received covers it, earliest first) and the payments received, each with its receipt, and Void for one recorded by
 // mistake. Recording money is for whoever may change quotes, from a session the api reads afresh.
 import type { QuoteDetail } from "@travel-crm/contracts/quotes";
-import { ReceiptIcon, Trash2Icon } from "lucide-react";
+import { Trash2Icon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
-import { ConfirmDialog } from "@/components/confirm-dialog";
 import { RefusalAlert } from "@/components/refusal-alert";
 import { StatusBadge } from "@/components/status-badge";
 import { rupees } from "@/components/forms/money-field";
@@ -15,12 +13,23 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { Separator } from "@/components/ui/separator";
+import { mayBeMissing } from "@/lib/older-api";
 import { cn } from "@/lib/utils";
 import { useAgencyToday } from "@/packages/use-agency-today";
 import { formatCalendarDay } from "@/lib/format";
 import { useHolds } from "@/session/me-context";
 import { AddInstallmentDialog, RecordPaymentDialog } from "./money-dialogs";
-import { useOpenDocument, useQuoteChanges } from "./use-quotes";
+import { ReceivedPayments } from "./received-payments";
+import { useQuoteChanges } from "./use-quotes";
+
+type Due = QuoteDetail["installments"][number];
+
+/** The api's state for a payment due; an older api sends none, and then the day is compared with the agency's today. */
+export function dueState(due: Due, today: string): "paid" | "due" | "overdue" {
+  const sent = mayBeMissing(due.state);
+  if (sent !== undefined) return sent;
+  return due.paid ? "paid" : due.dueOn < today ? "overdue" : "due";
+}
 
 export function QuoteMoney({
   quote,
@@ -33,9 +42,7 @@ export function QuoteMoney({
   const t = useTranslations("quotes.money");
   const mayEdit = useHolds("quotes:edit") && quote.status === "draft" && !reading;
   const mayRecord = useHolds("quotes:record_payments");
-  const { removeInstallment, voidPayment } = useQuoteChanges();
-  const open = useOpenDocument(quote.id);
-  const [voiding, setVoiding] = useState<string | null>(null);
+  const { removeInstallment } = useQuoteChanges();
   const { totals } = quote;
   const today = useAgencyToday();
   // Money is read in the colours people know once the quote is out: nothing received red, part paid amber, all paid green.
@@ -96,7 +103,7 @@ export function QuoteMoney({
             </StatusBadge>
           </div>
         )}
-        <RefusalAlert error={removeInstallment.error ?? open.error} />
+        <RefusalAlert error={removeInstallment.error} />
 
         <Separator />
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -115,9 +122,9 @@ export function QuoteMoney({
                 </ItemContent>
                 <ItemActions>
                   <span className="numbers">{rupees(due.amountPaise)}</span>
-                  {due.paid ? (
+                  {dueState(due, today) === "paid" ? (
                     <StatusBadge tone="good">{t("paidBadge")}</StatusBadge>
-                  ) : due.dueOn < today ? (
+                  ) : dueState(due, today) === "overdue" ? (
                     <StatusBadge tone="bad">{t("overdue")}</StatusBadge>
                   ) : (
                     <StatusBadge tone="attention">{t("toPay")}</StatusBadge>
@@ -148,71 +155,7 @@ export function QuoteMoney({
             <RecordPaymentDialog quoteId={quote.id} suggested={suggested} />
           )}
         </div>
-        {quote.payments.length === 0 ? (
-          <p className="text-muted-foreground">{t("noPayments")}</p>
-        ) : (
-          <ItemGroup>
-            {quote.payments.map((payment) => (
-              <Item key={payment.id} size="sm" role="listitem">
-                <ItemContent>
-                  <ItemTitle className="numbers">{rupees(payment.amountPaise)}</ItemTitle>
-                  <ItemDescription>
-                    {[formatCalendarDay(payment.receivedOn), t(`methods.${payment.method}`), payment.reference]
-                      .filter((part) => part !== "")
-                      .join(" · ")}
-                  </ItemDescription>
-                </ItemContent>
-                <ItemActions>
-                  {mayRecord && (
-                    <Button
-                      variant="outline"
-                      disabled={open.isPending}
-                      onClick={() => {
-                        open.mutate({ kind: "receipt", paymentId: payment.id });
-                      }}
-                    >
-                      <ReceiptIcon aria-hidden="true" />
-                      {t("receipt")}
-                    </Button>
-                  )}
-                  {mayRecord && payment.receiptDocumentId === null && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label={t("voidNamed", { amount: rupees(payment.amountPaise) })}
-                      onClick={() => {
-                        setVoiding(payment.id);
-                      }}
-                    >
-                      <Trash2Icon aria-hidden="true" />
-                    </Button>
-                  )}
-                </ItemActions>
-              </Item>
-            ))}
-          </ItemGroup>
-        )}
-        <ConfirmDialog
-          open={voiding !== null}
-          onOpenChange={(next) => {
-            if (!next) setVoiding(null);
-          }}
-          title={t("voidTitle")}
-          description={t("voidDescription")}
-          action={t("void")}
-          request={voidPayment}
-          onConfirm={() => {
-            if (voiding === null) return;
-            voidPayment.mutate(
-              { paymentId: voiding },
-              {
-                onSuccess: () => {
-                  setVoiding(null);
-                },
-              },
-            );
-          }}
-        />
+        <ReceivedPayments quoteId={quote.id} payments={quote.payments} mayRecord={mayRecord} />
       </CardContent>
     </Card>
   );

@@ -120,6 +120,8 @@ model BookingTraveller {
   /// What the traveller asks of their room: none, single_room, ground_floor or near_group (CHECK booking_traveller_room_request_value).
   roomRequest     String                     @default("none") @map("room_request")
   roomNote        String                     @default("") @map("room_note")
+  /// The fields filled from the lead's person when the booking was made (name, phone): shown as "check me" until a person saves the traveller.
+  prefilledFields String[]                   @default([]) @map("prefilled_fields")
   /// When every field the booking's level asks for was filled; null while any is missing.
   completeAt      DateTime?                  @map("complete_at") @db.Timestamptz(6)
   updatedAt       DateTime                   @default(now()) @map("updated_at") @db.Timestamptz(6)

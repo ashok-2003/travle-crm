@@ -16,7 +16,7 @@ import type { Task } from "@travel-crm/contracts/tasks";
 import type { OrgTx } from "@travel-crm/db";
 import { destinationNames } from "../catalog/index.js";
 import { organizationTimeZone, scopeFilter, type MemberAccess } from "../identity/index.js";
-import { periodStart } from "../kernel/index.js";
+import { periodStart, phoneSearchDigits } from "../kernel/index.js";
 import { nextOpenTasks } from "../tasks/index.js";
 import { leadCountsQuery, leadListQuery, leadTotalQuery, type LeadCountsFilter } from "./lead-list-query.js";
 import { budgetOf, tripSummaryOf, type TripColumns } from "./trip-columns.js";
@@ -69,17 +69,11 @@ function ownerFor(access: MemberAccess, input: LeadCountsInput, chosen: ChosenLe
   return input.ownerUserId ?? null;
 }
 
-/**
- * A search of four or more digits, counted as typed, with no letters is a phone search (R5). Leading zeros (a trunk
- * "0", an international "00") are then dropped, since stored numbers are E.164; all zeros stay as typed. Anything
- * else is a name.
- */
+/** A phone's search (phoneSearchDigits: four or more digits, no letters) looks in phones; anything else is a name. */
 function searchFor(text: string | undefined): LeadCountsFilter["search"] {
   if (text === undefined) return undefined;
-  const typed = text.replace(/\D/g, "");
-  if (typed.length < 4 || /\p{L}/u.test(text)) return { kind: "name", text };
-  const digits = typed.replace(/^0+/, "");
-  return { kind: "digits", digits: digits === "" ? typed : digits };
+  const digits = phoneSearchDigits(text);
+  return digits === null ? { kind: "name", text } : { kind: "digits", digits };
 }
 
 export function filterFor(
