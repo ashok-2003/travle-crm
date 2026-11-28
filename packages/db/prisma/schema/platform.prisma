@@ -146,7 +146,8 @@ model VipInviteOpen {
 /// through a job the console handles). One open incident per kind; it is resolved once it has been quiet a while.
 model PlatformIncident {
   id         String    @id @default(uuid(7)) @db.Uuid
-  /// ai.unavailable, ai.rate-limited, jobs.failed, api.errors or worker.stalled (CHECK platform_incident_kind_value).
+  /// ai.unavailable, ai.rate-limited, jobs.failed, api.errors, worker.stalled or whatsapp.refused (CHECK
+  /// platform_incident_kind_value).
   kind       String
   /// A short code: the AI feature, the failed queues, the error's name. Never personal data.
   detail     String    @default("")
